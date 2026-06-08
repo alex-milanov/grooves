@@ -8,7 +8,7 @@
   > h2 {
     font-size: 28px;
     color: var(--app-text);
-    text-shadow: var(--app-heading-text-shadow);
+    @include text-shadow-heading;
     text-align: center;
     margin: 0 0 16px;
   }
@@ -18,7 +18,7 @@
   text-align: center;
   font-size: var(--app-font-size-base);
   color: var(--app-text-muted);
-  text-shadow: var(--app-label-text-shadow);
+  @include text-shadow-label;
   margin: 0 0 32px;
   line-height: 1.5;
 
@@ -33,24 +33,21 @@
 }
 
 .example-block {
-  background: var(--app-bg-panel);
-  border: var(--app-panel-border);
+  @include surface-panel;
   padding: 24px;
-  border-radius: var(--app-radius-panel);
-  box-shadow: var(--app-panel-shadow);
   margin-bottom: 24px;
 
   > h2 {
     font-size: 18px;
     color: var(--app-text);
-    text-shadow: var(--app-label-text-shadow);
+    @include text-shadow-label;
     margin: 0 0 16px;
   }
 
   h3 {
     font-size: 14px;
     color: var(--app-text);
-    text-shadow: var(--app-label-text-shadow);
+    @include text-shadow-label;
     margin: 16px 0 8px;
   }
 }
@@ -60,7 +57,7 @@
     margin: 0 0 8px;
     line-height: 1.5;
     color: var(--app-text);
-    text-shadow: var(--app-label-text-shadow);
+    @include text-shadow-label;
   }
 
   .ref-list,
@@ -123,7 +120,7 @@
   margin: 0 0 12px;
   font-size: 0.9em;
   color: var(--app-text-muted);
-  text-shadow: var(--app-label-text-shadow);
+  @include text-shadow-label;
   line-height: 1.4;
 }
 
@@ -131,13 +128,13 @@
   margin: 0 0 8px;
   font-size: calc(var(--app-font-size-base) + 2px);
   color: var(--app-text);
-  text-shadow: var(--app-heading-text-shadow);
+  @include text-shadow-heading;
 }
 
 .type-muted {
   margin: 0;
   color: var(--app-text-muted);
-  text-shadow: var(--app-label-text-shadow);
+  @include text-shadow-label;
 }
 
 .panel-compare {
@@ -150,12 +147,9 @@
     min-width: 120px;
     padding: 16px;
     text-align: center;
-    background: var(--app-bg-panel);
-    border: var(--app-panel-border);
-    border-radius: var(--app-radius-panel);
-    box-shadow: var(--app-panel-shadow);
+    @include surface-panel;
     color: var(--app-text);
-    text-shadow: var(--app-label-text-shadow);
+    @include text-shadow-label;
   }
 }
 
@@ -170,7 +164,7 @@
     text-align: left;
     border-bottom: 1px solid var(--app-input-border);
     color: var(--app-text);
-    text-shadow: var(--app-label-text-shadow);
+    @include text-shadow-label;
   }
 
   th {
@@ -205,19 +199,7 @@
   input {
     flex: 1;
     min-width: 140px;
-    font-family: inherit;
-    font-size: var(--app-font-size-base);
-    padding: 8px 10px;
-    border: 1px solid var(--app-input-border);
-    border-radius: var(--app-radius-control);
-    background: var(--app-input-bg);
-    color: var(--app-input-text);
-    box-shadow: var(--app-btn-shadow);
-    outline: none;
-
-    &:focus {
-      border-color: var(--app-border);
-    }
+    @include input-field(md);
   }
 }
 
@@ -228,43 +210,6 @@
   align-items: center;
 }
 
-.btn {
-  font-family: inherit;
-  font-size: var(--app-font-size-base);
-  border: none;
-  border-radius: var(--app-radius-control);
-  cursor: pointer;
-  padding: 10px 16px;
-  box-shadow: var(--app-btn-shadow);
-  transition:
-    transform 0.1s,
-    box-shadow 0.1s,
-    background 0.2s,
-    color 0.2s;
-
-  &:hover:not(:disabled) {
-    transform: translate(var(--app-btn-hover-shift), var(--app-btn-hover-shift));
-  }
-
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
-  }
-
-  &.btn-primary {
-    background: var(--app-btn-primary-bg);
-    color: var(--app-btn-primary-text);
-    text-shadow: none;
-  }
-
-  &.btn-secondary {
-    background: var(--app-btn-secondary-bg);
-    color: var(--app-btn-secondary-text);
-    text-shadow: var(--app-label-text-shadow);
-    border: 1px solid var(--app-btn-secondary-border);
-  }
-}
-
 .demo-form {
   border: none;
   margin: 0;
@@ -273,7 +218,7 @@
   legend {
     font-size: var(--app-font-size-base);
     color: var(--app-text);
-    text-shadow: var(--app-label-text-shadow);
+    @include text-shadow-label;
     margin-bottom: 12px;
   }
 }
@@ -284,27 +229,12 @@
   label {
     display: block;
     font-size: 12px;
-    color: var(--app-text-muted);
-    text-shadow: var(--app-label-text-shadow);
     margin-bottom: 6px;
+    @include label-muted(12px);
   }
 
   input {
     width: 100%;
-    box-sizing: border-box;
-    font-family: inherit;
-    font-size: var(--app-font-size-base);
-    padding: 8px 10px;
-    border: 1px solid var(--app-input-border);
-    border-radius: var(--app-radius-control);
-    background: var(--app-input-bg);
-    color: var(--app-input-text);
-    outline: none;
-    box-shadow: var(--app-btn-shadow);
-    transition: border-color 0.2s, background 0.2s;
-
-    &:focus {
-      border-color: var(--app-border);
-    }
+    @include input-field(md);
   }
 }

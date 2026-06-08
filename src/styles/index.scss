@@ -1,9 +1,13 @@
 @import '~node_modules/@fontsource/open-sans/index.css';
 @import '~node_modules/@fontsource/fira-code/index.css';
-@import 'themes';
+@import 'theme/registry';
+@import 'theme/emit';
+@import 'theme/mixins';
+@import 'theme/components';
 @import 'header';
 @import 'sections';
 @import 'examples';
+@import 'sequencer';
 
 @font-face {
   font-family: 'Public Pixel';

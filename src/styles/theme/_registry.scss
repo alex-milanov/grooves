@@ -1,0 +1,15 @@
+@import 'families/pixel';
+@import 'families/terminal';
+@import 'families/studio';
+@import 'families/crm';
+
+$themes: (
+  pixel-dark: $pixel-dark,
+  pixel-light: $pixel-light,
+  terminal-dark: $terminal-dark,
+  terminal-light: $terminal-light,
+  studio-dark: $studio-dark,
+  studio-light: $studio-light,
+  crm-dark: $crm-dark,
+  crm-light: $crm-light,
+);

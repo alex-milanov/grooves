@@ -1,0 +1,20 @@
+{
+  "root": true,
+  "env": {
+    "browser": true,
+    "es2022": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module"
+  },
+  "globals": {
+    "module": "readonly"
+  },
+  "plugins": ["iblokz-style"],
+  "rules": {
+    "iblokz-style/prefer-const-bindings": "warn",
+    "iblokz-style/no-mutate-const": "warn"
+  },
+  "ignorePatterns": ["node_modules/"]
+}

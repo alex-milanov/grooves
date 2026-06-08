@@ -3,6 +3,7 @@ import { themeClass } from '../util/theme';
 import header from './header';
 import hero from './sections/hero';
 import examples from './sections/examples';
+import sequencer from './sections/sequencer';
 
 export default state => {
   const cls = themeClass(state);
@@ -10,7 +11,6 @@ export default state => {
     class: { [cls]: true },
   }, [
     header(state),
-    hero(state),
-    examples(state),
+    sequencer(state),
   ]);
 };

@@ -2,6 +2,11 @@ import { obj } from 'iblokz-data';
 import { getInitialTheme } from '../util/theme';
 
 export const initial = {
+  sequencer: {
+    tracks: 4,
+    steps: 16,
+    grid: [] // [[]] (tracks x steps) on/off 1/0 grid
+  },
   count: 0,
   ...getInitialTheme(),
   viewport: {

@@ -5,15 +5,22 @@
   "source": "src/index.pug",
   "scripts": {
     "start": "parcel",
-    "build": "parcel build"
+    "build": "parcel build",
+    "lint": "biome lint ./src && eslint src",
+    "lint:fix": "biome lint --write ./src && eslint src --fix",
+    "format": "biome format --write ./src",
+    "check": "biome check ./src"
   },
   "keywords": [],
   "author": "",
   "packageManager": "pnpm@10.28.1",
   "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
     "@parcel/config-default": "^2.16.4",
     "@parcel/transformer-pug": "2.16.4",
     "@parcel/transformer-sass": "2.16.4",
+    "eslint": "^8.57.0",
+    "eslint-plugin-iblokz-style": "link:../../org/iblokz/eslint-plugin-iblokz-style",
     "parcel": "^2.16.4",
     "parcel-reporter-static-files-copy": "^1.5.3"
   },

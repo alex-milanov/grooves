@@ -1,0 +1,15 @@
+{
+  "editor.defaultFormatter": "biomejs.biome",
+  "editor.formatOnSave": false,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.biome": "explicit"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  },
+  "biome.enabled": true,
+  "biome.lsp.bin": "./node_modules/.bin/biome",
+  "biome.requireConfiguration": true,
+  "eslint.validate": ["javascript"],
+  "eslint.useFlatConfig": false
+}

@@ -37,9 +37,9 @@ export default state => {
         on: { click: onHomeClick },
       }, [
         img('.site-logo', {
-          props: { src: 'assets/logo.png', alt: '' },
+          props: { src: 'assets/logo.svg', alt: '' },
         }),
-        'iBlokz Boilerplate'
+        'Grooves'
       ]),
       div('.site-controls', [
         select('.control.lang-select', {

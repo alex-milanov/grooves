@@ -1,0 +1,13 @@
+@each $name, $tokens in $themes {
+  .theme-#{$name} {
+    @if str-index($name, '-light') {
+      color-scheme: light;
+    } @else {
+      color-scheme: dark;
+    }
+
+    @each $key, $value in $tokens {
+      --app-#{$key}: #{$value};
+    }
+  }
+}

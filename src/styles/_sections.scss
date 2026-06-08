@@ -28,11 +28,8 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: var(--app-bg-panel);
-  border: var(--app-panel-border);
+  @include surface-panel;
   padding: 20px;
-  border-radius: var(--app-radius-panel);
-  box-shadow: var(--app-panel-shadow);
 
   .btn {
     background: unset;
@@ -43,7 +40,7 @@
     font-size: var(--app-counter-size);
     font-weight: bold;
     color: var(--app-text);
-    text-shadow: var(--app-heading-text-shadow);
+    @include text-shadow-heading;
     cursor: pointer;
 
     &:hover {
@@ -55,7 +52,7 @@
     font-size: var(--app-counter-size);
     font-weight: bold;
     color: var(--app-text);
-    text-shadow: var(--app-heading-text-shadow);
+    @include text-shadow-heading;
     min-width: 2ch;
     text-align: center;
   }
@@ -74,24 +71,7 @@
   overflow: visible;
   animation: arrowBounce 1.5s cubic-bezier(0.65, -0.55, 0.25, 1.5) infinite;
 
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    mask: url("../assets/icons/arrow-down.svg") center / contain no-repeat;
-    -webkit-mask: url("../assets/icons/arrow-down.svg") center / contain no-repeat;
-  }
-
-  &::before {
-    transform: translate(4px, 4px);
-    background-color: var(--app-arrow-shadow);
-  }
-
-  &::after {
-    background-color: var(--app-arrow-fill);
-  }
+  @include masked-icon-fill-shadow('../assets/icons/arrow-down.svg');
 }
 
 @keyframes arrowBounce {

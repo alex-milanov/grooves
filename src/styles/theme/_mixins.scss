@@ -1,0 +1,141 @@
+@mixin text-shadow-label {
+  text-shadow: var(--app-label-text-shadow);
+}
+
+@mixin text-shadow-heading {
+  text-shadow: var(--app-heading-text-shadow);
+}
+
+@mixin label-muted($size: 0.85em) {
+  font-size: $size;
+  line-height: 1;
+  color: var(--app-text-muted);
+  @include text-shadow-label;
+}
+
+@mixin surface-panel {
+  background: var(--app-bg-panel);
+  border: var(--app-panel-border);
+  border-radius: var(--app-radius-panel);
+  box-shadow: var(--app-panel-shadow);
+}
+
+@mixin input-field($size: md) {
+  box-sizing: border-box;
+  font-family: inherit;
+  border: 1px solid var(--app-input-border);
+  border-radius: var(--app-radius-control);
+  background: var(--app-input-bg);
+  color: var(--app-input-text);
+  box-shadow: var(--app-btn-shadow);
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+
+  @if $size == sm {
+    font-size: 0.85em;
+    line-height: 1;
+    padding: 0.45em 0.6em;
+  } @else {
+    font-size: var(--app-font-size-base);
+    padding: 8px 10px;
+  }
+
+  &:focus {
+    border-color: var(--app-border);
+  }
+}
+
+@mixin btn-base {
+  font-family: inherit;
+  font-size: var(--app-font-size-base);
+  border: none;
+  border-radius: var(--app-radius-control);
+  cursor: pointer;
+  padding: 10px 16px;
+  box-shadow: var(--app-btn-shadow);
+  transition:
+    transform 0.1s,
+    box-shadow 0.1s,
+    background 0.2s,
+    color 0.2s;
+
+  &:hover:not(:disabled) {
+    transform: translate(var(--app-btn-hover-shift), var(--app-btn-hover-shift));
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+@mixin btn-variant($variant) {
+  @if $variant == primary {
+    background: var(--app-btn-primary-bg);
+    color: var(--app-btn-primary-text);
+    text-shadow: none;
+  } @else if $variant == secondary {
+    background: var(--app-btn-secondary-bg);
+    color: var(--app-btn-secondary-text);
+    @include text-shadow-label;
+    border: 1px solid var(--app-btn-secondary-border);
+  }
+}
+
+@mixin btn-toggle($shape: pill) {
+  @include btn-base;
+  @include btn-variant(secondary);
+  user-select: none;
+
+  @if $shape == pill {
+    border-radius: 9999px;
+  }
+
+  &:active,
+  &.active {
+    @include btn-variant(primary);
+    border-color: transparent;
+  }
+}
+
+@mixin control-select {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: var(--app-radius-control);
+  border: 2px solid transparent;
+  background: transparent;
+  color: var(--app-text);
+  @include text-shadow-label;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    opacity 0.15s ease,
+    color 0.2s;
+
+  &:disabled {
+    cursor: not-allowed;
+  }
+}
+
+@mixin masked-icon-fill-shadow($url, $fill: var(--app-arrow-fill), $shadow: var(--app-arrow-shadow), $shadow-offset: 4px) {
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    mask: url($url) center / contain no-repeat;
+    -webkit-mask: url($url) center / contain no-repeat;
+    pointer-events: none;
+  }
+
+  &::before {
+    transform: translate($shadow-offset, $shadow-offset);
+    background-color: $shadow;
+  }
+
+  &::after {
+    background-color: $fill;
+  }
+}
