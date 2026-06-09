@@ -99,6 +99,7 @@ export default state => div('.sequencer', [
           div('.step', {
             class: {
               active: state.sequencer.grid[track]?.[step],
+              playhead: state.sequencer.playhead === step,
             },
             props: {
               title: `${track},${step}`,

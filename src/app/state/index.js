@@ -7,6 +7,7 @@ export const initial = {
     tracks: 4,
     steps: 16,
     playing: false,
+    playhead: null,
     selectedTrack: null,
     assignments: {
       0: { kit: 'basic_drum_kit', sample: 'PD-KICK-03.wav' },

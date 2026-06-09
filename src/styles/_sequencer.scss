@@ -103,6 +103,18 @@
         font-size: calc(var(--app-font-size-base) * 0.85);
         padding: 6px 10px;
         min-width: 12px;
+        transition:
+          box-shadow 0.08s ease,
+          background 0.1s,
+          color 0.1s;
+
+        &.playhead:not(.active) {
+          box-shadow: 0 0 0 2px color-mix(in srgb, var(--app-text) 50%, transparent);
+        }
+
+        &.active.playhead {
+          box-shadow: 0 0 0 2px color-mix(in srgb, var(--app-btn-primary-text) 70%, transparent);
+        }
       }
     }
   }

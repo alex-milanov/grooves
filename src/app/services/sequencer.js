@@ -1,10 +1,13 @@
 import { distinctUntilChanged, filter } from 'rxjs';
+import { dispatch } from 'iblokz-state';
+import { patch } from '../state';
 import { context, play, resume, stepTime } from '../util/audio';
 import * as samples from '../util/samples';
 
 let rafId = 0;
 let startTime = 0;
 let latestCycle = -1;
+let lastPlayhead = -1;
 
 const cycleDuration = state => {
   const { sequencer } = state;
@@ -39,6 +42,12 @@ const tick = state$ => {
   const duration = cycleDuration(state);
   const cycle = Math.floor((now - startTime) / duration);
   const progress = ((now - startTime) % duration) / duration;
+  const playhead = Math.floor(progress * (state.steps ?? state.sequencer.steps));
+
+  if (playhead !== lastPlayhead) {
+    lastPlayhead = playhead;
+    dispatch(patch(['sequencer', 'playhead'], playhead));
+  }
 
   if (latestCycle === -1) {
     scheduleCycle(state, 0);
@@ -55,6 +64,8 @@ const reset = () => {
   cancelAnimationFrame(rafId);
   rafId = 0;
   latestCycle = -1;
+  lastPlayhead = -1;
+  dispatch(patch(['sequencer', 'playhead'], null));
 };
 
 export let stop = () => {};
@@ -84,6 +95,7 @@ export const start = ({ state$ }) => {
   ).subscribe(() => {
     startTime = context.currentTime + 0.05;
     latestCycle = -1;
+    lastPlayhead = -1;
   }));
 
   stop = () => {
