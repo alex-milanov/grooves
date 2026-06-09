@@ -1,5 +1,5 @@
 import {
-  section, h2, h3, p, div, span, ul, li, button, header,
+  section, h2, h3, p, div, span, ul, li, button, header, i,
   fieldset, legend, form, label, input, table, tr, td, th,
 } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
@@ -12,6 +12,22 @@ const list = length => new Array(length).fill(0);
 export default state => div('.sequencer', [
   header([
     h2('Sequencer'),
+    button('.play-toggle', {
+      class: { active: state.sequencer.playing },
+      props: {
+        type: 'button',
+        title: state.sequencer.playing ? 'Pause' : 'Play',
+        'aria-label': state.sequencer.playing ? 'Pause' : 'Play',
+        'aria-pressed': String(state.sequencer.playing),
+      },
+      on: {
+        click: () => dispatch(
+          patch(['sequencer', 'playing'], !state.sequencer.playing)
+        ),
+      },
+    }, [
+      i(state.sequencer.playing ? '.fa.fa-pause' : '.fa.fa-play'),
+    ]),
     label('Tracks'),
     input({
       props: {

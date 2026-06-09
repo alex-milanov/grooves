@@ -5,6 +5,7 @@ export const initial = {
   sequencer: {
     tracks: 4,
     steps: 16,
+    playing: false,
     grid: [] // [[]] (tracks x steps) on/off 1/0 grid
   },
   count: 0,

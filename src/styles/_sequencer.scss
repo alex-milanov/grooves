@@ -18,13 +18,36 @@
 
     h2,
     label,
-    input {
+    input,
+    button {
       margin: 0;
       align-self: center;
     }
 
+    button.play-toggle {
+      @include btn-toggle;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.75em;
+      height: 2.75em;
+      padding: 0;
+      line-height: 1;
+
+      .fa {
+        display: block;
+        width: 1.15em;
+        font-size: 1.15em;
+        text-align: center;
+      }
+
+      .fa-play {
+        transform: translateX(0.08em);
+      }
+    }
+
     h2 {
-      font-size: 1.25em;
+      font-size: 1em;
       font-weight: inherit;
       line-height: 1;
       color: var(--app-text);

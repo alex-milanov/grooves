@@ -27,6 +27,7 @@
   "dependencies": {
     "@fontsource/fira-code": "^5.2.7",
     "@fontsource/open-sans": "^5.2.7",
+    "font-awesome": "4.7.0",
     "iblokz-data": "^1.6.0",
     "iblokz-snabbdom-helpers": "^2.0.0",
     "iblokz-state": "^1.1.0",
