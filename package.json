@@ -19,10 +19,12 @@
     "@parcel/config-default": "^2.16.4",
     "@parcel/transformer-pug": "2.16.4",
     "@parcel/transformer-sass": "2.16.4",
+    "buffer": "^6.0.3",
     "eslint": "^8.57.0",
     "eslint-plugin-iblokz-style": "link:../../org/iblokz/eslint-plugin-iblokz-style",
     "parcel": "^2.16.4",
-    "parcel-reporter-static-files-copy": "^1.5.3"
+    "parcel-reporter-static-files-copy": "^1.5.3",
+    "process": "^0.11.10"
   },
   "dependencies": {
     "@fontsource/fira-code": "^5.2.7",
@@ -31,6 +33,7 @@
     "iblokz-data": "^1.6.0",
     "iblokz-snabbdom-helpers": "^2.0.0",
     "iblokz-state": "^1.1.0",
+    "jszip": "^3.10.1",
     "rxjs": "^7.8.2",
     "snabbdom": "^3.6.3"
   },

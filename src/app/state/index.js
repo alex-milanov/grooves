@@ -9,6 +9,10 @@ export const initial = {
     selectedTrack: null,
     grid: [] // [[]] (tracks x steps) on/off 1/0 grid
   },
+  library: {
+    path: ['library'],
+    kits: null,
+  },
   count: 0,
   ...getInitialTheme(),
   viewport: {

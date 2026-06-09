@@ -9,6 +9,7 @@ import { initial } from './state';
 import { serializeTheme } from './util/theme';
 // services
 import viewport from './services/viewport';
+import library from './services/library';
 // ui
 import ui from './ui';
 
@@ -21,8 +22,8 @@ state$
   // .subscribe(s => console.log('state', s));
 
 // services
-// viewport
 viewport.start({ state$ });
+library.start({ state$ });
 
 // theme change tracking
 state$
@@ -40,6 +41,7 @@ if (module.hot) {
   module.hot.dispose(function (data) {
     data.state = state$.getValue();
     viewport.stop();
+    library.stop();
     patchSubscription.unsubscribe();
     state$.complete();
     document.body.innerHTML = document.body.innerHTML;
@@ -47,5 +49,6 @@ if (module.hot) {
   module.hot.accept(function () {
     dispatch(() => module.hot.data.state);
     viewport.start({ state$ });
+    library.start({ state$ });
   });
 }

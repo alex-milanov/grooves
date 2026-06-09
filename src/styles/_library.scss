@@ -74,6 +74,11 @@
         background: color-mix(in srgb, var(--app-btn-primary-bg) 18%, transparent);
         color: var(--app-text);
       }
+
+      &.folder,
+      &.parent {
+        color: var(--app-text);
+      }
     }
   }
 }
