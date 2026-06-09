@@ -87,6 +87,13 @@
       > button {
         @include btn-toggle;
         white-space: nowrap;
+        width: 17em;
+        font-size: 0.6em;
+        padding: 0;
+
+        &.assigned:not(.active) {
+          border: 1px solid color-mix(in srgb, var(--app-btn-primary-bg) 45%, var(--app-btn-secondary-border));
+        }
       }
 
       .step {

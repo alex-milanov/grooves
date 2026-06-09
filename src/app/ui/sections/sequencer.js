@@ -9,6 +9,9 @@ const steps = 16;
 
 const list = length => new Array(length).fill(0);
 
+const shorten = (name, max = 14) =>
+  name.length > max ? `${name.slice(0, max - 1)}…` : name;
+
 export default state => div('.sequencer', [
   header([
     h2('Sequencer'),
@@ -50,17 +53,38 @@ export default state => div('.sequencer', [
     }),
   ]),
   div('.tracks',
-    list(state.tracks ?? tracks).map((_, track) =>
-      div('.track', [].concat(
+    list(state.tracks ?? tracks).map((_, track) => {
+      const sample = state.sequencer.assignments?.[track]?.sample;
+      const label = sample ? shorten(sample) : `Track ${track}`;
+
+      return div('.track', [].concat(
         button({
-          class: { active: state.sequencer.selectedTrack === track },
-          on: {
-            click: () => dispatch(patch(
-              ['sequencer', 'selectedTrack'],
-              state.sequencer.selectedTrack === track ? null : track,
-            )),
+          class: {
+            active: state.sequencer.selectedTrack === track,
+            assigned: !!state.sequencer.assignments?.[track],
           },
-        }, `Track ${track}`),
+          on: {
+            click: () => dispatch(s => {
+              const closing = s.sequencer.selectedTrack === track;
+              if (closing) {
+                return {
+                  ...s,
+                  sequencer: { ...s.sequencer, selectedTrack: null },
+                };
+              }
+              const assignment = s.sequencer.assignments?.[track];
+              return {
+                ...s,
+                sequencer: { ...s.sequencer, selectedTrack: track },
+                library: assignment ? {
+                  ...s.library,
+                  path: ['library', assignment.kit],
+                  selectedSample: assignment.sample,
+                } : s.library,
+              };
+            }),
+          },
+        }, label),
         list(state.steps ?? steps).map((_, step) =>
           div('.step', {
             class: {
@@ -74,7 +98,7 @@ export default state => div('.sequencer', [
             },
           })
         )
-      )),
-    ),
+      ));
+    }),
   ),
 ]);

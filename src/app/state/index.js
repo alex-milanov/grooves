@@ -7,11 +7,17 @@ export const initial = {
     steps: 16,
     playing: false,
     selectedTrack: null,
+    assignments: {
+      0: { kit: 'basic_drum_kit', sample: 'PD-KICK-03.wav' },
+      1: { kit: 'basic_drum_kit', sample: 'Rpeople_Snare3.wav' },
+      2: { kit: 'basic_drum_kit', sample: 'HCR-01.wav' },
+    },
     grid: [] // [[]] (tracks x steps) on/off 1/0 grid
   },
   library: {
     path: ['library'],
     kits: null,
+    selectedSample: null,
   },
   count: 0,
   ...getInitialTheme(),
