@@ -1,0 +1,79 @@
+.library {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75em;
+  overflow: hidden;
+  max-width: 0;
+  opacity: 0;
+  margin-right: 0;
+  padding: 0;
+  transition:
+    max-width 0.3s ease,
+    opacity 0.25s ease,
+    margin 0.3s ease,
+    padding 0.3s ease;
+
+  &.visible {
+    max-width: 14em;
+    opacity: 1;
+    margin-right: 1em;
+    font-size: 1.2em;
+  }
+
+  > header {
+    flex: 0 0 auto;
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: center;
+    gap: 0.75em;
+    line-height: 2.3em;
+    height: 2.3em;
+    white-space: nowrap;
+
+    h2 {
+      margin: 0;
+      font-size: 1em;
+      font-weight: inherit;
+      line-height: 1;
+      color: var(--app-text);
+      @include text-shadow-label;
+    }
+
+    .path {
+      font-size: 0.5em;
+      color: var(--app-text-muted);
+      @include text-shadow-label;
+    }
+  }
+
+  .list {
+    flex: 1 1 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    line-height: 1.4;
+    overflow-y: scroll;
+
+    .item {
+      padding: 0.35em 0.5em;
+      font-size: 0.6em;
+      border-radius: var(--app-radius-control);
+      color: var(--app-text-muted);
+      @include text-shadow-label;
+      cursor: pointer;
+      transition:
+        background 0.15s ease,
+        color 0.15s ease;
+
+      &:hover {
+        background: color-mix(in srgb, var(--app-btn-primary-bg) 18%, transparent);
+        color: var(--app-text);
+      }
+    }
+  }
+}

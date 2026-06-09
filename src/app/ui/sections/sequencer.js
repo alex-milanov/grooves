@@ -52,7 +52,15 @@ export default state => div('.sequencer', [
   div('.tracks',
     list(state.tracks ?? tracks).map((_, track) =>
       div('.track', [].concat(
-        button(`Track ${track}`),
+        button({
+          class: { active: state.sequencer.selectedTrack === track },
+          on: {
+            click: () => dispatch(patch(
+              ['sequencer', 'selectedTrack'],
+              state.sequencer.selectedTrack === track ? null : track,
+            )),
+          },
+        }, `Track ${track}`),
         list(state.steps ?? steps).map((_, step) =>
           div('.step', {
             class: {

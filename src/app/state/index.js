@@ -6,6 +6,7 @@ export const initial = {
     tracks: 4,
     steps: 16,
     playing: false,
+    selectedTrack: null,
     grid: [] // [[]] (tracks x steps) on/off 1/0 grid
   },
   count: 0,

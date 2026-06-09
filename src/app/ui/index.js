@@ -1,8 +1,7 @@
-import { body } from 'iblokz-snabbdom-helpers';
+import { body, div } from 'iblokz-snabbdom-helpers';
 import { themeClass } from '../util/theme';
 import header from './header';
-import hero from './sections/hero';
-import examples from './sections/examples';
+import library from './sections/library';
 import sequencer from './sections/sequencer';
 
 export default state => {
@@ -11,6 +10,9 @@ export default state => {
     class: { [cls]: true },
   }, [
     header(state),
-    sequencer(state),
+    div('.workspace', [
+      library(state),
+      sequencer(state),
+    ]),
   ]);
 };
