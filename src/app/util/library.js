@@ -3,6 +3,14 @@ export const samplesFromMetadata = meta =>
     Object.values(row).map(pad => pad.name),
   );
 
+export const filesFromMetadata = meta => {
+  const files = {};
+  Object.values(meta.pads ?? {}).forEach(row =>
+    Object.values(row).forEach(pad => { files[pad.name] = pad.file; }),
+  );
+  return files;
+};
+
 export const defaultAssignments = (meta, kitName) => {
   const row = meta.pads?.['0'];
   if (!row) return {};

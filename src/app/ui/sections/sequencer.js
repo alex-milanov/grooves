@@ -31,6 +31,16 @@ export default state => div('.sequencer', [
     }, [
       i(state.sequencer.playing ? '.fa.fa-pause' : '.fa.fa-play'),
     ]),
+    label('BPM'),
+    input({
+      props: {
+        type: 'number',
+        value: state.sequencer.bpm ?? 120,
+      },
+      on: {
+        input: ev => dispatch(patch(['sequencer', 'bpm'], Number(ev.target.value))),
+      },
+    }),
     label('Tracks'),
     input({
       props: {

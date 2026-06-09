@@ -10,6 +10,7 @@ import { serializeTheme } from './util/theme';
 // services
 import viewport from './services/viewport';
 import library from './services/library';
+import sequencer from './services/sequencer';
 // ui
 import ui from './ui';
 
@@ -24,6 +25,7 @@ state$
 // services
 viewport.start({ state$ });
 library.start({ state$ });
+sequencer.start({ state$ });
 
 // theme change tracking
 state$
@@ -42,6 +44,7 @@ if (module.hot) {
     data.state = state$.getValue();
     viewport.stop();
     library.stop();
+    sequencer.stop();
     patchSubscription.unsubscribe();
     state$.complete();
     document.body.innerHTML = document.body.innerHTML;
@@ -50,5 +53,6 @@ if (module.hot) {
     dispatch(() => module.hot.data.state);
     viewport.start({ state$ });
     library.start({ state$ });
+    sequencer.start({ state$ });
   });
 }
