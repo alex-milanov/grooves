@@ -28,10 +28,15 @@ const themeColors = () => {
   };
 };
 
-const destroyWaveform = () => {
+const stopCursorAnimations = () => {
   cancelAnimationFrame(animRaf);
   animRaf = 0;
   pendingTriggers = [];
+  if (ws) ws.setTime(0);
+};
+
+const destroyWaveform = () => {
+  stopCursorAnimations();
   if (ws) {
     ws.destroy();
     ws = null;
@@ -169,10 +174,9 @@ export const previewCurrent = () => {
   if (!buffer) return;
 
   resume().then(() => {
-    const gain = trackGain(state.sequencer.trackParams, track);
-    if (gain === 0) return;
+    if (trackGain(state.sequencer.trackParams, track) === 0) return;
     const when = context.currentTime;
-    play(buffer, when, gain, { track, preview: true });
+    play(buffer, when, track, { preview: true });
     addTrigger(when, buffer.duration, track);
   });
 };
@@ -203,6 +207,13 @@ export const start = ({ state$ }) => {
 
   subs.push(sampleTriggered$.subscribe(({ when, duration, track }) => {
     addTrigger(when, duration, track);
+  }));
+
+  subs.push(state$.pipe(
+    map(s => s.sequencer.playing),
+    distinctUntilChanged(),
+  ).subscribe(playing => {
+    if (!playing) stopCursorAnimations();
   }));
 
   syncWaveform(state$.getValue());

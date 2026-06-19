@@ -1,2 +1,36 @@
-# iBloKz Boilerplate
-latest revision of a ui boilerplate
+# Grooves
+
+A browser-based drum sequencer prototype built on the iBlokz stack (Snabbdom, RxJS, Web Audio).
+
+**Live demo:** [alex-milanov.github.io/grooves](https://alex-milanov.github.io/grooves/)
+
+## Features
+
+- Step sequencer with configurable tracks, BPM, time signature, and resolution
+- Sample library panel for browsing kits and assigning samples to tracks
+- Track settings panel with per-track volume, mute, and a themed WaveSurfer waveform preview
+- Waveform playback cursor synced to sequencer hits
+- Theme families (pixel, terminal, studio, crm) with light/dark modes
+
+## Development
+
+```bash
+pnpm install
+pnpm start
+```
+
+Open the URL Parcel prints (usually `http://localhost:1234`).
+
+```bash
+pnpm run build   # production build to dist/
+pnpm run check   # Biome lint + format
+```
+
+## Stack
+
+- [Parcel](https://parceljs.org/) — bundler
+- [Snabbdom](https://github.com/snabbdom/snabbdom) + [iblokz-snabbdom-helpers](https://github.com/iblokz/iblokz-snabbdom-helpers) — UI
+- [iblokz-state](https://github.com/iblokz/iblokz-state) + RxJS — state
+- Web Audio API + [wavesurfer.js](https://wavesurfer.xyz/) — playback and waveform
+
+See [docs/theming.md](docs/theming.md) and [docs/linting.md](docs/linting.md) for more.
