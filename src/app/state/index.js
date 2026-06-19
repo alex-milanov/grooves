@@ -16,6 +16,7 @@ export const initial = {
       1: { kit: 'basic_drum_kit', sample: 'Rpeople_Snare3.wav' },
       2: { kit: 'basic_drum_kit', sample: 'HCR-01.wav' },
     },
+    trackParams: {},
     grid: [] // [[]] (tracks x steps) on/off 1/0 grid
   },
   library: {

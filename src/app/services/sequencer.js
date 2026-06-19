@@ -1,7 +1,7 @@
 import { distinctUntilChanged, filter } from 'rxjs';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../state';
-import { context, play, resume, stepTime } from '../util/audio';
+import { context, play, resume, stepTime, trackGain } from '../util/audio';
 import * as samples from '../util/samples';
 
 let rafId = 0;
@@ -31,8 +31,10 @@ const scheduleCycle = (state, cycle) => {
       if (!sequencer.grid[track]?.[step]) continue;
       const assignment = sequencer.assignments?.[track];
       if (!assignment) continue;
+      const gain = trackGain(sequencer.trackParams, track);
+      if (gain === 0) continue;
       const buffer = samples.get(samples.key(assignment.kit, assignment.sample));
-      if (buffer) play(buffer, when);
+      if (buffer) play(buffer, when, gain, { track });
     }
   }
 };

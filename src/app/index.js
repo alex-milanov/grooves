@@ -11,6 +11,7 @@ import { serializeTheme } from './util/theme';
 import viewport from './services/viewport';
 import library from './services/library';
 import sequencer from './services/sequencer';
+import waveform from './services/waveform';
 // ui
 import ui from './ui';
 
@@ -26,6 +27,7 @@ state$
 viewport.start({ state$ });
 library.start({ state$ });
 sequencer.start({ state$ });
+waveform.start({ state$ });
 
 // theme change tracking
 state$
@@ -45,6 +47,7 @@ if (module.hot) {
     viewport.stop();
     library.stop();
     sequencer.stop();
+    waveform.stop();
     patchSubscription.unsubscribe();
     state$.complete();
     document.body.innerHTML = document.body.innerHTML;
@@ -54,5 +57,6 @@ if (module.hot) {
     viewport.start({ state$ });
     library.start({ state$ });
     sequencer.start({ state$ });
+    waveform.start({ state$ });
   });
 }
