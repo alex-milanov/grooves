@@ -2,24 +2,25 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%) scale(var(--workspace-scale, 1));
+  transform: translate(-50%, -50%);
   transform-origin: center center;
   box-sizing: border-box;
   width: auto;
   max-width: none;
   margin: 0;
   padding: 0;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .workspace-inner {
-  position: relative;
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  align-items: flex-start;
+  align-items: stretch;
 }
 
 .sequencer {
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 0.75em;
@@ -114,6 +115,20 @@
           @supports (color: color-mix(in srgb, white 50%, black)) {
             border-color: color-mix(in srgb, var(--app-btn-primary-bg) 45%, var(--app-btn-secondary-border));
           }
+        }
+
+        &.panel-library:not(.panel-settings) {
+          box-shadow: 0 0 0 2px color-mix(in srgb, var(--app-btn-primary-bg) 35%, transparent);
+        }
+
+        &.panel-settings:not(.panel-library) {
+          box-shadow: 0 0 0 2px color-mix(in srgb, var(--app-text) 35%, transparent);
+        }
+
+        &.panel-library.panel-settings {
+          box-shadow:
+            -2px 0 0 0 color-mix(in srgb, var(--app-btn-primary-bg) 45%, transparent),
+            2px 0 0 0 color-mix(in srgb, var(--app-text) 45%, transparent);
         }
       }
 

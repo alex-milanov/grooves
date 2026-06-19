@@ -2,17 +2,19 @@ import { div, header, span, ul, li } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../../state';
 import { entriesAt, isFolder, isSample, navigate } from '../../util/library';
+import { panelsAfterAssign } from '../../util/panels';
 
 export default state => {
   const { kits, path, selectedSample } = state.library;
-  const { selectedTrack } = state.sequencer;
+  const { selectedTrack, panels } = state.sequencer;
   const items = entriesAt(kits, path);
   const kit = path[1];
+  const libraryOpen = selectedTrack != null && !!panels?.library;
 
   return div('.library', {
-    class: { visible: selectedTrack != null },
+    class: { visible: libraryOpen },
     props: {
-      'aria-hidden': selectedTrack == null ? 'true' : 'false',
+      'aria-hidden': libraryOpen ? 'false' : 'true',
     },
   }, [
     header([
@@ -47,6 +49,7 @@ export default state => {
                 ...s.sequencer.assignments,
                 [selectedTrack]: { kit, sample: item },
               },
+              panels: panelsAfterAssign(s),
             },
             library: {
               ...s.library,

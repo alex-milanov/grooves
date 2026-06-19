@@ -9,10 +9,11 @@ const trackParams = (state, track) =>
   state.sequencer.trackParams?.[track] ?? {};
 
 export default state => {
-  const { selectedTrack } = state.sequencer;
+  const { selectedTrack, panels } = state.sequencer;
   const assignment = selectedTrack != null
     ? state.sequencer.assignments?.[selectedTrack]
     : null;
+  const settingsOpen = selectedTrack != null && !!panels?.settings;
   const params = selectedTrack != null
     ? trackParams(state, selectedTrack)
     : {};
@@ -26,12 +27,12 @@ export default state => {
 
   return div('.track-settings', {
     class: {
-      visible: selectedTrack != null,
+      visible: settingsOpen,
       muted,
       empty: !hasSample,
     },
     props: {
-      'aria-hidden': selectedTrack == null ? 'true' : 'false',
+      'aria-hidden': settingsOpen ? 'false' : 'true',
     },
   }, [
     header([

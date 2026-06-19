@@ -1,8 +1,5 @@
 .library {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 100%;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 0.75em;
@@ -10,12 +7,11 @@
   max-width: 0;
   opacity: 0;
   margin-right: 0;
-  padding: 0;
+  min-width: 0;
   transition:
     max-width 0.3s ease,
     opacity 0.25s ease,
-    margin 0.3s ease,
-    padding 0.3s ease;
+    margin 0.3s ease;
 
   &.visible {
     max-width: 14em;

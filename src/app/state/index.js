@@ -11,6 +11,10 @@ export const initial = {
     playing: false,
     playhead: null,
     selectedTrack: null,
+    panels: {
+      library: false,
+      settings: false,
+    },
     assignments: {
       0: { kit: 'basic_drum_kit', sample: 'PD-KICK-03.wav' },
       1: { kit: 'basic_drum_kit', sample: 'Rpeople_Snare3.wav' },

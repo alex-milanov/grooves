@@ -1,7 +1,15 @@
-// Mobile — scale is driven by --workspace-scale (see viewport service)
+// Mobile — scale workspace to fit; panels flow in flex row with sequencer
 @media (max-width: 900px) {
   .app {
     background-attachment: scroll;
+  }
+
+  .workspace {
+    top: 50%;
+    left: 0.75rem;
+    right: 0.75rem;
+    transform: translateY(-50%) scale(var(--workspace-scale, 1));
+    transform-origin: left center;
   }
 }
 

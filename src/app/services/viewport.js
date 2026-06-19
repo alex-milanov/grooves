@@ -1,48 +1,42 @@
 import { fromEvent, filter, startWith, map, distinctUntilChanged } from 'rxjs';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../state';
+import { MOBILE_BREAKPOINT } from '../util/panels';
 
 let resizeObserver = null;
 let fitRaf = 0;
+let transitionFitRaf = 0;
+const PANEL_TRANSITION_MS = 300;
+
+const isMobileViewport = () => window.innerWidth < MOBILE_BREAKPOINT;
 
 const measureWorkspace = inner => {
-  const sequencer = inner.querySelector('.sequencer');
-  if (!sequencer) return null;
-
-  let width = sequencer.offsetWidth;
-  const height = sequencer.offsetHeight;
-
-  const library = inner.querySelector('.library.visible');
-  if (library) {
-    const style = getComputedStyle(library);
-    width += library.offsetWidth
-      + (parseFloat(style.marginRight) || 0);
-  }
-
-  const settings = inner.querySelector('.track-settings.visible');
-  if (settings) {
-    const style = getComputedStyle(settings);
-    width += settings.offsetWidth
-      + (parseFloat(style.marginLeft) || 0);
-  }
-
-  return { width, height };
+  const width = Math.max(inner.scrollWidth, inner.offsetWidth);
+  const height = Math.max(inner.scrollHeight, inner.offsetHeight);
+  return width > 0 && height > 0 ? { width, height } : null;
 };
 
 const fitWorkspace = () => {
   const inner = document.querySelector('.workspace-inner');
   if (!inner) return;
 
+  const isMobile = isMobileViewport();
+
+  if (!isMobile) {
+    document.documentElement.style.removeProperty('--workspace-scale');
+    return;
+  }
+
   const bounds = measureWorkspace(inner);
   if (!bounds || bounds.width <= 0 || bounds.height <= 0) return;
 
-  const margin = 32;
+  const margin = 12;
   const header = 72;
   const availW = window.innerWidth - margin * 2;
   const availH = window.innerHeight - header - margin;
 
-  // Slight inset so panel edges and shadows stay inside the viewport
   const scale = Math.min(1, availW / bounds.width, availH / bounds.height) * 0.97;
+
   document.documentElement.style.setProperty(
     '--workspace-scale',
     scale.toFixed(4),
@@ -52,6 +46,18 @@ const fitWorkspace = () => {
 const scheduleFit = () => {
   cancelAnimationFrame(fitRaf);
   fitRaf = requestAnimationFrame(fitWorkspace);
+};
+
+const startTransitionFit = () => {
+  const end = performance.now() + PANEL_TRANSITION_MS + 50;
+  const tick = () => {
+    fitWorkspace();
+    if (performance.now() < end) {
+      transitionFitRaf = requestAnimationFrame(tick);
+    }
+  };
+  cancelAnimationFrame(transitionFitRaf);
+  transitionFitRaf = requestAnimationFrame(tick);
 };
 
 const observeWorkspace = () => {
@@ -123,21 +129,28 @@ export const start = ({ state$ }) => {
   subs.push(state$.pipe(
     map(s => ({
       track: s.sequencer?.selectedTrack,
+      library: s.sequencer?.panels?.library,
+      settings: s.sequencer?.panels?.settings,
       tracks: s.tracks ?? s.sequencer?.tracks,
       steps: s.sequencer?.timeSignature && s.sequencer?.resolution
         ? Number((s.sequencer.resolution * (
           s.sequencer.timeSignature[0] / s.sequencer.timeSignature[1]
         )).toFixed(0))
         : s.sequencer?.steps,
+      width: s.viewport?.screen?.width,
     })),
     distinctUntilChanged((a, b) =>
-      a.track === b.track && a.tracks === b.tracks && a.steps === b.steps,
+      a.track === b.track
+      && a.library === b.library
+      && a.settings === b.settings
+      && a.tracks === b.tracks
+      && a.steps === b.steps
+      && a.width === b.width,
     ),
   ).subscribe(() => {
     observeWorkspace();
     scheduleFit();
-    // Re-fit after panel slide-in transition (0.3s)
-    setTimeout(scheduleFit, 350);
+    startTransitionFit();
   }));
 
   observeWorkspace();
@@ -145,6 +158,7 @@ export const start = ({ state$ }) => {
 
   stop = () => {
     cancelAnimationFrame(fitRaf);
+    cancelAnimationFrame(transitionFitRaf);
     resizeObserver?.disconnect();
     resizeObserver = null;
     subs.forEach(sub => sub.unsubscribe());
