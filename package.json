@@ -12,7 +12,8 @@
     "check": "biome check ./src"
   },
   "keywords": [],
-  "author": "",
+  "author": "Alex Milanov <alex@i4web.biz>",
+  "license": "AGPL-3.0",
   "packageManager": "pnpm@10.28.1",
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",

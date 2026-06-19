@@ -34,3 +34,11 @@ pnpm run check   # Biome lint + format
 - Web Audio API + [wavesurfer.js](https://wavesurfer.xyz/) — playback and waveform
 
 See [docs/theming.md](docs/theming.md) and [docs/linting.md](docs/linting.md) for more.
+
+## License
+
+This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)** — same as [Jam Station](https://github.com/alex-milanov/jam-station). See [LICENSE](LICENSE) for the full text.
+
+## Samples & attribution
+
+Drum samples in `src/assets/kits/basic-drum-kit.zip` are from [Freesound](https://freesound.org/). All nine sounds in the kit are **[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)** (public domain). Full credits with links are in [References.md](References.md).
