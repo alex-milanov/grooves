@@ -9,9 +9,12 @@ let startTime = 0;
 let latestCycle = -1;
 let lastPlayhead = -1;
 
+const timeSignatureToSteps = (timeSignature, resolution) => 
+  Number((resolution * (timeSignature[0] / timeSignature[1])).toFixed(0));
+
 const cycleDuration = state => {
   const { sequencer } = state;
-  const steps = state.steps ?? sequencer.steps;
+  const steps = timeSignatureToSteps(sequencer.timeSignature, sequencer.resolution);
   return stepTime(sequencer.bpm) * steps;
 };
 
@@ -72,19 +75,18 @@ export let stop = () => {};
 export const start = ({ state$ }) => {
   let subs = [];
 
+  // 
   subs.push(state$.pipe(
     distinctUntilChanged((a, b) => a.sequencer.playing === b.sequencer.playing),
-  ).subscribe(state => {
-    if (state.sequencer.playing) {
-      resume().then(() => {
+  ).subscribe(state =>
+    (state.sequencer.playing)
+      ? resume().then(() => {
         startTime = context.currentTime + 0.05;
         latestCycle = -1;
-        tick(state$);
-      });
-    } else {
-      reset();
-    }
-  }));
+        tick(state$)
+      })
+      : reset()
+  ));
 
   subs.push(state$.pipe(
     filter(s => s.sequencer.playing),

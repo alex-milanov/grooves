@@ -4,6 +4,8 @@ import { getInitialTheme } from '../util/theme';
 export const initial = {
   sequencer: {
     bpm: 120,
+    timeSignature: [4, 4],
+    resolution: 16,
     tracks: 4,
     steps: 16,
     playing: false,

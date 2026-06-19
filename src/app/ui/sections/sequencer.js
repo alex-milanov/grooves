@@ -4,17 +4,35 @@ import {
 } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../../state';
+// pipe function from iblokz-data fn.js
+import { pipe } from 'iblokz-data/lib/fn.js';
 const tracks = 4;
-const steps = 16;
 
-const list = length => new Array(length).fill(0);
+const list = length => (
+  console.log('list', length), new Array(length).fill(0)
+);
 
 const shorten = (name, max = 14) =>
   name.length > max ? `${name.slice(0, max - 1)}…` : name;
 
-export default state => div('.sequencer', [
+export default state => pipe(
+  () => state.sequencer,
+  ({timeSignature, resolution}) => ({steps: Number(
+    (resolution * (timeSignature[0] / timeSignature[1])).toFixed(0)
+  )}),
+  ({steps}) => div('.sequencer', [
   header([
     h2('Sequencer'),
+    label('Tracks'),
+    input({
+      props: {
+        type: 'number',
+        value: state.tracks ?? tracks,
+      },
+      on: {
+        input: ev => dispatch(s => ({ ...s, tracks: Number(ev.target.value) })),
+      },
+    }),
     button('.play-toggle', {
       class: { active: state.sequencer.playing },
       props: {
@@ -41,24 +59,34 @@ export default state => div('.sequencer', [
         input: ev => dispatch(patch(['sequencer', 'bpm'], Number(ev.target.value))),
       },
     }),
-    label('Tracks'),
+    label('Sig.'), // Time signature
     input({
       props: {
         type: 'number',
-        value: state.tracks ?? tracks,
+        value: state.sequencer?.timeSignature?.[0] ?? 4,
       },
       on: {
-        input: ev => dispatch(s => ({ ...s, tracks: Number(ev.target.value) })),
+        input: ev => dispatch(patch(['sequencer', 'timeSignature', 0], Number(ev.target.value))),
       },
     }),
-    label('Steps'),
+    '/',
     input({
       props: {
         type: 'number',
-        value: state.steps ?? steps,
+        value: state.sequencer?.timeSignature?.[1] ?? 4,
       },
       on: {
-        input: ev => dispatch(s => ({ ...s, steps: Number(ev.target.value) })),
+        input: ev => dispatch(patch(['sequencer', 'timeSignature', 1], Number(ev.target.value))),
+      },
+    }),
+    label('Q'),
+    input({
+      props: {
+        type: 'number',
+        value: state.sequencer?.resolution ?? 16,
+      },
+      on: {
+        input: ev => dispatch(patch(['sequencer', 'resolution'], Number(ev.target.value))),
       },
     }),
   ]),
@@ -95,7 +123,7 @@ export default state => div('.sequencer', [
             }),
           },
         }, label),
-        list(state.steps ?? steps).map((_, step) =>
+        list(steps).map((_, step) =>
           div('.step', {
             class: {
               active: state.sequencer.grid[track]?.[step],
@@ -112,4 +140,4 @@ export default state => div('.sequencer', [
       ));
     }),
   ),
-]);
+]))();

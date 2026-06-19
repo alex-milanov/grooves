@@ -18,9 +18,9 @@ let state$ = init(initial);
 
 state$
   .pipe(
-    distinctUntilChanged(s => s.themeFamily + s.themeMode)
+    distinctUntilChanged(s => s.sequencer)
   )
-  // .subscribe(s => console.log('state', s));
+  .subscribe(s => console.log('state', s));
 
 // services
 viewport.start({ state$ });
