@@ -12,9 +12,11 @@ export default state => {
   }, [
     header(state),
     div('.workspace', [
-      library(state),
-      sequencer(state),
-      trackSettings(state),
+      div('.workspace-inner', [
+        library(state),
+        sequencer(state),
+        trackSettings(state),
+      ]),
     ]),
   ]);
 };

@@ -1,0 +1,48 @@
+// Mobile — scale is driven by --workspace-scale (see viewport service)
+@media (max-width: 900px) {
+  .app {
+    background-attachment: scroll;
+  }
+}
+
+// Phone — tighter header
+@media (max-width: 576px) {
+  .site-header {
+    padding-left: 12px;
+    padding-right: 12px;
+
+    .site-nav {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .site-title {
+      font-size: 0.9em;
+
+      &::before,
+      &::after {
+        flex: 0 0 36px;
+        width: 36px;
+        height: 36px;
+        margin-right: 8px;
+      }
+
+      &::before {
+        margin-right: -36px;
+      }
+    }
+
+    .site-controls {
+      flex: 1 1 100%;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .control {
+      font-size: 11px;
+      padding: 4px 6px;
+      max-width: 100%;
+    }
+  }
+}

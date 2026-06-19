@@ -6,17 +6,23 @@
   right: 0;
   z-index: 100;
   padding: 8px 24px 12px;
-  background: color-mix(
-    in srgb,
-    var(--app-bg-header-formed) calc(var(--header-progress) * 100%),
-    transparent
-  );
-  box-shadow: 0 calc(4px * var(--header-progress)) 0
-    color-mix(
+  background-color: transparent;
+  @supports (color: color-mix(in srgb, white 50%, black)) {
+    background-color: color-mix(
       in srgb,
-      var(--app-shadow) calc(var(--header-progress) * 100%),
+      var(--app-bg-header-formed) calc(var(--header-progress) * 100%),
       transparent
     );
+  }
+  box-shadow: 0 calc(4px * var(--header-progress)) 0 transparent;
+  @supports (color: color-mix(in srgb, white 50%, black)) {
+    box-shadow: 0 calc(4px * var(--header-progress)) 0
+      color-mix(
+        in srgb,
+        var(--app-shadow) calc(var(--header-progress) * 100%),
+        transparent
+      );
+  }
   transition: background 0.15s ease, box-shadow 0.15s ease;
 
   .site-nav {
@@ -89,16 +95,20 @@
   }
 
   &.is-formed .control:not(:disabled) {
-    border-color: color-mix(
-      in srgb,
-      var(--app-control-border-formed) calc(var(--header-progress) * 100%),
-      transparent
-    );
-    background: color-mix(
-      in srgb,
-      var(--app-control-bg-formed) calc(var(--header-progress) * 100%),
-      transparent
-    );
+    border-color: var(--app-control-border-formed);
+    background-color: var(--app-control-bg-formed);
+    @supports (color: color-mix(in srgb, white 50%, black)) {
+      border-color: color-mix(
+        in srgb,
+        var(--app-control-border-formed) calc(var(--header-progress) * 100%),
+        transparent
+      );
+      background: color-mix(
+        in srgb,
+        var(--app-control-bg-formed) calc(var(--header-progress) * 100%),
+        transparent
+      );
+    }
     opacity: 1;
   }
 }

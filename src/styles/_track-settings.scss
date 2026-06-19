@@ -60,7 +60,7 @@
 
     .waveform-empty {
       position: absolute;
-      inset: 0;
+      @include fill-inset;
       display: flex;
       align-items: center;
       justify-content: center;

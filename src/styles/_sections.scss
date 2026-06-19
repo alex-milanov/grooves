@@ -1,12 +1,20 @@
 .app {
+  position: relative;
   min-height: 100vh;
+  min-height: 100dvh;
   font-family: var(--app-font-family);
   font-size: var(--app-font-size-base);
-  background: var(--app-bg-page) no-repeat center center;
+  background-color: var(--app-input-bg);
+  background-image: var(--app-bg-page);
+  background-repeat: no-repeat;
+  background-position: center center;
   background-size: cover;
+  background-attachment: fixed;
   color: var(--app-text);
+  overflow: hidden;
   transition:
-    background 0.2s ease,
+    background-color 0.2s ease,
+    background-image 0.2s ease,
     color 0.2s ease,
     font-family 0.1s ease;
 }
