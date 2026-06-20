@@ -28,6 +28,7 @@ const cycleDuration = state => {
   return stepTime(state.sequencer.bpm) * steps;
 };
 
+// Calculate the timing params for the current cycle
 const cycleTiming = state => {
   const steps = stepCount(state);
   const duration = cycleDuration(state);
@@ -64,6 +65,7 @@ const gridCellChanges = (prevGrid, nextGrid, tracks, steps) => {
   return changed;
 };
 
+// Schedule the current / a subsequent cycle based on the current state and step offset
 const scheduleCycle = (state, cycle, fromStep = 0) => {
   const { sequencer } = state;
   const tracks = state.tracks ?? sequencer.tracks;
@@ -85,6 +87,7 @@ const scheduleCycle = (state, cycle, fromStep = 0) => {
   }
 };
 
+// Reschedule the remainder of the cycle when the grid changes
 const rescheduleRemainder = state => {
   const { cycle, cutoffTime, rescheduleFrom, steps } = cycleTiming(state);
   cancelScheduledAfter(cutoffTime);
@@ -154,11 +157,12 @@ const transportChanged = (a, b) =>
 export let stop = () => {};
 
 export const start = ({ state$ }) => {
-  const subs = [];
+  let subs = [];
   const tracksFrom = state => state.tracks ?? state.sequencer.tracks;
 
   syncTrackGains(state$.getValue().sequencer.trackParams, tracksFrom(state$.getValue()));
 
+  // Play/pause the sequencer
   subs.push(state$.pipe(
     distinctUntilChanged((a, b) => a.sequencer.playing === b.sequencer.playing),
   ).subscribe(state => {
@@ -173,11 +177,13 @@ export const start = ({ state$ }) => {
     }
   }));
 
+  // Reset the transport when the playing state changes
   subs.push(state$.pipe(
     filter(s => s.sequencer.playing),
     distinctUntilChanged(transportChanged),
   ).subscribe(() => resetTransport()));
 
+  // Reschedule the remainder of the cycle when the grid changes
   subs.push(state$.pipe(
     filter(s => s.sequencer.playing),
     pairwise(),
@@ -197,6 +203,7 @@ export const start = ({ state$ }) => {
     }
   }));
 
+  // Sync the track gains when the track params change
   subs.push(state$.pipe(
     map(s => ({
       trackParams: s.sequencer.trackParams,
@@ -210,9 +217,11 @@ export const start = ({ state$ }) => {
     syncTrackGains(trackParams, tracks);
   }));
 
+  // Reset the sequencer service when it stops
   stop = () => {
     reset();
     subs.forEach(sub => sub.unsubscribe());
+    subs = [];
   };
 };
 
