@@ -90,11 +90,97 @@
     gap: 10px;
   }
 
-  .control {
+  .control,
+  .dropdown.control,
+  .dropdown.flags,
+  .theme-toggle.control {
     opacity: calc(0.5 + var(--header-progress) * 0.5);
   }
 
-  &.is-formed .control:not(:disabled) {
+  .dropdown.control {
+    @include control-select;
+    padding: 0;
+
+    .handle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      line-height: 1;
+      white-space: nowrap;
+      border-radius: calc(var(--app-radius-control) - 2px);
+      transition: background 0.12s ease, color 0.12s ease;
+
+      &:hover {
+        @include color-mix-tint(background, var(--app-btn-primary-bg), 22%);
+        color: var(--app-text);
+      }
+
+      .fa-caret-down {
+        font-size: 10px;
+        opacity: 0.65;
+      }
+    }
+
+    &:hover .handle {
+      @include color-mix-tint(background, var(--app-btn-primary-bg), 22%);
+    }
+
+    &.save .handle {
+      justify-content: center;
+      padding: 6px 8px;
+      min-width: 2em;
+
+      .fa {
+        font-size: 14px;
+        margin: 0;
+      }
+    }
+  }
+
+  .dropdown.flags.control {
+    @include control-select;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 8px;
+    border-radius: calc(var(--app-radius-control) - 2px);
+    transition: background 0.12s ease, color 0.12s ease, opacity 0.15s ease;
+
+    &:hover {
+      @include color-mix-tint(background, var(--app-btn-primary-bg), 22%);
+    }
+
+    .flag-handle {
+      margin: 0;
+    }
+  }
+
+  .theme-toggle.control {
+    @include control-select;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 8px;
+    min-width: 2em;
+    text-decoration: none;
+    border-radius: calc(var(--app-radius-control) - 2px);
+    transition: background 0.12s ease, color 0.12s ease, opacity 0.15s ease;
+
+    &:hover {
+      @include color-mix-tint(background, var(--app-btn-primary-bg), 22%);
+      color: var(--app-text);
+    }
+
+    .fa {
+      font-size: 14px;
+    }
+  }
+
+  &.is-formed .control:not(:disabled),
+  &.is-formed .dropdown.control,
+  &.is-formed .dropdown.flags.control,
+  &.is-formed .theme-toggle.control {
     border-color: var(--app-control-border-formed);
     background-color: var(--app-control-bg-formed);
     @supports (color: color-mix(in srgb, white 50%, black)) {

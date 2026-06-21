@@ -49,8 +49,13 @@
 
     .control {
       font-size: 11px;
-      padding: 4px 6px;
       max-width: 100%;
+    }
+
+    .dropdown.flags.control,
+    .dropdown.control.icon-only .handle,
+    .theme-toggle.control {
+      padding: 4px 6px;
     }
   }
 }

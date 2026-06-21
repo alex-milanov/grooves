@@ -30,6 +30,7 @@
   "dependencies": {
     "@fontsource/fira-code": "^5.2.7",
     "@fontsource/open-sans": "^5.2.7",
+    "flag-icon-css": "^4.1.7",
     "font-awesome": "4.7.0",
     "iblokz-data": "^1.6.0",
     "iblokz-snabbdom-helpers": "^2.0.0",
@@ -39,8 +40,18 @@
     "snabbdom": "^3.6.3",
     "wavesurfer.js": "^7.12.8"
   },
-  "staticFiles": {
-    "staticPath": "src/assets",
-    "staticOutPath": "assets"
-  }
+  "staticFiles": [
+    {
+      "staticPath": "src/assets",
+      "staticOutPath": "assets"
+    },
+    {
+      "staticPath": "node_modules/flag-icon-css/flags/4x3/gb.svg",
+      "staticOutPath": "assets/flags"
+    },
+    {
+      "staticPath": "node_modules/flag-icon-css/flags/4x3/bg.svg",
+      "staticOutPath": "assets/flags"
+    }
+  ]
 }

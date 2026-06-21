@@ -1,0 +1,186 @@
+// Hover dropdown — adapted from thriftify.me / codepen pRqeaL
+$dropdown-item-height: 28px;
+
+.dropdown {
+  position: relative;
+  display: inline-block;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: block;
+    position: absolute;
+    visibility: hidden;
+    top: 100%;
+    z-index: 120;
+    margin-top: 4px;
+    min-width: 100%;
+    background: var(--app-btn-secondary-bg);
+    border: 1px solid var(--app-btn-secondary-border);
+    border-radius: var(--app-radius-control);
+    box-shadow: 0 4px 12px var(--app-shadow, rgba(0, 0, 0, 0.15));
+    opacity: 0;
+    overflow: hidden;
+    transition: opacity 0.05s 0.35s, visibility 0.05s 0.35s;
+
+    > li {
+      display: block;
+      height: 0;
+      overflow: hidden;
+      color: var(--app-text-muted);
+      transition: height 0.17s 0.15s, background 0.15s;
+
+      > span:not(.lang-option):not(.theme-option) {
+        display: block;
+        line-height: $dropdown-item-height;
+        padding: 0 10px;
+        white-space: nowrap;
+      }
+
+      &:hover:not(.disabled) {
+        @include color-mix-tint(background, var(--app-btn-primary-bg), 38%);
+        color: var(--app-btn-primary-text);
+        text-shadow: none;
+      }
+
+      &.active {
+        color: var(--app-text);
+        @include color-mix-tint(background, var(--app-btn-primary-bg), 22%);
+      }
+
+      &.active:hover:not(.disabled) {
+        @include color-mix-tint(background, var(--app-btn-primary-bg), 48%);
+        color: var(--app-btn-primary-text);
+        text-shadow: none;
+      }
+
+      &.disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  > .handle:hover + ul,
+  > .flag-handle:hover + ul,
+  > ul:hover {
+    transition: opacity 0.05s, visibility 0.05s;
+    visibility: visible;
+    opacity: 1;
+
+    > li {
+      transition: height 0.17s;
+      height: $dropdown-item-height;
+    }
+  }
+
+  .lang-option,
+  .theme-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: $dropdown-item-height;
+    padding: 0 10px;
+    box-sizing: border-box;
+  }
+
+  &.flags {
+    display: block;
+
+    .flag-handle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 1px solid var(--app-btn-secondary-border);
+      box-sizing: border-box;
+
+      img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+      }
+    }
+
+    ul {
+      min-width: 9em;
+      width: auto;
+    }
+
+    .flag-circle {
+      flex: 0 0 16px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 1px solid var(--app-btn-secondary-border);
+      box-sizing: border-box;
+
+      img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+      }
+    }
+
+    .lang-label {
+      flex: 1 1 auto;
+      font-size: 12px;
+      line-height: 1;
+      color: var(--app-text);
+      @include text-shadow-label;
+    }
+  }
+
+  &.theme-family {
+    ul {
+      min-width: 9em;
+    }
+
+    > .handle .theme-option {
+      height: auto;
+      padding: 0;
+      gap: 6px;
+    }
+
+    .theme-swatch {
+      flex: 0 0 16px;
+      width: 16px;
+      height: 12px;
+      border-radius: 2px;
+      border: 1px solid var(--app-btn-secondary-border);
+      background-repeat: no-repeat;
+      background-size: 100% 100%;
+    }
+
+    .theme-name {
+      font-size: 12px;
+      line-height: 1;
+      color: var(--app-text);
+    }
+
+    > .handle .theme-name {
+      @include text-shadow-label;
+    }
+  }
+
+  &:not(.to-left) ul {
+    left: 0;
+  }
+
+  &.to-left ul {
+    right: 0;
+    left: auto;
+  }
+}

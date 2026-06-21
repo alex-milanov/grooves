@@ -29,6 +29,7 @@ export const initial = {
     selectedSample: null,
   },
   count: 0,
+  lang: 'en',
   ...getInitialTheme(),
   viewport: {
     mouse: {
