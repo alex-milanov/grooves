@@ -14,7 +14,7 @@
     margin 0.3s ease;
 
   &.visible {
-    max-width: 16em;
+    max-width: 20em;
     opacity: 1;
     margin-left: 1em;
     font-size: 1.2em;
@@ -71,6 +71,10 @@
 
   &.muted .waveform-wrap {
     opacity: 0.55;
+  }
+
+  .fx-row {
+    flex: 0 0 auto;
   }
 
   .controls {

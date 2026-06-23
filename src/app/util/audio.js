@@ -1,48 +1,175 @@
 import { Subject } from 'rxjs';
+import {
+  context,
+  create as createAudio,
+  update as updateAudio,
+  vcf as createVcf,
+} from 'iblokz-audio';
+import { resolveEdgeGain } from './routing';
+import { getTrackParams } from './track-params';
 
-export const context = new (
-  window.AudioContext
-  || window.webkitAudioContext
-)();
+export { context };
 
 export const sampleTriggered$ = new Subject();
 
 const scheduled = [];
-const trackNodes = new Map();
+const nodeRegistry = new Map();
+const edgeGains = new Map();
+let wired = false;
 
-const removeScheduled = entry => {
+const removeScheduled = (entry) => {
   const i = scheduled.indexOf(entry);
   if (i !== -1) scheduled.splice(i, 1);
 };
 
-export const getTrackGainNode = track => {
-  if (!trackNodes.has(track)) {
-    const gain = context.createGain();
-    gain.gain.value = 0.85;
-    gain.connect(context.destination);
-    trackNodes.set(track, gain);
+const createDelayBus = ({ time = 0.375, feedback = 0.35 } = {}) => {
+  const input = context.createGain();
+  const output = context.createGain();
+  const delay = context.createDelay(Math.max(time * 2, 1));
+  const feedbackGain = context.createGain();
+  delay.delayTime.value = time;
+  feedbackGain.gain.value = feedback;
+  input.connect(delay);
+  delay.connect(output);
+  delay.connect(feedbackGain);
+  feedbackGain.connect(delay);
+  return { input, output, delay, feedbackGain };
+};
+
+const ensureNode = (def, mixer) => {
+  if (nodeRegistry.has(def.id)) return nodeRegistry.get(def.id);
+
+  let entry;
+  switch (def.kind) {
+    case 'track-in': {
+      const gain = context.createGain();
+      gain.gain.value = 1;
+      entry = { def, input: gain, output: gain };
+      break;
+    }
+    case 'insert': {
+      const filter = createVcf({ type: 'lowpass', cutoff: 0.64, resonance: 0 });
+      entry = { def, iblokz: filter, input: filter.through, output: filter.through };
+      break;
+    }
+    case 'fader': {
+      const gain = context.createGain();
+      gain.gain.value = 0.85;
+      entry = { def, input: gain, output: gain, track: def.track };
+      break;
+    }
+    case 'bus': {
+      if (def.bus === 'reverb') {
+        const buses = mixer?.buses?.reverb ?? {};
+        const reverb = createAudio('reverb', {
+          seconds: buses.seconds ?? 3,
+          decay: buses.decay ?? 2,
+          dry: 0,
+          wet: 1,
+        });
+        entry = { def, iblokz: reverb, input: reverb.input, output: reverb.output };
+      } else {
+        const buses = mixer?.buses?.delay ?? {};
+        const delay = createDelayBus(buses);
+        entry = { def, ...delay };
+      }
+      break;
+    }
+    case 'master': {
+      const gain = context.createGain();
+      gain.gain.value = 1;
+      entry = { def, input: gain, output: gain };
+      break;
+    }
+    case 'destination':
+      entry = { def, input: context.destination, output: null };
+      break;
+    default:
+      entry = { def, input: null, output: null };
   }
-  return trackNodes.get(track);
+
+  nodeRegistry.set(def.id, entry);
+  return entry;
 };
 
-export const setTrackGainValue = (track, volume, muted) => {
-  getTrackGainNode(track).gain.value = muted ? 0 : (volume ?? 0.85);
+export const ensureNodes = (routing, mixer) => {
+  routing.nodes.forEach((def) => ensureNode(def, mixer));
 };
 
-export const syncTrackGains = (trackParams, tracks) => {
+const getEdgeGain = (edgeId) => {
+  if (!edgeGains.has(edgeId)) {
+    edgeGains.set(edgeId, context.createGain());
+  }
+  return edgeGains.get(edgeId);
+};
+
+const wireEdges = (routing) => {
+  routing.edges.forEach((edge) => {
+    if (edge.enabled === false) return;
+    const from = nodeRegistry.get(edge.from);
+    const to = nodeRegistry.get(edge.to);
+    if (!from?.output || !to?.input) return;
+    const gain = getEdgeGain(edge.id);
+    try {
+      from.output.connect(gain);
+      gain.connect(to.input);
+    } catch (_) {
+      /* already connected */
+    }
+  });
+  wired = true;
+};
+
+const updateEdgeGains = (routing, trackParams) => {
+  routing.edges.forEach((edge) => {
+    const gain = getEdgeGain(edge.id);
+    const enabled = edge.enabled !== false;
+    gain.gain.value = enabled ? resolveEdgeGain(edge, trackParams) : 0;
+  });
+};
+
+export const syncTrackMixer = (trackParams, tracks) => {
   for (let track = 0; track < tracks; track++) {
-    const params = trackParams?.[track];
-    setTrackGainValue(track, params?.volume, params?.muted);
+    const params = getTrackParams(trackParams, track);
+    const fader = nodeRegistry.get(`track-${track}-fader`);
+    if (fader?.output) {
+      fader.output.gain.value = params.muted ? 0 : params.volume;
+    }
+    const vcfNode = nodeRegistry.get(`track-${track}-vcf`);
+    if (vcfNode?.iblokz) {
+      updateAudio(vcfNode.iblokz, {
+        type: 'lowpass',
+        cutoff: params.vcf.cutoff,
+        resonance: params.vcf.resonance,
+      });
+    }
   }
 };
 
-export const resume = () =>
-  context.state === 'suspended' ? context.resume() : Promise.resolve();
+export const applyRouting = (routing, trackParams, mixer, { reconnect = false } = {}) => {
+  ensureNodes(routing, mixer);
+  if (!wired || reconnect) {
+    wireEdges(routing);
+  }
+  updateEdgeGains(routing, trackParams);
+  const trackCount = routing.nodes.filter((n) => n.kind === 'fader').length;
+  syncTrackMixer(trackParams, trackCount);
+};
+
+export const getTrackInput = (track) => {
+  const node = nodeRegistry.get(`track-${track}-in`);
+  return node?.output ?? null;
+};
+
+export const resume = () => (context.state === 'suspended' ? context.resume() : Promise.resolve());
 
 export const play = (buffer, when = context.currentTime, track = 0, meta = {}) => {
+  const input = getTrackInput(track);
+  if (!input) return;
+
   const source = context.createBufferSource();
   source.buffer = buffer;
-  source.connect(getTrackGainNode(track));
+  source.connect(input);
 
   const entry = { source, when };
   scheduled.push(entry);
@@ -57,7 +184,7 @@ export const play = (buffer, when = context.currentTime, track = 0, meta = {}) =
   });
 };
 
-export const cancelScheduledAfter = cutoff => {
+export const cancelScheduledAfter = (cutoff) => {
   for (let i = scheduled.length - 1; i >= 0; i--) {
     const { source, when } = scheduled[i];
     if (when >= cutoff) {
@@ -82,10 +209,10 @@ export const cancelAllScheduled = () => {
   scheduled.length = 0;
 };
 
-export const stepTime = bpm => 60 / bpm / 4;
+export const stepTime = (bpm) => 60 / bpm / 4;
 
-export const trackGain = (trackParams, track) => {
-  const params = trackParams?.[track];
-  if (params?.muted) return 0;
-  return params?.volume ?? 0.85;
-};
+/** Total output latency (s): baseLatency + outputLatency — for UI sync with heard audio. */
+export const getOutputLatency = (ctx = context) =>
+  (ctx.baseLatency ?? 0) + (ctx.outputLatency ?? 0);
+
+export { trackGain } from './track-params';

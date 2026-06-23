@@ -35,6 +35,9 @@ pnpm run check   # Biome lint + format
 
 See [docs/theming.md](docs/theming.md) and [docs/linting.md](docs/linting.md) for more.
 
+**Vision & integration ideas:** [`brainstorming/`](brainstorming/)  
+**Planning:** [`planning/`](planning/)
+
 ## License
 
 This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)** — same as [Jam Station](https://github.com/alex-milanov/jam-station). See [LICENSE](LICENSE) for the full text.

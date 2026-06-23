@@ -20,6 +20,9 @@ importers:
       font-awesome:
         specifier: 4.7.0
         version: 4.7.0
+      iblokz-audio:
+        specifier: ^0.1.0
+        version: 0.1.0
       iblokz-data:
         specifier: ^1.6.0
         version: 1.6.0
@@ -1035,6 +1038,10 @@ packages:
   html-tags@5.1.0:
     resolution: {integrity: sha512-n6l5uca7/y5joxZ3LUePhzmBFUJ+U2YWzhMa8XUTecSeSlQiZdF5XAd/Q3/WUl0VsXgUwWi8I7CNIwdI5WN1SQ==}
     engines: {node: '>=20.10'}
+
+  iblokz-audio@0.1.0:
+    resolution: {integrity: sha512-Fb2s34rt5qHSHy6EEGrpfmkJVZBbbVAPqWvZ3jPxskSAOQFa9kWAySh9lk0lLWEEbzVlBOjMW3OgE9NMFNl+Wg==}
+    engines: {node: '>=18.12.0'}
 
   iblokz-data@1.6.0:
     resolution: {integrity: sha512-et1dywi4DKKnhjpWvXg06bnvrsN+ajP6GKRPr4zcZy2kOv7kocOTWkRv81NWPwutJIqsDPx3VGXR7V0SIUHEhA==}
@@ -2729,6 +2736,8 @@ snapshots:
       function-bind: 1.1.2
 
   html-tags@5.1.0: {}
+
+  iblokz-audio@0.1.0: {}
 
   iblokz-data@1.6.0: {}
 

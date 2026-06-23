@@ -1,0 +1,84 @@
+// Pure CSS knob — https://codepen.io/alex-milanov/pen/ogbYZjB
+// Accent/glow use theme tokens; metallic face matches the pen.
+
+.knob-field {
+  @include knob-field;
+
+  .knob {
+    --knob-value: 0;
+    --knob-accent: var(--app-btn-primary-bg);
+
+    width: 2.8em;
+    height: 2.8em;
+    position: relative;
+    margin: 0 auto;
+    display: inline-block;
+    box-sizing: border-box;
+    cursor: grab;
+    touch-action: none;
+    transform: rotate(calc(var(--knob-value) * 360deg));
+    background: conic-gradient(
+      from 30deg,
+      #fff,
+      #777,
+      #aaa,
+      #333,
+      #999,
+      #aaa,
+      #777,
+      #aaa,
+      #fff
+    );
+    border-radius: 100%;
+    box-shadow:
+      inset #ccc -1px -1px 0,
+      inset 1px 1px 0 #333,
+      1px 1px 3px #333,
+      0 0 calc(var(--knob-value) * 12px) var(--knob-accent);
+
+    &:active {
+      cursor: grabbing;
+    }
+
+    &::before {
+      content: '';
+      width: 37.5%;
+      height: 37.5%;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(#999, #111);
+      border: 1px solid #aaa;
+      border-radius: 100%;
+      pointer-events: none;
+    }
+
+    &::after {
+      content: '';
+      width: 12.5%;
+      height: 12.5%;
+      position: absolute;
+      top: 15.625%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--knob-accent);
+      border: 1px solid #777;
+      border-radius: 100%;
+      pointer-events: none;
+    }
+  }
+}
+
+.fx-row {
+  display: flex;
+  flex-flow: row nowrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.25em;
+
+  .knob-field {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}

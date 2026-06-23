@@ -1,0 +1,33 @@
+# Brainstorming & Design
+
+Exploratory docs for **Grooves** — vision, ecosystem references, and integration ideas.  
+Implementation specs graduate to `planning/`; completed work is recorded in `summaries/` (when those folders exist).
+
+## Folder structure
+
+### Root
+- [`vision.md`](vision.md) — what Grooves is, core principles, step-by-step approach
+- [`ecosystem.md`](ecosystem.md) — sibling apps, what to borrow from each, integration status
+- [`audio-routing-and-fx.md`](audio-routing-and-fx.md) — VCF inserts, reverb/delay busses, routing state & visualization
+- [`project-formats.md`](project-formats.md) — JSON, ZIP, DAWproject, MIDI, MusicXML interchange
+- [`track-model.md`](track-model.md) — track types, naming, session structure, MIDI mapping
+
+### Future (as topics grow)
+- `design/` — UI/UX specs, panel layouts, interaction patterns
+- `architecture/` — service boundaries, audio graph, state shape
+- `integrations/` — per-feature port notes (scheduling, library, MIDI, etc.)
+
+## Current focus
+
+**Active:** FX & routing (VCF per track, reverb/delay send busses), track model rethink, project format exploration.
+
+**Next implementation slice (likely):** master bus → reverb send bus → state refactor → simple routing diagram.
+
+## Quick links
+
+- 🎯 **Vision:** [`vision.md`](vision.md)
+- 🔗 **Ecosystem map:** [`ecosystem.md`](ecosystem.md)
+- 🎛️ **FX & routing:** [`audio-routing-and-fx.md`](audio-routing-and-fx.md)
+- 💾 **Project formats:** [`project-formats.md`](project-formats.md)
+- 🎚️ **Track model:** [`track-model.md`](track-model.md)
+- 📦 **What exists today:** [README](../README)

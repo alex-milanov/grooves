@@ -6,6 +6,7 @@ import {
   resume,
   sampleTriggered$,
   trackGain,
+  getOutputLatency,
 } from '../util/audio';
 import { bufferToWav } from '../util/buffer-to-wav';
 import * as samples from '../util/samples';
@@ -51,19 +52,21 @@ const cursorLoop = () => {
   }
 
   const now = context.currentTime;
-  pendingTriggers = pendingTriggers.filter(t => t.end > now);
+  const latency = getOutputLatency(context);
+  const heardNow = now - latency;
+  pendingTriggers = pendingTriggers.filter((t) => t.end > heardNow);
 
   const active = pendingTriggers
-    .filter(t => now >= t.when)
+    .filter((t) => heardNow >= t.when)
     .sort((a, b) => b.when - a.when)[0];
 
   if (active) {
-    ws.setTime(Math.min(now - active.when, active.end - active.when));
+    ws.setTime(Math.min(heardNow - active.when, active.end - active.when));
   } else if (pendingTriggers.length) {
     ws.setTime(0);
   }
 
-  if (pendingTriggers.some(t => t.end > now)) {
+  if (pendingTriggers.some((t) => t.end > heardNow)) {
     animRaf = requestAnimationFrame(cursorLoop);
   } else {
     animRaf = 0;
@@ -135,7 +138,7 @@ const applyTheme = () => {
   });
 };
 
-const syncWaveform = state => {
+const syncWaveform = (state) => {
   latestState = state;
   const track = state.sequencer.selectedTrack;
   activeTrack = track;
@@ -186,41 +189,56 @@ export let stop = () => {};
 export const start = ({ state$ }) => {
   const subs = [];
 
-  subs.push(state$.pipe(
-    map(state => ({
-      track: state.sequencer.selectedTrack,
-      assignment: assignmentFor(state, state.sequencer.selectedTrack),
-      theme: `${state.themeFamily}-${state.themeMode}`,
-    })),
-    distinctUntilChanged((a, b) =>
-      a.track === b.track
-      && a.assignment?.kit === b.assignment?.kit
-      && a.assignment?.sample === b.assignment?.sample
-      && a.theme === b.theme,
-    ),
-  ).subscribe(() => syncWaveform(state$.getValue())));
+  subs.push(
+    state$
+      .pipe(
+        map((state) => ({
+          track: state.sequencer.selectedTrack,
+          assignment: assignmentFor(state, state.sequencer.selectedTrack),
+          theme: `${state.themeFamily}-${state.themeMode}`,
+        })),
+        distinctUntilChanged(
+          (a, b) =>
+            a.track === b.track &&
+            a.assignment?.kit === b.assignment?.kit &&
+            a.assignment?.sample === b.assignment?.sample &&
+            a.theme === b.theme,
+        ),
+      )
+      .subscribe(() => syncWaveform(state$.getValue())),
+  );
 
-  subs.push(state$.pipe(
-    map(s => `${s.themeFamily}-${s.themeMode}`),
-    distinctUntilChanged(),
-  ).subscribe(() => applyTheme()));
+  subs.push(
+    state$
+      .pipe(
+        map((s) => `${s.themeFamily}-${s.themeMode}`),
+        distinctUntilChanged(),
+      )
+      .subscribe(() => applyTheme()),
+  );
 
-  subs.push(sampleTriggered$.subscribe(({ when, duration, track }) => {
-    addTrigger(when, duration, track);
-  }));
+  subs.push(
+    sampleTriggered$.subscribe(({ when, duration, track }) => {
+      addTrigger(when, duration, track);
+    }),
+  );
 
-  subs.push(state$.pipe(
-    map(s => s.sequencer.playing),
-    distinctUntilChanged(),
-  ).subscribe(playing => {
-    if (!playing) stopCursorAnimations();
-  }));
+  subs.push(
+    state$
+      .pipe(
+        map((s) => s.sequencer.playing),
+        distinctUntilChanged(),
+      )
+      .subscribe((playing) => {
+        if (!playing) stopCursorAnimations();
+      }),
+  );
 
   syncWaveform(state$.getValue());
 
   stop = () => {
     destroyWaveform();
-    subs.forEach(sub => sub.unsubscribe());
+    subs.forEach((sub) => sub.unsubscribe());
   };
 };
 

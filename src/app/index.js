@@ -12,30 +12,28 @@ import viewport from './services/viewport';
 import library from './services/library';
 import sequencer from './services/sequencer';
 import waveform from './services/waveform';
+import mixer from './services/mixer';
 // ui
 import ui from './ui';
 
 let state$ = init(initial);
 
-state$
-  .pipe(
-    distinctUntilChanged(s => s.sequencer)
-  )
-  .subscribe(s => console.log('state', s));
+state$.pipe(distinctUntilChanged((s) => s.sequencer)).subscribe((s) => console.log('state', s));
 
 // services
 viewport.start({ state$ });
 library.start({ state$ });
 sequencer.start({ state$ });
 waveform.start({ state$ });
+mixer.start({ state$ });
 
 // theme change tracking
 state$
   .pipe(
-    map(s => serializeTheme(s)),
-    distinctUntilChanged()
+    map((s) => serializeTheme(s)),
+    distinctUntilChanged(),
   )
-  .subscribe(theme => localStorage.setItem('boilerplate-theme', theme));
+  .subscribe((theme) => localStorage.setItem('boilerplate-theme', theme));
 
 // state -> ui
 let vnode$ = state$.pipe(map(ui));
@@ -48,6 +46,7 @@ if (module.hot) {
     library.stop();
     sequencer.stop();
     waveform.stop();
+    mixer.stop();
     patchSubscription.unsubscribe();
     state$.complete();
     document.body.innerHTML = document.body.innerHTML;
@@ -58,5 +57,6 @@ if (module.hot) {
     library.start({ state$ });
     sequencer.start({ state$ });
     waveform.start({ state$ });
+    mixer.start({ state$ });
   });
 }

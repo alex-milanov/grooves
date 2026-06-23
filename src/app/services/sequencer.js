@@ -1,4 +1,4 @@
-import { distinctUntilChanged, filter, map, pairwise } from 'rxjs';
+import { distinctUntilChanged, filter, pairwise } from 'rxjs';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../state';
 import {
@@ -8,7 +8,7 @@ import {
   stepTime,
   cancelScheduledAfter,
   cancelAllScheduled,
-  syncTrackGains,
+  getOutputLatency,
 } from '../util/audio';
 import * as samples from '../util/samples';
 
@@ -20,16 +20,16 @@ let lastPlayhead = -1;
 const timeSignatureToSteps = (timeSignature, resolution) =>
   Number((resolution * (timeSignature[0] / timeSignature[1])).toFixed(0));
 
-const stepCount = state =>
+const stepCount = (state) =>
   timeSignatureToSteps(state.sequencer.timeSignature, state.sequencer.resolution);
 
-const cycleDuration = state => {
+const cycleDuration = (state) => {
   const steps = stepCount(state);
   return stepTime(state.sequencer.bpm) * steps;
 };
 
-// Calculate the timing params for the current cycle
-const cycleTiming = state => {
+// Audio-time transport (scheduling). UI playhead uses effectiveStart = startTime + outputLatency.
+const audioCycleTiming = (state) => {
   const steps = stepCount(state);
   const duration = cycleDuration(state);
   const dt = stepTime(state.sequencer.bpm);
@@ -51,6 +51,16 @@ const cycleTiming = state => {
     cycleBase,
     duration,
   };
+};
+
+const uiPlayhead = (state) => {
+  const steps = stepCount(state);
+  const duration = cycleDuration(state);
+  const uiStart = startTime + getOutputLatency(context);
+  const now = context.currentTime;
+  if (now < uiStart) return -1;
+  const progress = ((now - uiStart) % duration) / duration;
+  return Math.floor(progress * steps);
 };
 
 const gridCellChanges = (prevGrid, nextGrid, tracks, steps) => {
@@ -88,8 +98,8 @@ const scheduleCycle = (state, cycle, fromStep = 0) => {
 };
 
 // Reschedule the remainder of the cycle when the grid changes
-const rescheduleRemainder = state => {
-  const { cycle, cutoffTime, rescheduleFrom, steps } = cycleTiming(state);
+const rescheduleRemainder = (state) => {
+  const { cycle, cutoffTime, rescheduleFrom, steps } = audioCycleTiming(state);
   cancelScheduledAfter(cutoffTime);
   latestCycle = cycle;
   if (rescheduleFrom < steps) {
@@ -97,14 +107,15 @@ const rescheduleRemainder = state => {
   }
 };
 
-const tick = state$ => {
+const tick = (state$) => {
   const state = state$.getValue();
   if (!state.sequencer.playing) return;
 
-  const timing = cycleTiming(state);
-  const { playhead, cycle, duration } = timing;
+  const timing = audioCycleTiming(state);
+  const { cycle, duration } = timing;
+  const playhead = uiPlayhead(state);
 
-  if (playhead !== lastPlayhead) {
+  if (playhead >= 0 && playhead !== lastPlayhead) {
     lastPlayhead = playhead;
     dispatch(patch(['sequencer', 'playhead'], playhead));
   }
@@ -123,8 +134,8 @@ const tick = state$ => {
   rafId = requestAnimationFrame(() => tick(state$));
 };
 
-const pauseGracefully = state => {
-  cancelScheduledAfter(cycleTiming(state).cutoffTime);
+const pauseGracefully = (state) => {
+  cancelScheduledAfter(audioCycleTiming(state).cutoffTime);
   cancelAnimationFrame(rafId);
   rafId = 0;
   latestCycle = -1;
@@ -149,78 +160,66 @@ const resetTransport = () => {
 };
 
 const transportChanged = (a, b) =>
-  a.sequencer.bpm === b.sequencer.bpm
-  && a.sequencer.timeSignature?.[0] === b.sequencer.timeSignature?.[0]
-  && a.sequencer.timeSignature?.[1] === b.sequencer.timeSignature?.[1]
-  && a.sequencer.resolution === b.sequencer.resolution;
+  a.sequencer.bpm === b.sequencer.bpm &&
+  a.sequencer.timeSignature?.[0] === b.sequencer.timeSignature?.[0] &&
+  a.sequencer.timeSignature?.[1] === b.sequencer.timeSignature?.[1] &&
+  a.sequencer.resolution === b.sequencer.resolution;
 
 export let stop = () => {};
 
 export const start = ({ state$ }) => {
   let subs = [];
-  const tracksFrom = state => state.tracks ?? state.sequencer.tracks;
-
-  syncTrackGains(state$.getValue().sequencer.trackParams, tracksFrom(state$.getValue()));
 
   // Play/pause the sequencer
-  subs.push(state$.pipe(
-    distinctUntilChanged((a, b) => a.sequencer.playing === b.sequencer.playing),
-  ).subscribe(state => {
-    if (state.sequencer.playing) {
-      resume().then(() => {
-        startTime = context.currentTime + 0.05;
-        latestCycle = -1;
-        tick(state$);
-      });
-    } else {
-      pauseGracefully(state);
-    }
-  }));
+  subs.push(
+    state$
+      .pipe(distinctUntilChanged((a, b) => a.sequencer.playing === b.sequencer.playing))
+      .subscribe((state) => {
+        if (state.sequencer.playing) {
+          resume().then(() => {
+            startTime = context.currentTime + 0.05;
+            latestCycle = -1;
+            tick(state$);
+          });
+        } else {
+          pauseGracefully(state);
+        }
+      }),
+  );
 
   // Reset the transport when the playing state changes
-  subs.push(state$.pipe(
-    filter(s => s.sequencer.playing),
-    distinctUntilChanged(transportChanged),
-  ).subscribe(() => resetTransport()));
+  subs.push(
+    state$
+      .pipe(
+        filter((s) => s.sequencer.playing),
+        distinctUntilChanged(transportChanged),
+      )
+      .subscribe(() => resetTransport()),
+  );
 
   // Reschedule the remainder of the cycle when the grid changes
-  subs.push(state$.pipe(
-    filter(s => s.sequencer.playing),
-    pairwise(),
-    filter(([prev, next]) => prev.sequencer.grid !== next.sequencer.grid),
-  ).subscribe(([prev, next]) => {
-    const tracks = next.tracks ?? next.sequencer.tracks;
-    const steps = stepCount(next);
-    const changes = gridCellChanges(
-      prev.sequencer.grid,
-      next.sequencer.grid,
-      tracks,
-      steps,
-    );
-    const { playhead } = cycleTiming(next);
-    if (changes.some(({ step }) => step > playhead)) {
-      rescheduleRemainder(next);
-    }
-  }));
-
-  // Sync the track gains when the track params change
-  subs.push(state$.pipe(
-    map(s => ({
-      trackParams: s.sequencer.trackParams,
-      tracks: tracksFrom(s),
-    })),
-    distinctUntilChanged((a, b) =>
-      JSON.stringify(a.trackParams) === JSON.stringify(b.trackParams)
-      && a.tracks === b.tracks,
-    ),
-  ).subscribe(({ trackParams, tracks }) => {
-    syncTrackGains(trackParams, tracks);
-  }));
+  subs.push(
+    state$
+      .pipe(
+        filter((s) => s.sequencer.playing),
+        pairwise(),
+        filter(([prev, next]) => prev.sequencer.grid !== next.sequencer.grid),
+      )
+      .subscribe(([prev, next]) => {
+        const tracks = next.tracks ?? next.sequencer.tracks;
+        const steps = stepCount(next);
+        const changes = gridCellChanges(prev.sequencer.grid, next.sequencer.grid, tracks, steps);
+        const { playhead } = audioCycleTiming(next);
+        if (changes.some(({ step }) => step > playhead)) {
+          rescheduleRemainder(next);
+        }
+      }),
+  );
 
   // Reset the sequencer service when it stops
   stop = () => {
     reset();
-    subs.forEach(sub => sub.unsubscribe());
+    subs.forEach((sub) => sub.unsubscribe());
     subs = [];
   };
 };

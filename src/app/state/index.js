@@ -1,12 +1,22 @@
 import { obj } from 'iblokz-data';
 import { getInitialTheme } from '../util/theme';
+import { buildDefaultRouting } from '../util/routing';
+
+const TRACK_COUNT = 4;
 
 export const initial = {
+  routing: buildDefaultRouting(TRACK_COUNT),
+  mixer: {
+    buses: {
+      reverb: { seconds: 3, decay: 2 },
+      delay: { time: 0.375, feedback: 0.35 },
+    },
+  },
   sequencer: {
     bpm: 120,
     timeSignature: [4, 4],
     resolution: 16,
-    tracks: 4,
+    tracks: TRACK_COUNT,
     steps: 16,
     playing: false,
     playhead: null,
@@ -21,7 +31,7 @@ export const initial = {
       2: { kit: 'basic_drum_kit', sample: 'HCR-01.wav' },
     },
     trackParams: {},
-    grid: [] // [[]] (tracks x steps) on/off 1/0 grid
+    grid: [], // [[]] (tracks x steps) on/off 1/0 grid
   },
   library: {
     path: ['library'],
@@ -46,8 +56,7 @@ export const initial = {
   },
 };
 
-export const patch = (path, value) => state => obj.patch(state, path, value);
-
+export const patch = (path, value) => (state) => obj.patch(state, path, value);
 
 export default {
   initial,
