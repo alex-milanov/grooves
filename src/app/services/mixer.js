@@ -7,7 +7,7 @@ export const start = ({ state$ }) => {
   const subs = [];
 
   const sync = (state) => {
-    applyRouting(state.routing, state.sequencer.trackParams, state.mixer);
+    applyRouting(state.routing, state.sequencer.trackParams, state.mixer, state.partMixer);
   };
 
   sync(state$.getValue());
@@ -19,16 +19,18 @@ export const start = ({ state$ }) => {
           routing: s.routing,
           trackParams: s.sequencer.trackParams,
           mixer: s.mixer,
+          partMixer: s.partMixer,
         })),
         distinctUntilChanged(
           (a, b) =>
             JSON.stringify(a.routing) === JSON.stringify(b.routing) &&
             JSON.stringify(a.trackParams) === JSON.stringify(b.trackParams) &&
-            JSON.stringify(a.mixer) === JSON.stringify(b.mixer),
+            JSON.stringify(a.mixer) === JSON.stringify(b.mixer) &&
+            JSON.stringify(a.partMixer) === JSON.stringify(b.partMixer),
         ),
       )
-      .subscribe(({ routing, trackParams, mixer }) => {
-        applyRouting(routing, trackParams, mixer);
+      .subscribe(({ routing, trackParams, mixer, partMixer }) => {
+        applyRouting(routing, trackParams, mixer, partMixer);
       }),
   );
 

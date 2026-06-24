@@ -1,4 +1,4 @@
-// Mobile — scale workspace to fit; panels flow in flex row with sequencer
+// Mobile — scale workspace to fit wrapper; compact strip previews
 @media (max-width: 900px) {
   .app {
     background-attachment: scroll;
@@ -11,12 +11,24 @@
     }
   }
 
-  .workspace {
-    top: 50%;
-    left: 0.75rem;
-    right: 0.75rem;
-    transform: translateY(-50%) scale(var(--workspace-scale, 1));
-    transform-origin: left center;
+  .workspace-wrapper {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .workspace-strip-preview,
+  .workspace-strip-slot {
+    width: 8.5em;
+    height: 4em;
+  }
+
+  .workspace-strip-preview .workspace-preview-inner {
+    --strip-preview-scale: 0.11;
+  }
+
+  .workspaces-strip {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    min-height: 4.75em;
   }
 }
 
@@ -68,24 +80,14 @@
 }
 
 @media (max-width: 900px) and (orientation: landscape) {
-  /* mobile landscape */
-  .app {
-    display: flex;
-    flex-direction: column;
-  }
   .site-header {
-    position: relative;
-    top: auto;
-    left: auto;
-    right: auto;
-    transform: none;
-    transform-origin: none;
-    padding: 0px !important;
+    padding: 0 !important;
     max-height: 36px;
-    margin: 0px !important;
+    margin: 0 !important;
   }
+
   .workspace {
-    max-width: 100vw;
+    max-width: 100%;
   }
 }
 

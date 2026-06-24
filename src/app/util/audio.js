@@ -58,6 +58,12 @@ const ensureNode = (def, mixer) => {
       entry = { def, input: gain, output: gain, track: def.track };
       break;
     }
+    case 'part-fader': {
+      const gain = context.createGain();
+      gain.gain.value = 1;
+      entry = { def, input: gain, output: gain };
+      break;
+    }
     case 'bus': {
       if (def.bus === 'reverb') {
         const buses = mixer?.buses?.reverb ?? {};
@@ -120,12 +126,36 @@ const wireEdges = (routing) => {
   wired = true;
 };
 
-const updateEdgeGains = (routing, trackParams) => {
+const updateEdgeGains = (routing, trackParams, partMixer) => {
   routing.edges.forEach((edge) => {
     const gain = getEdgeGain(edge.id);
     const enabled = edge.enabled !== false;
-    gain.gain.value = enabled ? resolveEdgeGain(edge, trackParams) : 0;
+    gain.gain.value = enabled ? resolveEdgeGain(edge, trackParams, partMixer) : 0;
   });
+};
+
+const syncMasterVolume = (mixer) => {
+  const master = nodeRegistry.get('master');
+  if (master?.output) master.output.gain.value = mixer?.master?.volume ?? 1;
+};
+
+const syncBusParams = (mixer) => {
+  const rev = nodeRegistry.get('bus-reverb');
+  if (rev?.iblokz) {
+    const b = mixer?.buses?.reverb ?? {};
+    updateAudio(rev.iblokz, {
+      seconds: b.seconds ?? 3,
+      decay: b.decay ?? 2,
+      dry: 0,
+      wet: 1,
+    });
+  }
+  const dly = nodeRegistry.get('bus-delay');
+  if (dly?.delay) {
+    const b = mixer?.buses?.delay ?? {};
+    dly.delay.delayTime.value = b.time ?? 0.375;
+    dly.feedbackGain.gain.value = b.feedback ?? 0.35;
+  }
 };
 
 export const syncTrackMixer = (trackParams, tracks) => {
@@ -146,14 +176,22 @@ export const syncTrackMixer = (trackParams, tracks) => {
   }
 };
 
-export const applyRouting = (routing, trackParams, mixer, { reconnect = false } = {}) => {
+export const applyRouting = (
+  routing,
+  trackParams,
+  mixer,
+  partMixer,
+  { reconnect = false } = {},
+) => {
   ensureNodes(routing, mixer);
   if (!wired || reconnect) {
     wireEdges(routing);
   }
-  updateEdgeGains(routing, trackParams);
+  updateEdgeGains(routing, trackParams, partMixer);
   const trackCount = routing.nodes.filter((n) => n.kind === 'fader').length;
   syncTrackMixer(trackParams, trackCount);
+  syncMasterVolume(mixer);
+  syncBusParams(mixer);
 };
 
 export const getTrackInput = (track) => {

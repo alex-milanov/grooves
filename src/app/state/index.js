@@ -1,12 +1,24 @@
 import { obj } from 'iblokz-data';
 import { getInitialTheme } from '../util/theme';
 import { buildDefaultRouting } from '../util/routing';
+import { WORKSPACE_DRUMS, defaultWorkspacesStripOpen } from '../util/workspaces';
 
 const TRACK_COUNT = 4;
 
 export const initial = {
+  ui: {
+    activeWorkspace: WORKSPACE_DRUMS,
+    workspacesStripOpen: typeof window !== 'undefined' ? defaultWorkspacesStripOpen() : true,
+  },
+  partMixer: {
+    name: 'Drums',
+    volume: 1,
+    muted: false,
+    solo: false,
+  },
   routing: buildDefaultRouting(TRACK_COUNT),
   mixer: {
+    master: { volume: 1 },
     buses: {
       reverb: { seconds: 3, decay: 2 },
       delay: { time: 0.375, feedback: 0.35 },

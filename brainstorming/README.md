@@ -11,6 +11,7 @@ Implementation specs graduate to `planning/`; completed work is recorded in `sum
 - [`audio-routing-and-fx.md`](audio-routing-and-fx.md) — VCF inserts, reverb/delay busses, routing state & visualization
 - [`project-formats.md`](project-formats.md) — JSON, ZIP, DAWproject, MIDI, MusicXML interchange
 - [`track-model.md`](track-model.md) — track types, naming, session structure, MIDI mapping
+- [`workspaces.md`](workspaces.md) — strip switcher, one workspace per track, mixer & routing screens
 
 ### Future (as topics grow)
 - `design/` — UI/UX specs, panel layouts, interaction patterns
@@ -19,9 +20,9 @@ Implementation specs graduate to `planning/`; completed work is recorded in `sum
 
 ## Current focus
 
-**Active:** FX & routing (VCF per track, reverb/delay send busses), track model rethink, project format exploration.
+**Active:** workspaces strip + Drums editor + mixer ([`planning/2026-06-24-01-workspaces-strip-and-mixer.md`](../planning/2026-06-24-01-workspaces-strip-and-mixer.md)), track model / `tracks[]` migration, project formats.
 
-**Next implementation slice (likely):** master bus → reverb send bus → state refactor → simple routing diagram.
+**Next implementation slice:** workspaces UI shell — strip, `activeWorkspace`, mixer columns (part mixer + buses + master).
 
 ## Quick links
 
@@ -30,4 +31,5 @@ Implementation specs graduate to `planning/`; completed work is recorded in `sum
 - 🎛️ **FX & routing:** [`audio-routing-and-fx.md`](audio-routing-and-fx.md)
 - 💾 **Project formats:** [`project-formats.md`](project-formats.md)
 - 🎚️ **Track model:** [`track-model.md`](track-model.md)
+- 🖥️ **Workspaces:** [`workspaces.md`](workspaces.md)
 - 📦 **What exists today:** [README](../README)

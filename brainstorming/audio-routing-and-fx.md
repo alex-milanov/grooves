@@ -91,10 +91,9 @@ tracks: [
     mixer: {
       volume: 0.85,
       muted: false,
+      solo: false,
       pan: 0,           // future
-      inserts: [
-        { type: 'vcf', on: true, cutoff: 0.64, resonance: 0, gain: 0 },
-      ],
+      inserts: [ /* VCF */ ],
       sends: { reverb: 0.25, delay: 0.1 },
     },
     // type-specific payload ↓
@@ -159,18 +158,20 @@ Goal: show **nodes** (tracks, busses, master) and **edges** (audio + send levels
 
 **UI placement ideas:**
 
-- Collapsible **Mixer / Routing** panel (fourth panel beside library & track settings?)
-- Mini routing strip in track settings (shows only selected track’s path)
-- Full-screen “wire view” toggle (inspired by modular / mixer apps)
+- **Workspaces strip** under header — per-track tabs + Routing + Mixer; see [`workspaces.md`](workspaces.md).
+- Collapsible **Mixer / Routing** as dedicated workspaces (not side panels beside library).
+- Mini routing strip in track settings (shows only selected track’s path) — optional.
+- Full-screen “wire view” = **Routing** workspace.
 
 ---
 
 ## UI / UX notes (groovebox inspiration)
 
-- Per-track: VCF cutoff/resonance in track settings (extend current panel).
-- Send knobs: `Reverb send`, `Delay send` — rotary or vertical sliders.
-- Bus controls: global reverb/delay params when bus selected (or always in mixer panel).
-- Visual feedback: highlight bus when send > 0; optional meter on bus return.
+- **Mixer workspace** — column console with **flex**: track columns left, spacer, bus + master columns right; see [`workspaces.md`](workspaces.md) § Flex layout & Mixer workspace.
+- Per-part editor (track settings): VCF cutoff/resonance; optional duplicate send knobs for convenience.
+- Bus **effect parameters** (reverb time/decay, delay time/feedback) live in **bus columns** on the mixer, not only in a global settings panel.
+- Visual feedback: highlight bus column when any send > 0; optional meters on faders (later).
+- **Solo** per session track — new control; implement in audio graph when mixer workspace lands.
 
 ---
 

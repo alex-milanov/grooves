@@ -1,46 +1,34 @@
 import { fromEvent, filter, startWith, map, distinctUntilChanged } from 'rxjs';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../state';
-import { MOBILE_BREAKPOINT } from '../util/panels';
 
 let resizeObserver = null;
 let fitRaf = 0;
 let transitionFitRaf = 0;
 const PANEL_TRANSITION_MS = 300;
 
-const isMobileViewport = () => window.innerWidth < MOBILE_BREAKPOINT;
-
-const measureWorkspace = inner => {
-  const width = Math.max(inner.scrollWidth, inner.offsetWidth);
-  const height = Math.max(inner.scrollHeight, inner.offsetHeight);
+const measureWorkspace = (el) => {
+  const width = Math.max(el.scrollWidth, el.offsetWidth);
+  const height = Math.max(el.scrollHeight, el.offsetHeight);
   return width > 0 && height > 0 ? { width, height } : null;
 };
 
 const fitWorkspace = () => {
-  const inner = document.querySelector('.workspace-inner');
-  if (!inner) return;
+  const wrapper = document.querySelector('.workspace-wrapper');
+  const content = document.querySelector('.workspace > *');
+  if (!wrapper || !content) return;
 
-  const isMobile = isMobileViewport();
-
-  if (!isMobile) {
-    document.documentElement.style.removeProperty('--workspace-scale');
-    return;
-  }
-
-  const bounds = measureWorkspace(inner);
+  const bounds = measureWorkspace(content);
   if (!bounds || bounds.width <= 0 || bounds.height <= 0) return;
 
-  const margin = 12;
-  const header = 72;
-  const availW = window.innerWidth - margin * 2;
-  const availH = window.innerHeight - header - margin;
+  const margin = 8;
+  const availW = wrapper.clientWidth - margin * 2;
+  const availH = wrapper.clientHeight - margin * 2;
+  if (availW <= 0 || availH <= 0) return;
 
-  const scale = Math.min(1, availW / bounds.width, availH / bounds.height) * 0.97;
+  const scale = Math.min(1, availW / bounds.width, availH / bounds.height);
 
-  document.documentElement.style.setProperty(
-    '--workspace-scale',
-    scale.toFixed(4),
-  );
+  document.documentElement.style.setProperty('--workspace-scale', scale.toFixed(4));
 };
 
 const scheduleFit = () => {
@@ -63,11 +51,16 @@ const startTransitionFit = () => {
 const observeWorkspace = () => {
   if (!resizeObserver) return;
   resizeObserver.disconnect();
-  const inner = document.querySelector('.workspace-inner');
-  if (!inner) return;
-  resizeObserver.observe(inner);
-  inner.querySelectorAll('.sequencer, .library, .track-settings')
-    .forEach(el => resizeObserver.observe(el));
+
+  const wrapper = document.querySelector('.workspace-wrapper');
+  const content = document.querySelector('.workspace > *');
+  if (wrapper) resizeObserver.observe(wrapper);
+  if (!content) return;
+
+  resizeObserver.observe(content);
+  content
+    .querySelectorAll('.sequencer, .library, .track-settings, .mixer-console')
+    .forEach((el) => resizeObserver.observe(el));
 };
 
 export let stop = () => {};
@@ -78,42 +71,48 @@ export const start = ({ state$ }) => {
   resizeObserver = new ResizeObserver(scheduleFit);
 
   subs.push(
-    fromEvent(document, 'mousemove').subscribe(ev =>
-      dispatch(patch(['viewport', 'mouse'], {
-        x: ev.pageX,
-        y: ev.pageY,
-      })),
+    fromEvent(document, 'mousemove').subscribe((ev) =>
+      dispatch(
+        patch(['viewport', 'mouse'], {
+          x: ev.pageX,
+          y: ev.pageY,
+        }),
+      ),
     ),
   );
 
   subs.push(
     fromEvent(document, 'mousedown')
-      .pipe(filter(ev => ev.target.tagName === 'CANVAS'))
+      .pipe(filter((ev) => ev.target.tagName === 'CANVAS'))
       .subscribe(() => dispatch(patch(['viewport', 'mouse'], { down: true }))),
   );
 
   subs.push(
-    fromEvent(document, 'mouseup')
-      .subscribe(() => dispatch(patch(['viewport', 'mouse'], { down: false }))),
+    fromEvent(document, 'mouseup').subscribe(() =>
+      dispatch(patch(['viewport', 'mouse'], { down: false })),
+    ),
   );
 
   subs.push(
     fromEvent(window, 'resize')
       .pipe(startWith({}))
       .subscribe(() => {
-        dispatch(patch(['viewport', 'screen'], {
-          width: window.innerWidth,
-          height: window.innerHeight,
-          size: window.innerWidth >= 1200
-            ? 'xl'
-            : window.innerWidth >= 992
-              ? 'lg'
-              : window.innerWidth >= 768
-                ? 'md'
-                : window.innerWidth >= 576
-                  ? 'sm'
-                  : 'xs',
-        }));
+        dispatch(
+          patch(['viewport', 'screen'], {
+            width: window.innerWidth,
+            height: window.innerHeight,
+            size:
+              window.innerWidth >= 1200
+                ? 'xl'
+                : window.innerWidth >= 992
+                  ? 'lg'
+                  : window.innerWidth >= 768
+                    ? 'md'
+                    : window.innerWidth >= 576
+                      ? 'sm'
+                      : 'xs',
+          }),
+        );
         scheduleFit();
       }),
   );
@@ -121,37 +120,54 @@ export const start = ({ state$ }) => {
   subs.push(
     fromEvent(window, 'scroll')
       .pipe(startWith({}))
-      .subscribe(() => dispatch(patch(['viewport', 'screen'], {
-        scroll: { x: window.scrollX, y: window.scrollY },
-      }))),
+      .subscribe(() =>
+        dispatch(
+          patch(['viewport', 'screen'], {
+            scroll: { x: window.scrollX, y: window.scrollY },
+          }),
+        ),
+      ),
   );
 
-  subs.push(state$.pipe(
-    map(s => ({
-      track: s.sequencer?.selectedTrack,
-      library: s.sequencer?.panels?.library,
-      settings: s.sequencer?.panels?.settings,
-      tracks: s.tracks ?? s.sequencer?.tracks,
-      steps: s.sequencer?.timeSignature && s.sequencer?.resolution
-        ? Number((s.sequencer.resolution * (
-          s.sequencer.timeSignature[0] / s.sequencer.timeSignature[1]
-        )).toFixed(0))
-        : s.sequencer?.steps,
-      width: s.viewport?.screen?.width,
-    })),
-    distinctUntilChanged((a, b) =>
-      a.track === b.track
-      && a.library === b.library
-      && a.settings === b.settings
-      && a.tracks === b.tracks
-      && a.steps === b.steps
-      && a.width === b.width,
-    ),
-  ).subscribe(() => {
-    observeWorkspace();
-    scheduleFit();
-    startTransitionFit();
-  }));
+  subs.push(
+    state$
+      .pipe(
+        map((s) => ({
+          track: s.sequencer?.selectedTrack,
+          library: s.sequencer?.panels?.library,
+          settings: s.sequencer?.panels?.settings,
+          tracks: s.tracks ?? s.sequencer?.tracks,
+          steps:
+            s.sequencer?.timeSignature && s.sequencer?.resolution
+              ? Number(
+                  (
+                    s.sequencer.resolution *
+                    (s.sequencer.timeSignature[0] / s.sequencer.timeSignature[1])
+                  ).toFixed(0),
+                )
+              : s.sequencer?.steps,
+          width: s.viewport?.screen?.width,
+          activeWorkspace: s.ui?.activeWorkspace,
+          stripOpen: s.ui?.workspacesStripOpen,
+        })),
+        distinctUntilChanged(
+          (a, b) =>
+            a.track === b.track &&
+            a.library === b.library &&
+            a.settings === b.settings &&
+            a.tracks === b.tracks &&
+            a.steps === b.steps &&
+            a.width === b.width &&
+            a.activeWorkspace === b.activeWorkspace &&
+            a.stripOpen === b.stripOpen,
+        ),
+      )
+      .subscribe(() => {
+        observeWorkspace();
+        scheduleFit();
+        startTransitionFit();
+      }),
+  );
 
   observeWorkspace();
   scheduleFit();
@@ -161,7 +177,7 @@ export const start = ({ state$ }) => {
     cancelAnimationFrame(transitionFitRaf);
     resizeObserver?.disconnect();
     resizeObserver = null;
-    subs.forEach(sub => sub.unsubscribe());
+    subs.forEach((sub) => sub.unsubscribe());
   };
 };
 

@@ -5,11 +5,17 @@
 
 ## Problem
 
-Grooves uses **“tracks”** for what are really **sample sequencer rows** — one sample, one step grid, one mixer strip. That made sense for the MVP drum machine, but it breaks down when adding:
+Grooves overloads **“tracks”** in two ways at once:
 
+1. **`sequencer.tracks`** is a **row count** — but those rows are **not** session tracks.
+2. The **4-row grid is one drum part** — each row is a **different sound / MIDI note** (kick, snare, hat, …) on the same pattern, like a drum rack or TR-style row matrix.
+
+That made sense for an MVP single drum-machine screen, but it breaks down when adding:
+
+- **More session tracks** (a second drum kit, loops, instruments) — each needs its own workspace
 - **Loop tracks** (js-loop-station — layered audio loops)
 - **Instrument tracks** (jam-station `type: 'piano'` — piano roll, synth/sampler notes)
-- **MIDI** I/O per track (channels, devices)
+- **MIDI** I/O per **session track** (channel per part, note per row)
 - **Project formats** that distinguish **arrangement track** vs **mixer channel** (DAWproject)
 
 We need a model that scales without renaming everything twice.
@@ -31,12 +37,14 @@ One track = one logical part (Drums, Bassline) with its own editor and instrumen
 
 ### grooves (today)
 
-- `sequencer.tracks` — **count** of rows (number)
-- `sequencer.assignments[i]` — sample for row *i*
-- `sequencer.grid[i][step]` — on/off
-- `sequencer.trackParams[i]` — volume, mute
+MVP UI looks like four “tracks”, but structurally it is **one implicit drum track**:
 
-Row index *is* the track ID — no types, no names, no MIDI.
+- `sequencer.tracks` — **row count** inside that part (e.g. 4 sounds)
+- `sequencer.assignments[i]` — sample for row *i*
+- `sequencer.grid[i][step]` — on/off for row *i*
+- `sequencer.trackParams[i]` — volume, mute, FX per row
+
+Row index is used as ID everywhere — no session `tracks[]`, no types, no per-row MIDI note field yet. Each row **should** map to a **MIDI note** (e.g. kick → 36, snare → 38) on the part’s channel (drums → 10).
 
 ### DAWproject
 
@@ -52,9 +60,9 @@ Separates **timeline track**, **mixer channel**, and **clip content** — more g
 
 | Term | Meaning | Pros | Cons |
 |------|---------|------|------|
-| **Track** | Top-level session lane (jam-station style) | Familiar; DAWproject has Track | Currently overloaded in grooves UI |
-| **Row** | Sequencer grid horizontal strip | Matches current UI | Doesn’t fit loop/instrument lanes |
-| **Lane** | Arrangement row (DAWproject Lanes) | Neutral; works for all types | Less familiar to users |
+| **Track** | Session-level part (jam-station style) | Familiar; one workspace tab, one mixer strip | Was confused with grid rows |
+| **Row** | One line in the step grid **inside** a `sample-seq` track | Matches current UI; one sample, one MIDI note | Doesn’t fit loop/instrument editors |
+| **Lane** | Arrangement row (DAWproject Lanes) — clips on a timeline | Neutral; future multi-clip tracks | Not the same as a grid row |
 | **Channel** | Mixer/MIDI channel | MIDI-standard | Conflicts with “16 MIDI channels” |
 | **Strip** | Mixer strip | Clear in routing view | Awkward for arrangement |
 | **Part** | Groovebox “part” (hardware term) | Matches Akai/Roland vocabulary | Less common in web apps |
@@ -63,10 +71,46 @@ Separates **timeline track**, **mixer channel**, and **clip content** — more g
 
 - **`track`** — session-level entity (keep user-facing word).
 - **`track.type`** — discriminates behavior (see below).
-- **`pattern` / `clips`** — type-specific content (not “the track” itself).
-- **`mixer`** — volume, mute, pan, inserts, sends (may mirror track 1:1 at first).
+- **`row`** (within `sample-seq`) — one sound in the grid; **`midi.note`** per row.
+- **`pattern` / `clips`** — type-specific content at track level (not “the track” itself).
+- **`mixer`** — per-track strip + optional per-row gain inside drum parts (see open questions).
 
-Avoid using “track” in code for **both** row index and session entity — use **`trackId`** (string/uuid) soon, not bare index.
+Avoid using “track” in code for **grid row index** — use **`trackId`** for session entities and **`rowId`** / row index inside a `sample-seq` track.
+
+---
+
+## Group tracks (composite)
+
+**Decision:** sequencer, loop, instrument, etc. are **group tracks** (also **composite** or **root tracks**) — one identity for the **strip**, **mixer**, and **export**, with **sub-parts** inside for editing detail.
+
+| Layer | Role | Mixer | Export (MIDI / DAW) |
+|-------|------|-------|---------------------|
+| **Group track** | Session part (Drums, Loop A, Bass) | **One column** — vol, mute, solo, sends | **One track** / one structure channel |
+| **Sub-part** | Internal editor unit | **Not in mixer** (for now) | Events folded into parent track |
+
+### Sub-parts by type
+
+| Group track type | Sub-parts | Sub-part can have |
+|----------------|-----------|-------------------|
+| `sample-seq` | **Rows** (kick, snare, …) | Sample, step grid, **per-row filter (VCF)**, per-row send levels |
+| `loop` | **Slots** (e.g. 4 loops) | Buffer, overdub; per-slot filter/send (future) |
+| `instrument` | **Clips** / regions | Notes, sound; per-clip or inst chain (future) |
+
+Sub-part **filter and send** settings are edited in the **track workspace** (e.g. track settings for the selected row). They affect **audio routing** for that sub-part but do **not** get a separate mixer column.
+
+### Mixer
+
+- **Root level only** — one column per **group track**, plus bus columns and master.
+- No per-row / per-slot sub-faders in the mixer workspace (slice 1 and foreseeable near term).
+- `track.mixer` — volume, mute, solo, sends for the whole group.
+
+### Export
+
+- **MIDI:** one exported MIDI track per **group track** (e.g. all drum rows → note events on **one** channel/track; row `midi.note` distinguishes kick vs snare).
+- **DAWproject:** one **structure** track per group; sub-parts may map to **lanes** or note clips inside that track, not separate mixer channels in our export subset.
+- **Native JSON/ZIP:** full fidelity — `rows[]`, per-row inserts/sends preserved.
+
+Internal audio graph may still use **per-sub-part nodes** (today: `track-0`…`track-3` routing); export and mixer UI collapse to the **group** boundary.
 
 ---
 
@@ -82,23 +126,48 @@ Avoid using “track” in code for **both** row index and session entity — us
 'aux'          // reverb/delay return? or busses stay in mixer only
 ```
 
-### `sample-seq` (today’s rows)
+### `sample-seq` (drum / rhythm part)
+
+One **track** = one workspace = **multi-row step grid** (today’s whole sequencer screen, for that part only).
 
 ```javascript
 {
-  id: 'trk-kick',
+  id: 'trk-drums',
   type: 'sample-seq',
-  name: 'Kick',
-  sample: { kit: 'basic_drum_kit', file: 'PD-KICK-03.wav' },
+  name: 'Drums',
+  midi: { channel: 10 },           // one channel for the part
   pattern: {
     steps: 16,
     resolution: 16,
-    grid: [1,0,0,0, ...],
   },
-  midi: { channel: 10, note: 36 },  // optional: pad trigger / export map
-  mixer: { volume, muted, inserts, sends },
+  rows: [
+    {
+      id: 'row-kick',
+      name: 'Kick',
+      midi: { note: 36 },
+      sample: { kit: 'basic_drum_kit', file: 'PD-KICK-03.wav' },
+      grid: [1, 0, 0, 0, /* … */],
+      inserts: { vcf: { cutoff, resonance } },  // sub-part filter
+      sends: { reverb, delay },                 // sub-part send levels (editor)
+    },
+    {
+      id: 'row-snare',
+      name: 'Snare',
+      midi: { note: 38 },
+      sample: { kit: 'basic_drum_kit', file: 'SNARE-01.wav' },
+      grid: [0, 0, 1, 0, /* … */],
+      inserts: { /* … */ },
+      sends: { /* … */ },
+    },
+    // … more rows (sounds / MIDI notes)
+  ],
+  mixer: { volume, muted, solo, sends },  // group track — mixer column + export level
 }
 ```
+
+Each **row** = one sample + one grid line + one **MIDI note** inside the **group**; export and mixer treat the parent as **one track**.
+
+**`loop` (future)** — same pattern: e.g. 4 slots as sub-parts, `track.mixer` at group level, one MIDI/structure track on export.
 
 ### `loop` (future)
 
@@ -157,7 +226,7 @@ state.ui.{ selectedTrackId, panels, theme, ... }
 
 Sequencer UI becomes **one editor** for `type === 'sample-seq'` tracks; piano-roll UI for `instrument`; loop UI for `loop`.
 
-**Migration:** v0 → v1 converter maps `sequencer.assignments[i]` + `grid[i]` → `tracks[i].type = 'sample-seq'`.
+**Migration:** v0 → v1 maps the **entire current sequencer** (all rows) → **one** `sample-seq` track with `rows[]`. Row *i* ← `assignments[i]` + `grid[i]` + `trackParams[i]` + default `midi.note` map. Additional session tracks (loop, instrument) are new strip tabs, not new rows in that grid.
 
 ---
 
@@ -165,41 +234,49 @@ Sequencer UI becomes **one editor** for `type === 'sample-seq'` tracks; piano-ro
 
 | Concern | Where it lives |
 |---------|----------------|
-| Track → MIDI channel | `track.midi.channel` (drums on 10, etc.) |
-| Step → note number | `track.midi.note` or per-step velocity map |
+| Part → MIDI channel | `track.midi.channel` (e.g. drums on 10) |
+| Row → note number | `track.rows[n].midi.note` |
+| Step hit → note on | row grid on + row’s `midi.note` on track channel |
 | External clock | `transport` + service (jam-station `midi.js`) |
-| Export to `.mid` | Flatten `sample-seq` patterns + `instrument` clips |
-| Import from `.mid` | Create/update tracks; **no sample bind** without map |
+| Export to `.mid` | **One MIDI track per group track** — all row notes on same track/channel |
+| Import from `.mid` | Match notes to rows within a group or spawn rows; **no sample bind** without map |
 
-DAWproject import/export uses **Structure + Arrangement** — our `tracks[]` maps to Structure; patterns/clips map to Arrangement lanes.
+DAWproject import/export: **one structure track per group**; sub-parts as lanes/clips inside it, not separate exported mixer strips.
 
 ---
 
 ## UI implications
 
-- Sequencer grid: show **only `sample-seq` tracks** (or subset visible).
+- **One workspace per session track** — strip tab selects type-specific editor; see [`workspaces.md`](workspaces.md).
+- **`sample-seq` workspace** — **multi-row grid** (today’s 4-row UI is one such track, not four tracks).
+- Row select — pick row for sample assign + **sub-part** settings (waveform, VCF, sends); not a mixer strip.
 - Track add menu: “Sample sequence”, “Loop”, “Instrument” (disabled until implemented).
-- Track settings panel: **type-aware** — waveform for sample-seq, ADSR for instrument, loop controls for loop.
-- Routing diagram: one node per track + busses (all types share mixer).
+- Routing diagram: one node per **group track** + busses; sub-parts optional inside drum groups (later).
+- Mixer: **one column per group track** only — see [`workspaces.md`](workspaces.md); no row/slot granularity.
 
 ---
 
-## Relationship to “split samples as tracks”
+## Relationship to “one sample per row”
 
-What we did (one sample per row) is correct for **drum-machine / sample-seq** workflow — same as one lane per sound on hardware grooveboxes. The issue isn’t “one sample per track”, it’s that **not every track is a sample-seq**.
+**One sample per grid row** is correct — each row is a different **MIDI note** / sound in the same drum part. That is not “one sample per session track”.
+
+- **Session track** = one part in the song (Drums, Bass loop, Synth) → one workspace tab.
+- **Row** = one lane in that part’s editor (kick row, snare row, …).
+
+The MVP collapses the whole session into **one implicit `sample-seq` track** with N rows. The strip model adds **more session tracks** alongside it, not more rows split into separate tabs.
 
 Analogies:
 
-- **Roland TR-style:** sample-seq tracks only.
-- **Novation Circuit / Akai Force:** tracks can be drum, synth, or loop — same button, different mode per track.
+- **Roland TR / drum rack:** many rows, **one kit part** — maps to one `sample-seq` track workspace.
+- **Novation Circuit / Akai Force:** several **parts** (drum / synth / loop) — maps to multiple strip tabs.
 
-Grooves heading toward the second — **unified track list**, **type-specific editor**.
+Grooves: **unified session track list** (strip) + **type-specific editor** (workspace) + **rows inside** drum-type tracks.
 
 ---
 
 ## Open questions
 
-- [ ] Fixed track count (4/8/16) vs dynamic add/remove?
+- [ ] Fixed row count (4/8/16) vs dynamic add/remove rows inside a part?
 - [ ] UUID `track.id` now or when project save lands?
 - [ ] Rename UI “Tracks” → “Parts” or keep “Tracks”?
 - [ ] One pattern per sample-seq track vs multiple patterns/scenes (groovebox patterns)?

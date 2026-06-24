@@ -1,12 +1,25 @@
+.workspace-wrapper {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
 .workspace {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: scale(var(--workspace-scale, 1));
   transform-origin: center center;
   box-sizing: border-box;
   width: auto;
-  max-width: none;
+  max-width: 100%;
+  max-height: 100%;
   margin: 0;
   padding: 0;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);

@@ -81,8 +81,8 @@ DAWproject supports (among other things): structure (tracks/folders), **audio cl
 
 | Grooves concept | DAWproject concept | Export | Import |
 |-----------------|-------------------|--------|--------|
-| Sample-seq track | Audio track or instrument track + clip per sample hit? | Phase 2+ | Hard — clip model differs from step grid |
-| Step pattern | Note clips on a lane (one note = one hit) | **Feasible** for drum grid → MIDI notes in clip | Partial — reconstruct grid from notes |
+| Sample-seq **group** track | One structure track; rows → note clips or lanes inside it | Phase 2+ | Partial |
+| Step pattern (sub-parts) | Note clips on **lanes within** the group track | **Feasible** — drum grid → MIDI notes, one exported track | Reconstruct grid from notes |
 | Sample file | Audio file in archive + clip reference | ✅ | ✅ if we map clips → steps |
 | Reverb/delay sends | Channel sends | ✅ if mixer modeled | ✅ read send levels |
 | VCF insert | Built-in EQ/filter device? | Subset | Subset |
@@ -96,11 +96,11 @@ DAWproject supports (among other things): structure (tracks/folders), **audio cl
 
 ## MIDI — practical role
 
-- **Export:** each sample-seq track → MIDI channel (10 drums?) or one track with GM map; each active step → note on with velocity, step duration from grid.
-- **Import:** note events → step grid (quantize to resolution); **no sample assignment** — user maps notes to samples manually or via map file.
+- **Export:** **one MIDI track per group track** — e.g. Drums: all rows → note events on a single track (typically channel 10); each row’s `midi.note` identifies the hit. Loop/instrument groups export as one track each with their own event model.
+- **Import:** note events → step grid or clips **within** a group (quantize to resolution); **no sample assignment** — user maps notes to samples manually or via map file.
 - **Clock:** future sync with external gear (jam-station MIDI clock patterns).
 
-MIDI is **event interchange**, not a grooves project format.
+MIDI is **event interchange**, not a grooves project format. Sub-part filters/sends are **not** represented in MIDI export.
 
 ---
 
