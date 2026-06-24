@@ -1,6 +1,6 @@
 export const MOBILE_BREAKPOINT = 900;
 
-export const isMobile = state =>
+export const isMobile = (state) =>
   (state.viewport?.screen?.width ?? window.innerWidth) < MOBILE_BREAKPOINT;
 
 export const defaultPanels = () => ({ library: false, settings: false });
@@ -45,7 +45,7 @@ const libraryForTrack = (state, track) => {
   };
 };
 
-export const deselectTrack = state => ({
+export const deselectTrack = (state) => ({
   ...state,
   sequencer: {
     ...state.sequencer,
@@ -103,7 +103,7 @@ export const openLibraryPanel = (state, track) => {
   };
 };
 
-export const panelsAfterAssign = state => {
+export const panelsAfterAssign = (state) => {
   const mobile = isMobile(state);
   return {
     library: mobile ? false : (state.sequencer.panels?.library ?? false),

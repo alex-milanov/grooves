@@ -1,0 +1,120 @@
+@import 'sequencer';
+
+.loops-workspace {
+  .loops-main {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75em;
+  }
+
+  .loop-slots {
+    display: flex;
+    flex-flow: row wrap;
+    gap: 1em;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .loop-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.5em;
+    width: 8em;
+  }
+
+  .loop-slot-select {
+    @include btn-toggle;
+    width: 100%;
+    font-size: 0.6em;
+    padding: 0.35em 0.5em;
+    white-space: nowrap;
+
+    &.assigned:not(.active) {
+      border: 1px solid var(--app-btn-secondary-border);
+      @supports (color: color-mix(in srgb, white 50%, black)) {
+        border-color: color-mix(in srgb, var(--app-btn-primary-bg) 45%, var(--app-btn-secondary-border));
+      }
+    }
+
+    &.panel-library:not(.panel-settings) {
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--app-btn-primary-bg) 35%, transparent);
+    }
+
+    &.panel-settings:not(.panel-library) {
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--app-text) 35%, transparent);
+    }
+
+    &.panel-library.panel-settings {
+      box-shadow:
+        -2px 0 0 0 color-mix(in srgb, var(--app-btn-primary-bg) 45%, transparent),
+        2px 0 0 0 color-mix(in srgb, var(--app-text) 45%, transparent);
+    }
+  }
+
+  button.play-rec {
+    --size: 6.5em;
+    --fg: var(--app-text-muted, #777);
+    --bg: var(--app-surface, #fff);
+    --pgPercentage: 0;
+
+    display: block;
+    width: var(--size);
+    height: var(--size);
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    opacity: 0.92;
+    transition: box-shadow 0.2s, opacity 0.2s;
+    background:
+      url('../assets/loops/play-rec.svg') center / 55% no-repeat,
+      radial-gradient(closest-side, var(--bg) 94%, transparent 0 100%, var(--bg) 0),
+      conic-gradient(var(--fg) calc(var(--pgPercentage) * 1%), var(--bg) 0);
+    box-shadow: 1px 1px 6px color-mix(in srgb, var(--app-shadow, #000) 25%, transparent);
+
+    &:hover {
+      opacity: 1;
+      box-shadow: 1px 1px 10px color-mix(in srgb, var(--app-shadow, #000) 35%, transparent);
+    }
+
+    &.play {
+      --fg: #4bcd4b;
+      box-shadow: 0 0 8px color-mix(in srgb, #4bcd4b 45%, transparent);
+    }
+
+    &.record {
+      --fg: #e44;
+      box-shadow: 0 0 8px color-mix(in srgb, #e44 45%, transparent);
+    }
+
+    &.overdub {
+      --fg: #ffbf00;
+      box-shadow: 0 0 8px color-mix(in srgb, #ffbf00 45%, transparent);
+    }
+
+    &.count-in {
+      --fg: #a8b8c8;
+      box-shadow: 0 0 8px color-mix(in srgb, #a8b8c8 40%, transparent);
+    }
+  }
+
+  .loop-slot-btn.stop,
+  .loops-clear-all,
+  .loops-click-toggle {
+    @include btn-base;
+    @include btn-variant(secondary);
+    width: 2.75em;
+    height: 2.75em;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .loops-click-toggle.active {
+    box-shadow: 0 0 0 2px color-mix(in srgb, #a8b8c8 55%, transparent);
+  }
+}

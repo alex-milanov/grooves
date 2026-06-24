@@ -2,9 +2,7 @@ export const THEME_REFERENCES = {
   pixel: {
     label: 'Pixel',
     summary: 'Retro pixel-art HUD',
-    references: [
-      { name: 'iBlokz boilerplate', path: 'this project' },
-    ],
+    references: [{ name: 'iBlokz boilerplate', path: 'this project' }],
     traits: [
       'Public Pixel font',
       'Hard 4px offset shadows',
@@ -15,9 +13,7 @@ export const THEME_REFERENCES = {
   terminal: {
     label: 'Terminal',
     summary: 'Monospace dev workspace — calm, flat, almost no decoration.',
-    references: [
-      { name: 'alphapm', path: '~/Projects/dev/apps/alphapm' },
-    ],
+    references: [{ name: 'alphapm', path: '~/Projects/dev/apps/alphapm' }],
     traits: [
       'Fira Code',
       'Radial gray page background',
@@ -56,5 +52,4 @@ export const THEME_REFERENCES = {
   },
 };
 
-export const getThemeMeta = family =>
-  THEME_REFERENCES[family] || THEME_REFERENCES.pixel;
+export const getThemeMeta = (family) => THEME_REFERENCES[family] || THEME_REFERENCES.pixel;

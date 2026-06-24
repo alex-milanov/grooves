@@ -3,6 +3,7 @@ import { getInitialTheme } from '../util/theme';
 import { buildDefaultRouting } from '../util/routing';
 import { WORKSPACE_DRUMS, defaultWorkspacesStripOpen } from '../util/workspaces';
 import { DRUMS_TRACK_ID } from '../util/session-transport';
+import { createLoopsTrack, LOOPS_SLOT_COUNT } from '../util/loops-state';
 
 const TRACK_COUNT = 4;
 
@@ -10,6 +11,11 @@ export const initial = {
   ui: {
     activeWorkspace: WORKSPACE_DRUMS,
     workspacesStripOpen: typeof window !== 'undefined' ? defaultWorkspacesStripOpen() : true,
+    loops: {
+      selectedSlot: null,
+      panels: { library: false, settings: false },
+      inputDevices: [],
+    },
   },
   transport: {
     playing: false,
@@ -30,6 +36,7 @@ export const initial = {
         stopPending: false,
       },
     },
+    createLoopsTrack(),
   ],
   partMixer: {
     name: 'Drums',
@@ -37,7 +44,7 @@ export const initial = {
     muted: false,
     solo: false,
   },
-  routing: buildDefaultRouting(TRACK_COUNT),
+  routing: buildDefaultRouting(TRACK_COUNT, LOOPS_SLOT_COUNT),
   mixer: {
     master: { volume: 1 },
     buses: {
@@ -63,6 +70,11 @@ export const initial = {
   },
   library: {
     path: ['library'],
+    kits: null,
+    selectedSample: null,
+  },
+  loopsLibrary: {
+    path: ['loops'],
     kits: null,
     selectedSample: null,
   },

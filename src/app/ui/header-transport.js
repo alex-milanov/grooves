@@ -1,13 +1,14 @@
 import { div, button, label, input, i, span } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../state';
-import { sessionTogglePlay, sessionStop } from '../util/session-transport';
+import { sessionTogglePlay, sessionStop, anySessionActivity } from '../util/session-transport';
 
 const clampBpm = (value) => Math.min(300, Math.max(40, value || 120));
 
 export default (state) => {
   const { playing, bpm } = state.transport ?? {};
   const tempo = bpm ?? 120;
+  const canStop = anySessionActivity(state);
 
   return div('.site-transport', [
     button(
@@ -31,7 +32,7 @@ export default (state) => {
           type: 'button',
           title: 'Stop session',
           'aria-label': 'Stop session',
-          disabled: !playing,
+          disabled: !canStop,
         },
         on: { click: sessionStop },
       },

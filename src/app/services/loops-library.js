@@ -1,11 +1,11 @@
 import JSZip from 'jszip';
 import { dispatch } from 'iblokz-state';
 import { context } from '../util/audio';
-import { defaultAssignments, filesFromMetadata, samplesFromMetadata } from '../util/library';
+import { filesFromMetadata, samplesFromMetadata } from '../util/library';
 import * as samples from '../util/samples';
 
-const KIT_URL = 'assets/kits/basic-drum-kit.zip';
-const KIT_NAME = 'basic_drum_kit';
+const KIT_URL = 'assets/loops/basic-loops.zip';
+export const LOOPS_KIT_NAME = 'basic_loops';
 
 const loadBuffers = (zip, meta) =>
   Promise.all(
@@ -14,11 +14,12 @@ const loadBuffers = (zip, meta) =>
         .file(file)
         .async('arraybuffer')
         .then((buf) => context.decodeAudioData(buf))
-        .then((buffer) => samples.set(samples.key(KIT_NAME, name), buffer)),
+        .then((buffer) => samples.set(samples.key(LOOPS_KIT_NAME, name), buffer)),
     ),
   );
 
 export let stop = () => {};
+
 export const start = ({ state$ }) => {
   fetch(KIT_URL)
     .then((res) => res.arrayBuffer())
@@ -28,18 +29,14 @@ export const start = ({ state$ }) => {
       await loadBuffers(zip, meta);
       dispatch((s) => ({
         ...s,
-        library: {
-          ...s.library,
-          path: ['library'],
-          kits: { [KIT_NAME]: samplesFromMetadata(meta) },
-        },
-        sequencer: {
-          ...s.sequencer,
-          assignments: defaultAssignments(meta, KIT_NAME),
+        loopsLibrary: {
+          ...s.loopsLibrary,
+          path: ['loops'],
+          kits: { [LOOPS_KIT_NAME]: samplesFromMetadata(meta) },
         },
       }));
     })
-    .catch((err) => console.warn('library load failed:', err));
+    .catch((err) => console.warn('loops library load failed:', err));
 
   stop = () => {};
 };

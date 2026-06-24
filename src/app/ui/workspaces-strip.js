@@ -1,8 +1,13 @@
 import { div, button, span } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../state';
-import { WORKSPACE_DRUMS, WORKSPACE_MIXER, stripVisible } from '../util/workspaces';
-import { drumsWorkspace, mixerWorkspace } from './workspaces/content';
+import {
+  WORKSPACE_DRUMS,
+  WORKSPACE_LOOPS,
+  WORKSPACE_MIXER,
+  stripVisible,
+} from '../util/workspaces';
+import { drumsWorkspace, loopsWorkspace, mixerWorkspace } from './workspaces/content';
 
 const setWorkspace = (id) => (ev) => {
   ev.preventDefault();
@@ -33,6 +38,7 @@ export default (state) => {
 
   const active = state.ui?.activeWorkspace ?? WORKSPACE_DRUMS;
   const drumsName = state.partMixer?.name ?? 'Drums';
+  const loopsName = state.tracks?.find((t) => t.type === 'loop')?.name ?? 'Loops';
 
   return div('.workspaces-strip', [
     div('.workspaces-strip-tracks', [
@@ -43,6 +49,14 @@ export default (state) => {
             drumsName,
             drumsWorkspace(state),
             setWorkspace(WORKSPACE_DRUMS),
+          ),
+      active === WORKSPACE_LOOPS
+        ? stripSlot(loopsName)
+        : stripPreview(
+            WORKSPACE_LOOPS,
+            loopsName,
+            loopsWorkspace(state),
+            setWorkspace(WORKSPACE_LOOPS),
           ),
     ]),
     div('.workspaces-strip-spacer'),

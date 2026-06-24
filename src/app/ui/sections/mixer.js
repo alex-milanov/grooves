@@ -1,16 +1,18 @@
-import { div, header, span, button, label, input, i } from 'iblokz-snabbdom-helpers';
+import { div, header, span, button, label, input } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../../state';
+import { getLoopsTrack, patchLoopsMixer } from '../../util/loops-state';
 import knob from '../components/knob';
 
 const patchPart = (path, value) => dispatch(patch(['partMixer', ...path], value));
+const patchLoopsPart = (path, value) => dispatch((s) => patchLoopsMixer(s, { [path[0]]: value }));
 const patchBus = (bus, key, value) => dispatch(patch(['mixer', 'buses', bus, key], value));
 const patchMaster = (value) => dispatch(patch(['mixer', 'master', 'volume'], value));
 
 const msColumn = (title, body) =>
   div('.mixer-column', [header('.mixer-column-title', title), div('.mixer-column-body', body)]);
 
-const muteSolo = (part) => [
+const muteSolo = (part, onMute, onSolo) => [
   button(
     '.mixer-ms-btn.mute',
     {
@@ -20,7 +22,7 @@ const muteSolo = (part) => [
         title: part.muted ? 'Unmute' : 'Mute',
         'aria-pressed': String(part.muted),
       },
-      on: { click: () => patchPart(['muted'], !part.muted) },
+      on: { click: onMute },
     },
     ['M'],
   ),
@@ -33,7 +35,7 @@ const muteSolo = (part) => [
         title: part.solo ? 'Unsolo' : 'Solo',
         'aria-pressed': String(part.solo),
       },
-      on: { click: () => patchPart(['solo'], !part.solo) },
+      on: { click: onSolo },
     },
     ['S'],
   ),
@@ -55,18 +57,32 @@ const verticalFader = (value, onChange, { min = 0, max = 1, step = 0.01 } = {}) 
     span('.mixer-fader-value', Math.round(value * 100)),
   ]);
 
+const trackColumn = (name, part, patchFn) =>
+  msColumn(name, [
+    verticalFader(part.volume ?? 1, (v) => patchFn(['volume'], v)),
+    div(
+      '.mixer-ms',
+      muteSolo(
+        part,
+        () => patchFn(['muted'], !part.muted),
+        () => patchFn(['solo'], !part.solo),
+      ),
+    ),
+  ]);
+
 export default (state) => {
-  const part = state.partMixer ?? {};
+  const drums = state.partMixer ?? {};
+  const loopsTrack = getLoopsTrack(state);
+  const loops = loopsTrack?.mixer ?? {};
   const buses = state.mixer?.buses ?? {};
   const masterVol = state.mixer?.master?.volume ?? 1;
-  const name = part.name ?? 'Drums';
+  const drumsName = drums.name ?? 'Drums';
+  const loopsName = loopsTrack?.name ?? 'Loops';
 
   return div('.mixer-console', [
     div('.mixer-tracks', [
-      msColumn(name, [
-        verticalFader(part.volume ?? 1, (v) => patchPart(['volume'], v)),
-        div('.mixer-ms', muteSolo(part)),
-      ]),
+      trackColumn(drumsName, drums, patchPart),
+      trackColumn(loopsName, loops, patchLoopsPart),
     ]),
     div('.mixer-spacer'),
     div('.mixer-buses-master', [

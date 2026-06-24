@@ -7,13 +7,10 @@ const LEGACY_FAMILIES = {
   ocean: 'studio',
 };
 
-export const themeClass = state =>
-  `theme-${state.themeFamily}-${state.themeMode}`;
+export const themeClass = (state) => `theme-${state.themeFamily}-${state.themeMode}`;
 
-const normalizeFamily = family =>
-  THEME_FAMILIES.includes(family)
-    ? family
-    : LEGACY_FAMILIES[family] || 'pixel';
+const normalizeFamily = (family) =>
+  THEME_FAMILIES.includes(family) ? family : LEGACY_FAMILIES[family] || 'pixel';
 
 export const parseStoredTheme = () => {
   if (typeof window === 'undefined') return null;
@@ -44,8 +41,7 @@ export const getInitialTheme = () => {
   const stored = parseStoredTheme();
   if (stored) return stored;
   const mode =
-    typeof window !== 'undefined' &&
-    window.matchMedia?.('(prefers-color-scheme: light)').matches
+    typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: light)').matches
       ? 'light'
       : 'dark';
   return { themeFamily: 'pixel', themeMode: mode };

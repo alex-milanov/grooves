@@ -5,7 +5,8 @@ export const LANG_LABELS = {
   bg: 'Български',
 };
 
-export const flagSrc = lang => ({
-  en: 'assets/flags/gb.svg',
-  bg: 'assets/flags/bg.svg',
-}[lang] ?? 'assets/flags/gb.svg');
+export const flagSrc = (lang) =>
+  ({
+    en: 'assets/flags/gb.svg',
+    bg: 'assets/flags/bg.svg',
+  })[lang] ?? 'assets/flags/gb.svg';

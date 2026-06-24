@@ -3,7 +3,8 @@ const previews = {
     fontFamily: "'Public Pixel', monospace",
     swatch: {
       dark: 'linear-gradient(to right, #514b5e 0 25%, #27252d 25% 50%, #dcf7e1 50% 75%, #34294b 75% 100%)',
-      light: 'linear-gradient(to right, #9a8fb5 0 25%, #e8e4f0 25% 50%, #514b5e 50% 75%, #2a2438 75% 100%)',
+      light:
+        'linear-gradient(to right, #9a8fb5 0 25%, #e8e4f0 25% 50%, #514b5e 50% 75%, #2a2438 75% 100%)',
     },
   },
   terminal: {

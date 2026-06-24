@@ -1,12 +1,12 @@
-export const samplesFromMetadata = meta =>
-  Object.values(meta.pads ?? {}).flatMap(row =>
-    Object.values(row).map(pad => pad.name),
-  );
+export const samplesFromMetadata = (meta) =>
+  Object.values(meta.pads ?? {}).flatMap((row) => Object.values(row).map((pad) => pad.name));
 
-export const filesFromMetadata = meta => {
+export const filesFromMetadata = (meta) => {
   const files = {};
-  Object.values(meta.pads ?? {}).forEach(row =>
-    Object.values(row).forEach(pad => { files[pad.name] = pad.file; }),
+  Object.values(meta.pads ?? {}).forEach((row) =>
+    Object.values(row).forEach((pad) => {
+      files[pad.name] = pad.file;
+    }),
   );
   return files;
 };
@@ -21,11 +21,9 @@ export const defaultAssignments = (meta, kitName) => {
   }, {});
 };
 
-export const isFolder = (kits, path, name) =>
-  path.length === 1 && !!kits?.[name];
+export const isFolder = (kits, path, name) => path.length === 1 && !!kits?.[name];
 
-export const isSample = (kits, path, name) =>
-  name !== '..' && !isFolder(kits, path, name);
+export const isSample = (kits, path, name) => name !== '..' && !isFolder(kits, path, name);
 
 export const entriesAt = (kits, path = ['library']) => {
   if (!kits) return [];
@@ -35,7 +33,7 @@ export const entriesAt = (kits, path = ['library']) => {
 };
 
 export const navigate = (kits, path, name) => {
-  if (name === '..') return ['library'];
-  if (path.length === 1 && kits?.[name]) return ['library', name];
+  if (name === '..') return [path[0]];
+  if (path.length === 1 && kits?.[name]) return [path[0], name];
   return path;
 };

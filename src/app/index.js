@@ -10,6 +10,8 @@ import { serializeTheme } from './util/theme';
 // services
 import viewport from './services/viewport';
 import library from './services/library';
+import loopsLibrary from './services/loops-library';
+import loops from './services/loops';
 import sequencer from './services/sequencer';
 import waveform from './services/waveform';
 import mixer from './services/mixer';
@@ -23,6 +25,8 @@ state$.pipe(distinctUntilChanged((s) => s.sequencer)).subscribe((s) => console.l
 // services
 viewport.start({ state$ });
 library.start({ state$ });
+loopsLibrary.start({ state$ });
+loops.start({ state$ });
 sequencer.start({ state$ });
 waveform.start({ state$ });
 mixer.start({ state$ });
@@ -44,6 +48,8 @@ if (module.hot) {
     data.state = state$.getValue();
     viewport.stop();
     library.stop();
+    loopsLibrary.stop();
+    loops.stop();
     sequencer.stop();
     waveform.stop();
     mixer.stop();
@@ -55,6 +61,8 @@ if (module.hot) {
     dispatch(() => module.hot.data.state);
     viewport.start({ state$ });
     library.start({ state$ });
+    loopsLibrary.start({ state$ });
+    loops.start({ state$ });
     sequencer.start({ state$ });
     waveform.start({ state$ });
     mixer.start({ state$ });

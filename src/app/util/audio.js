@@ -7,6 +7,7 @@ import {
 } from 'iblokz-audio';
 import { resolveEdgeGain } from './routing';
 import { getTrackParams } from './track-params';
+import { getSlotParams } from './loops-state';
 
 export { context };
 
@@ -126,11 +127,11 @@ const wireEdges = (routing) => {
   wired = true;
 };
 
-const updateEdgeGains = (routing, trackParams, partMixer) => {
+const updateEdgeGains = (routing, trackParams, partMixer, loopSlots) => {
   routing.edges.forEach((edge) => {
     const gain = getEdgeGain(edge.id);
     const enabled = edge.enabled !== false;
-    gain.gain.value = enabled ? resolveEdgeGain(edge, trackParams, partMixer) : 0;
+    gain.gain.value = enabled ? resolveEdgeGain(edge, trackParams, partMixer, loopSlots) : 0;
   });
 };
 
@@ -176,20 +177,41 @@ export const syncTrackMixer = (trackParams, tracks) => {
   }
 };
 
+export const syncLoopSlotMixer = (slots) => {
+  if (!slots?.length) return;
+  for (let slot = 0; slot < slots.length; slot++) {
+    const params = getSlotParams(slots[slot]);
+    const fader = nodeRegistry.get(`loop-${slot}-fader`);
+    if (fader?.output) {
+      fader.output.gain.value = params.muted ? 0 : params.volume;
+    }
+    const vcfNode = nodeRegistry.get(`loop-${slot}-vcf`);
+    if (vcfNode?.iblokz) {
+      updateAudio(vcfNode.iblokz, {
+        type: 'lowpass',
+        cutoff: params.vcf.cutoff,
+        resonance: params.vcf.resonance,
+      });
+    }
+  }
+};
+
 export const applyRouting = (
   routing,
   trackParams,
   mixer,
   partMixer,
-  { reconnect = false } = {},
+  { reconnect = false, loopsTrack = null } = {},
 ) => {
   ensureNodes(routing, mixer);
   if (!wired || reconnect) {
     wireEdges(routing);
   }
-  updateEdgeGains(routing, trackParams, partMixer);
-  const trackCount = routing.nodes.filter((n) => n.kind === 'fader').length;
+  const loopSlots = loopsTrack?.loop?.slots;
+  updateEdgeGains(routing, trackParams, partMixer, loopSlots);
+  const trackCount = routing.nodes.filter((n) => n.kind === 'fader' && n.track != null).length;
   syncTrackMixer(trackParams, trackCount);
+  syncLoopSlotMixer(loopSlots);
   syncMasterVolume(mixer);
   syncBusParams(mixer);
 };
@@ -197,6 +219,23 @@ export const applyRouting = (
 export const getTrackInput = (track) => {
   const node = nodeRegistry.get(`track-${track}-in`);
   return node?.output ?? null;
+};
+
+export const getLoopSlotInput = (slotIndex) => {
+  const node = nodeRegistry.get(`loop-${slotIndex}-in`);
+  return node?.output ?? null;
+};
+
+export const getPartLoopsInput = () => {
+  const node = nodeRegistry.get('part-loops');
+  return node?.input ?? null;
+};
+
+export const syncPartLoopsMixer = (mixer) => {
+  const part = nodeRegistry.get('part-loops');
+  if (!part?.output) return;
+  const vol = mixer?.muted ? 0 : (mixer?.volume ?? 1);
+  part.output.gain.value = vol;
 };
 
 export const resume = () => (context.state === 'suspended' ? context.resume() : Promise.resolve());

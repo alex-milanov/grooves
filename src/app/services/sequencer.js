@@ -5,11 +5,11 @@ import {
   context,
   play,
   resume,
-  stepTime,
   cancelScheduledAfter,
   cancelAllScheduled,
   getOutputLatency,
 } from '../util/audio';
+import { getTransportStartTime, setTransportStartTime, stepTime } from '../util/transport-clock';
 import { DRUMS_TRACK_ID, isTrackScheduling } from '../util/session-transport';
 import * as samples from '../util/samples';
 
@@ -18,7 +18,6 @@ const SCHEDULE_INTERVAL_MS = 25;
 let state$Ref = null;
 let intervalId = 0;
 let rafId = 0;
-let startTime = 0;
 let latestCycle = -1;
 let lastPlayhead = -1;
 
@@ -38,6 +37,7 @@ const audioCycleTiming = (state) => {
   const duration = cycleDuration(state);
   const dt = stepTime(state.transport.bpm);
   const now = context.currentTime;
+  const startTime = getTransportStartTime();
   const cycle = Math.floor((now - startTime) / duration);
   const progress = ((now - startTime) % duration) / duration;
   const playhead = Math.floor(progress * steps);
@@ -60,7 +60,7 @@ const audioCycleTiming = (state) => {
 const uiPlayhead = (state) => {
   const steps = stepCount(state);
   const duration = cycleDuration(state);
-  const uiStart = startTime + getOutputLatency(context);
+  const uiStart = getTransportStartTime() + getOutputLatency(context);
   const now = context.currentTime;
   if (now < uiStart) return -1;
   const progress = ((now - uiStart) % duration) / duration;
@@ -86,7 +86,7 @@ const scheduleCycle = (state, cycle, fromStep = 0) => {
   const rowCount = sequencer.tracks;
   const steps = stepCount(state);
   const dt = stepTime(state.transport.bpm);
-  const base = startTime + cycle * cycleDuration(state);
+  const base = getTransportStartTime() + cycle * cycleDuration(state);
   const now = context.currentTime;
 
   for (let step = fromStep; step < steps; step++) {
@@ -122,7 +122,7 @@ const runScheduling = (state) => {
   }
 
   if (cycle === latestCycle) {
-    const progress = (context.currentTime - startTime - cycle * duration) / duration;
+    const progress = (context.currentTime - getTransportStartTime() - cycle * duration) / duration;
     if (progress > 0.7) {
       scheduleCycle(state, cycle + 1);
       latestCycle = cycle + 1;
@@ -232,7 +232,7 @@ const reset = () => {
 
 const resetTransport = () => {
   cancelScheduledAfter(context.currentTime);
-  startTime = context.currentTime + 0.05;
+  setTransportStartTime(context.currentTime + 0.05);
   latestCycle = -1;
   lastPlayhead = -1;
 };
@@ -259,7 +259,7 @@ export const start = ({ state$ }) => {
       .subscribe((state) => {
         if (state.transport?.playing) {
           resume().then(() => {
-            startTime = context.currentTime + 0.05;
+            setTransportStartTime(context.currentTime + 0.05);
             latestCycle = -1;
             transportTick(state$, { updateUi: true });
             startInterval();
