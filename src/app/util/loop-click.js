@@ -1,5 +1,5 @@
 import { context } from './audio';
-import { barSeconds, beatSeconds } from './transport-clock';
+import { barSeconds, beatSeconds, beatsPerBar } from './transport-clock';
 
 const scheduled = [];
 
@@ -25,7 +25,7 @@ const playTick = (when, level = 0.15) => {
 const scheduleClicks = (transport, startTime, endTime, { step = 'bar' } = {}) => {
   clearScheduled();
   const interval = step === 'beat' ? beatSeconds(transport) : barSeconds(transport);
-  const beatsPerBar = transport?.timeSignature?.[0] ?? 4;
+  const barBeats = beatsPerBar(transport);
   if (!interval || endTime <= startTime) return clearScheduled;
 
   let t = startTime;
@@ -33,7 +33,7 @@ const scheduleClicks = (transport, startTime, endTime, { step = 'bar' } = {}) =>
   while (t < endTime - 0.001) {
     const when = t;
     const level =
-      step === 'beat' ? (index % beatsPerBar === 0 ? 0.22 : 0.12) : index % 4 === 0 ? 0.22 : 0.12;
+      step === 'beat' ? (index % barBeats === 0 ? 0.22 : 0.12) : index % 4 === 0 ? 0.22 : 0.12;
     const delayMs = Math.max(0, (when - context.currentTime) * 1000);
     scheduled.push(
       setTimeout(() => {

@@ -13,6 +13,8 @@ export const createEmptySlot = (index) => ({
   id: `slot-${index}`,
   process: 'empty',
   startedAt: null,
+  sourceBpm: null,
+  sourceBpms: [],
   layers: 0,
   duration: 0,
   bufferKeys: [],

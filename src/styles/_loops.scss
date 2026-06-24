@@ -82,22 +82,31 @@
 
     &.play {
       --fg: #4bcd4b;
+      --pulse-color: #4bcd4b;
       box-shadow: 0 0 8px color-mix(in srgb, #4bcd4b 45%, transparent);
     }
 
     &.record {
       --fg: #e44;
+      --pulse-color: #e44;
       box-shadow: 0 0 8px color-mix(in srgb, #e44 45%, transparent);
     }
 
     &.overdub {
       --fg: #ffbf00;
+      --pulse-color: #ffbf00;
       box-shadow: 0 0 8px color-mix(in srgb, #ffbf00 45%, transparent);
     }
 
     &.count-in {
       --fg: #a8b8c8;
+      --pulse-color: #a8b8c8;
       box-shadow: 0 0 8px color-mix(in srgb, #a8b8c8 40%, transparent);
+    }
+
+    &.tempo-pulse {
+      transform-origin: center center;
+      transition: none;
     }
   }
 

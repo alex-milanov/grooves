@@ -14,18 +14,17 @@ export const resetTransportStartTime = () => {
 
 export const stepTime = (bpm) => 60 / bpm / 4;
 
-export const barSeconds = (transport) => {
-  const resolution = transport?.resolution ?? 16;
+/** Quarter-note beats per bar (4/4 → 4). Independent of sequencer resolution. */
+export const beatsPerBar = (transport) => {
   const [num, den] = transport?.timeSignature ?? [4, 4];
-  const bpm = transport?.bpm ?? 120;
-  return stepTime(bpm) * resolution * (num / den);
+  return num * (den > 0 ? 4 / den : 1);
 };
 
-export const beatSeconds = (transport) => {
-  const [num] = transport?.timeSignature ?? [4, 4];
-  const bar = barSeconds(transport);
-  return num > 0 ? bar / num : bar / 4;
-};
+/** One quarter-note beat at the current BPM. */
+export const beatSeconds = (transport) => 60 / (transport?.bpm ?? 120);
+
+/** One notated bar from time signature (4/4 → four quarter-note beats). */
+export const barSeconds = (transport) => beatSeconds(transport) * beatsPerBar(transport);
 
 export const nextLocalBarTime = (transport, fromTime = context.currentTime) => {
   const bar = barSeconds(transport);
@@ -54,7 +53,8 @@ export const nextSlotCycleTime = (slotStartedAt, duration, fromTime = context.cu
 
 export const phaseAt = (startedAt, duration, atTime = context.currentTime) => {
   if (!startedAt || !duration) return 0;
-  return ((atTime - startedAt) % duration) / duration;
+  const elapsed = (((atTime - startedAt) % duration) + duration) % duration;
+  return elapsed / duration;
 };
 
 /** Anchor transport start so cycleDuration progress matches loop cycle phase at `now`. */

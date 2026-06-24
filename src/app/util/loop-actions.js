@@ -20,9 +20,13 @@ import {
   panelsAfterLoopAssign,
   selectLoopSlot as selectSlotState,
 } from './loops-panels';
+import {
+  DEFAULT_LOOP_SOURCE_BPM,
+  loopPlaybackDuration,
+} from './loop-tempo';
 import { nextSlotCycleTime } from './transport-clock';
 import { LOOPS_KIT_NAME } from '../services/loops-library';
-import { emptySlotRecordSchedule } from './loop-record-schedule';
+import { emptySlotRecordSchedule, slotPlaySchedule } from './loop-record-schedule';
 import { LOOPS_TRACK_ID } from './session-transport';
 
 export const selectLoopSlot = (slotIndex) => dispatch((s) => selectSlotState(s, slotIndex));
@@ -66,9 +70,10 @@ export const slotTogglePlayRec = (slotIndex) =>
     }
 
     if (process === 'idle' && slotHasContent(slot)) {
+      const schedule = slotPlaySchedule(s, clickOn);
       return patchLoopSlot(s, slotIndex, {
         process: 'play',
-        startedAt: context.currentTime,
+        ...schedule,
       });
     }
 
@@ -108,9 +113,10 @@ export const loopsTogglePlay = () =>
         ),
       };
     }
-    const now = context.currentTime;
+    const clickOn = !!loopsTrack?.loop?.clickEnabled;
+    const schedule = slotPlaySchedule(s, clickOn);
     const withSlots = mapLoopSlots(s, (slot) =>
-      slotHasContent(slot) ? { ...slot, process: 'play', startedAt: now } : slot,
+      slotHasContent(slot) ? { ...slot, process: 'play', ...schedule } : slot,
     );
     return {
       ...withSlots,
@@ -163,7 +169,9 @@ export const assignLoopSample = (slotIndex, kit, sample) =>
     return {
       ...patchLoopSlot(s, slotIndex, {
         bufferKeys: [key],
-        duration: trimmed.duration,
+        sourceBpm: DEFAULT_LOOP_SOURCE_BPM,
+        sourceBpms: [DEFAULT_LOOP_SOURCE_BPM],
+        duration: loopPlaybackDuration(trimmed.duration, DEFAULT_LOOP_SOURCE_BPM, s.transport),
         layers: 1,
         process: 'idle',
         kit: kitName,

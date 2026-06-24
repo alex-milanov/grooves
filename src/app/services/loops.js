@@ -9,8 +9,11 @@ import {
   syncPartLoopsMixer,
 } from '../util/audio';
 import { quantizeTargetSeconds, trimPadBuffer } from '../util/loop-quantize';
-import { barSeconds } from '../util/transport-clock';
+import { barSeconds, phaseAt } from '../util/transport-clock';
 import { scheduleBeatClicks, stopBarClicks } from '../util/loop-click';
+import { slotPlaySchedule } from '../util/loop-record-schedule';
+import { slotPlaybackTiming } from '../util/loop-playback-timing';
+import { applyTempoPulseToButton } from '../util/loop-pulse';
 import { createInputStream, createRecorder, decodeBlob, listInputDevices } from '../util/recording';
 import {
   anySlotHasContent,
@@ -22,12 +25,21 @@ import {
   patchLoopSlot,
   slotHasContent,
 } from '../util/loops-state';
+import {
+  DEFAULT_LOOP_SOURCE_BPM,
+  loopPlaybackDuration,
+  loopPlaybackRate,
+  slotPlaybackPatch,
+  slotSourceBpm,
+} from '../util/loop-tempo';
 import { LOOPS_TRACK_ID } from '../util/session-transport';
 import { WORKSPACE_LOOPS } from '../util/workspaces';
 import * as samples from '../util/samples';
 
 /** @type {Map<number, AudioBufferSourceNode[]>} */
 const slotSources = new Map();
+/** @type {Map<number, number>} */
+const playStartTimers = new Map();
 /** @type {Map<number, { recorder: ReturnType<typeof createRecorder>, timeoutId: number }>} */
 const activeRecords = new Map();
 /** @type {Set<number>} */
@@ -41,7 +53,7 @@ const slotProcess = (state, index) => getLoopSlot(state, index)?.process ?? 'emp
 
 const calcProgress = (startedAt, duration, atTime = context.currentTime) => {
   if (!startedAt || !duration) return 0;
-  return (((atTime - startedAt) % duration) / duration) * 100;
+  return phaseAt(startedAt, duration, atTime) * 100;
 };
 
 const updatePlayRecProgress = () => {
@@ -59,7 +71,11 @@ const updatePlayRecProgress = () => {
 
     if (process === 'play' && duration > 0) {
       anyActive = true;
-      btn.classList.remove('count-in');
+      const inFade =
+        startedAt != null &&
+        now < startedAt - 0.001 &&
+        (countInAt == null || slot.countInSilent || now >= countInAt - 0.001);
+      btn.classList.toggle('count-in', inFade);
       btn.style.setProperty('--pgPercentage', String(calcProgress(startedAt, duration)));
     } else if (process === 'record' && countInAt != null && now < startedAt) {
       anyActive = true;
@@ -83,6 +99,8 @@ const updatePlayRecProgress = () => {
       btn.classList.remove('count-in');
       btn.style.setProperty('--pgPercentage', '0');
     }
+
+    applyTempoPulseToButton(btn, state, slot, i);
   }
 
   progressRaf = anyActive ? requestAnimationFrame(updatePlayRecProgress) : 0;
@@ -127,21 +145,40 @@ const connectInput = async (deviceId = 'default') => {
   }
 };
 
-const startLayer = (buffer, slotIndex, when) => {
+const startLayer = (buffer, slotIndex, when, sourceBpm, transport, { phase = 0, fadeUntil = null } = {}) => {
   const input = getLoopSlotInput(slotIndex);
   if (!input) return null;
   const source = context.createBufferSource();
   source.buffer = buffer;
   source.loop = true;
-  source.connect(input);
-  source.start(when);
+  source.playbackRate.value = loopPlaybackRate(sourceBpm, transport);
+
+  const offset = Math.min(Math.max(0, phase * buffer.duration), Math.max(0, buffer.duration - 0.001));
+  if (fadeUntil != null && fadeUntil > when + 0.001) {
+    const fade = context.createGain();
+    fade.gain.setValueAtTime(0, when);
+    fade.gain.linearRampToValueAtTime(1, fadeUntil);
+    source.connect(fade);
+    fade.connect(input);
+  } else {
+    source.connect(input);
+  }
+
+  source.start(when, offset);
   const list = slotSources.get(slotIndex) ?? [];
   list.push(source);
   slotSources.set(slotIndex, list);
   return source;
 };
 
+const clearPlayStartTimer = (slotIndex) => {
+  const id = playStartTimers.get(slotIndex);
+  if (id != null) clearTimeout(id);
+  playStartTimers.delete(slotIndex);
+};
+
 const stopSlotSources = (slotIndex) => {
+  clearPlayStartTimer(slotIndex);
   const sources = slotSources.get(slotIndex) ?? [];
   for (const src of sources) {
     try {
@@ -153,45 +190,62 @@ const stopSlotSources = (slotIndex) => {
   slotSources.set(slotIndex, []);
 };
 
-const startSlotPlayback = (state, slotIndex, when = context.currentTime) => {
+const startSlotPlayback = (state, slotIndex, atTime = context.currentTime) => {
   const slot = getLoopSlot(state, slotIndex);
   if (!slot || !slotHasContent(slot)) return;
 
   stopSlotSources(slotIndex);
 
-  const { duration, startedAt } = slot;
-  const phase = startedAt != null && duration ? ((when - startedAt) % duration) / duration : 0;
-  const layerStart = when - phase * duration;
+  const { fadeUntil, phase, when } = slotPlaybackTiming(slot, atTime);
+  const transport = state.transport;
 
-  for (const key of slot.bufferKeys) {
+  slot.bufferKeys.forEach((key, layerIndex) => {
     const buffer = samples.get(key);
-    if (buffer) startLayer(buffer, slotIndex, layerStart);
-  }
+    if (buffer) {
+      startLayer(buffer, slotIndex, when, slotSourceBpm(slot, layerIndex), transport, {
+        phase,
+        fadeUntil,
+      });
+    }
+  });
   ensureProgressLoop();
 };
 
 const finishRecording = async (state, slotIndex, blob, fixedDuration = null) => {
   const raw = await decodeBlob(blob);
-  const bar = barSeconds(state.transport);
+  const transport = state.transport;
+  const bar = barSeconds(transport);
   const slot = getLoopSlot(state, slotIndex);
   const targetSeconds = fixedDuration ?? quantizeTargetSeconds(raw.duration, bar);
   const trimmed = trimPadBuffer(context, raw, targetSeconds);
   const layerIndex = slot?.process === 'overdub' ? (slot?.bufferKeys?.length ?? 0) : 0;
   const key = loopBufferKey(slotIndex, layerIndex);
   samples.set(key, trimmed);
+  const recordBpm = transport?.bpm ?? DEFAULT_LOOP_SOURCE_BPM;
+  const isOverdub = slot?.process === 'overdub';
 
   dispatch((s) => {
     const current = getLoopSlot(s, slotIndex);
     const keys = [...(current?.bufferKeys ?? [])];
-    if (current?.process === 'overdub' || slot?.process === 'overdub') {
+    let sourceBpms = [...(current?.sourceBpms ?? [])];
+    if (isOverdub) {
       keys.push(key);
+      sourceBpms.push(recordBpm);
     } else {
       keys.length = 0;
       keys.push(key);
+      sourceBpms = [recordBpm];
     }
+    const primaryBuffer = samples.get(keys[0]);
+    const duration = primaryBuffer
+      ? loopPlaybackDuration(primaryBuffer.duration, slotSourceBpm({ sourceBpms }, 0), s.transport)
+      : loopPlaybackDuration(trimmed.duration, recordBpm, s.transport);
+
     return patchLoopSlot(s, slotIndex, {
       bufferKeys: keys,
-      duration: trimmed.duration,
+      sourceBpm: sourceBpms[0] ?? recordBpm,
+      sourceBpms,
+      duration,
       layers: keys.length,
       process: 'play',
       startedAt: slot?.startedAt ?? context.currentTime,
@@ -267,6 +321,41 @@ const beginRecording = async (state, slotIndex) => {
   }
 };
 
+const beginPlay = (state, slotIndex) => {
+  const slot = getLoopSlot(state, slotIndex);
+  if (!slot || !slotHasContent(slot)) return;
+
+  const track = getLoopsTrack(state);
+  const now = context.currentTime;
+  const playAt = slot.startedAt ?? now;
+
+  if (track?.loop?.clickEnabled && !slot.countInSilent && slot.countInAt != null && playAt > now) {
+    scheduleBeatClicks(state.transport, slot.countInAt, playAt);
+  }
+
+  const armPlayback = () => {
+    resume().then(() => {
+      const s = state$Ref?.getValue();
+      const sl = getLoopSlot(s, slotIndex);
+      if (sl?.process !== 'play' || !slotHasContent(sl)) return;
+      startSlotPlayback(s, slotIndex, context.currentTime);
+    });
+  };
+
+  const { when } = slotPlaybackTiming(slot, now);
+  const delayMs = Math.max(0, (when - now) * 1000);
+  if (delayMs > 1) {
+    clearPlayStartTimer(slotIndex);
+    playStartTimers.set(
+      slotIndex,
+      setTimeout(armPlayback, delayMs),
+    );
+  } else {
+    armPlayback();
+  }
+  ensureProgressLoop();
+};
+
 const handleProcessChange = (state, slotIndex, process) => {
   if (process === 'record' || process === 'overdub') {
     resume().then(() => beginRecording(state, slotIndex));
@@ -279,17 +368,14 @@ const handleProcessChange = (state, slotIndex, process) => {
       activeRecords.get(slotIndex).recorder.stop();
     }
     if (slotHasContent(getLoopSlot(state, slotIndex))) {
-      resume().then(() => {
-        const slot = getLoopSlot(state$Ref.getValue(), slotIndex);
-        startSlotPlayback(state$Ref.getValue(), slotIndex, slot?.startedAt ?? context.currentTime);
-      });
+      beginPlay(state, slotIndex);
     }
-    ensureProgressLoop();
     return;
   }
 
   cancelPendingRecord(slotIndex);
   stopSlotSources(slotIndex);
+  stopBarClicks();
 };
 
 const syncLoopsToTrackTransport = (state) => {
@@ -302,10 +388,11 @@ const syncLoopsToTrackTransport = (state) => {
       (slot) => slotHasContent(slot) && slot.process === 'idle',
     );
     if (!needsStart) return null;
-    const now = context.currentTime;
+    const clickOn = !!loopsTrack?.loop?.clickEnabled;
+    const schedule = slotPlaySchedule(state, clickOn);
     return mapLoopSlots(state, (slot) =>
       slotHasContent(slot) && slot.process === 'idle'
-        ? { ...slot, process: 'play', startedAt: now }
+        ? { ...slot, process: 'play', ...schedule }
         : slot,
     );
   }
@@ -444,6 +531,42 @@ export const start = ({ state$ }) => {
 
         const next = syncLoopsToTrackTransport(state);
         if (next) dispatch(() => next);
+      }),
+  );
+
+  subs.push(
+    state$
+      .pipe(distinctUntilChanged((a, b) => a.transport?.bpm === b.transport?.bpm))
+      .subscribe((state) => {
+        const loopsTrack = getLoopsTrack(state);
+        const slots = loopsTrack?.loop?.slots ?? [];
+        let changed = false;
+        const nextSlots = slots.map((slot) => {
+          if (!slotHasContent(slot)) return slot;
+          const buffer = samples.get(slot.bufferKeys[0]);
+          if (!buffer) return slot;
+          const patch = slotPlaybackPatch(slot, state.transport, buffer);
+          if (!patch) return slot;
+          changed = true;
+          return { ...slot, ...patch };
+        });
+        if (changed) {
+          dispatch((s) => ({
+            ...s,
+            tracks: s.tracks.map((t) =>
+              t.id === LOOPS_TRACK_ID ? { ...t, loop: { ...t.loop, slots: nextSlots } } : t,
+            ),
+          }));
+        }
+        const s = changed
+          ? { ...state, tracks: state.tracks.map((t) => (t.id === LOOPS_TRACK_ID ? { ...t, loop: { ...t.loop, slots: nextSlots } } : t)) }
+          : state;
+        for (let i = 0; i < LOOPS_SLOT_COUNT; i++) {
+          const slot = getLoopSlot(s, i);
+          if (slot?.process === 'play' && slotHasContent(slot)) {
+            startSlotPlayback(s, i, context.currentTime);
+          }
+        }
       }),
   );
 

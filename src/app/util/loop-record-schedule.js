@@ -24,8 +24,8 @@ const nextAlignedBarTime = (state, fromTime = context.currentTime) => {
   return nextLocalBarTime(state.transport, fromTime);
 };
 
-/** Record arm times for an empty slot. */
-export const emptySlotRecordSchedule = (state, clickOn) => {
+/** Bar-aligned start + optional count-in for record/play arm. */
+export const slotBarSchedule = (state, clickOn) => {
   const bar = barSeconds(state.transport);
   const now = context.currentTime;
   const playing = anySessionActivity(state);
@@ -53,3 +53,9 @@ export const emptySlotRecordSchedule = (state, clickOn) => {
     countInSilent: false,
   };
 };
+
+/** Record arm times for an empty slot. */
+export const emptySlotRecordSchedule = (state, clickOn) => slotBarSchedule(state, clickOn);
+
+/** Play arm times for an idle slot with content. */
+export const slotPlaySchedule = (state, clickOn) => slotBarSchedule(state, clickOn);

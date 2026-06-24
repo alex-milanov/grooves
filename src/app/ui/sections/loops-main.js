@@ -1,6 +1,8 @@
 import { div, header, button, h2, i } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { context } from '../../util/audio';
+import { phaseAt } from '../../util/transport-clock';
+import { slotTempoPulseEnabled } from '../../util/loop-pulse';
 import { getLoopSlot, getLoopsTrack, slotHasContent } from '../../util/loops-state';
 import {
   deselectLoopSlot,
@@ -61,7 +63,7 @@ const onSlotDblClick = (index, ev) => {
 
 const calcProgress = (startedAt, duration) => {
   if (!startedAt || !duration) return 0;
-  return (((context.currentTime - startedAt) % duration) / duration) * 100;
+  return phaseAt(startedAt, duration, context.currentTime) * 100;
 };
 
 const slotStrip = (state, index) => {
@@ -70,7 +72,19 @@ const slotStrip = (state, index) => {
   const selectedSlot = state.ui?.loops?.selectedSlot;
   const panels = state.ui?.loops?.panels ?? {};
   const isSelected = selectedSlot === index;
-  const pgPercentage = process === 'play' ? calcProgress(slot?.startedAt, slot?.duration) : 0;
+  const now = context.currentTime;
+  const { startedAt, duration, countInAt, countInSilent } = slot ?? {};
+  let pgPercentage = 0;
+  if (process === 'play' && duration > 0) {
+    pgPercentage = calcProgress(startedAt, duration);
+  }
+  const inPlayFade =
+    process === 'play' &&
+    startedAt != null &&
+    now < startedAt - 0.001 &&
+    (countInAt == null || countInSilent || now >= countInAt - 0.001);
+
+  const tempoPulse = slotTempoPulseEnabled(state, slot, index);
 
   return div(`.loop-slot[data-slot="${index}"]`, [
     button(
@@ -102,6 +116,10 @@ const slotStrip = (state, index) => {
           play: process === 'play',
           record: process === 'record',
           overdub: process === 'overdub',
+          'count-in':
+            (process === 'record' && countInAt != null && startedAt != null && now < startedAt) ||
+            inPlayFade,
+          'tempo-pulse': tempoPulse,
         },
         style: {
           '--pgPercentage': String(pgPercentage),

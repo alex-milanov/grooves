@@ -11,6 +11,7 @@ import {
 } from '../util/audio';
 import { bufferToWav } from '../util/buffer-to-wav';
 import { getLoopSlot, getSlotParams, slotHasContent } from '../util/loops-state';
+import { slotPlaybackFromBuffer } from '../util/loop-tempo';
 import { isLoopsWorkspace } from '../util/workspaces';
 import * as samples from '../util/samples';
 
@@ -325,11 +326,13 @@ export const previewLoopSlot = () => {
     const out = getLoopSlotInput(slotIndex);
     if (!out) return;
     const when = context.currentTime;
+    const { rate, duration } = slotPlaybackFromBuffer(buffer, slot, state.transport);
     const src = context.createBufferSource();
     src.buffer = buffer;
+    src.playbackRate.value = rate;
     src.connect(out);
     src.start(when);
-    addLoopTrigger(when, buffer.duration, slotIndex);
+    addLoopTrigger(when, duration, slotIndex);
   });
 };
 
