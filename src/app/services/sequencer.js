@@ -12,6 +12,10 @@ import {
 } from '../util/audio';
 import * as samples from '../util/samples';
 
+const SCHEDULE_INTERVAL_MS = 25;
+
+let state$Ref = null;
+let intervalId = 0;
 let rafId = 0;
 let startTime = 0;
 let latestCycle = -1;
@@ -75,7 +79,6 @@ const gridCellChanges = (prevGrid, nextGrid, tracks, steps) => {
   return changed;
 };
 
-// Schedule the current / a subsequent cycle based on the current state and step offset
 const scheduleCycle = (state, cycle, fromStep = 0) => {
   const { sequencer } = state;
   const tracks = state.tracks ?? sequencer.tracks;
@@ -97,7 +100,99 @@ const scheduleCycle = (state, cycle, fromStep = 0) => {
   }
 };
 
-// Reschedule the remainder of the cycle when the grid changes
+const runScheduling = (state) => {
+  const timing = audioCycleTiming(state);
+  const { cycle, duration } = timing;
+
+  if (latestCycle === -1) {
+    scheduleCycle(state, 0);
+    latestCycle = 0;
+    return;
+  }
+
+  if (cycle > latestCycle) {
+    scheduleCycle(state, cycle);
+    scheduleCycle(state, cycle + 1);
+    latestCycle = cycle + 1;
+    return;
+  }
+
+  if (cycle === latestCycle) {
+    const progress = (context.currentTime - startTime - cycle * duration) / duration;
+    if (progress > 0.7) {
+      scheduleCycle(state, cycle + 1);
+      latestCycle = cycle + 1;
+    }
+  }
+};
+
+const updatePlayhead = (state) => {
+  const playhead = uiPlayhead(state);
+  if (playhead >= 0 && playhead !== lastPlayhead) {
+    lastPlayhead = playhead;
+    dispatch(patch(['sequencer', 'playhead'], playhead));
+  }
+};
+
+const transportTick = (state$, { updateUi = false } = {}) => {
+  const state = state$.getValue();
+  if (!state.sequencer.playing) return;
+
+  runScheduling(state);
+  if (updateUi) updatePlayhead(state);
+};
+
+const stopRaf = () => {
+  cancelAnimationFrame(rafId);
+  rafId = 0;
+};
+
+const stopInterval = () => {
+  clearInterval(intervalId);
+  intervalId = 0;
+};
+
+const stopLoops = () => {
+  stopRaf();
+  stopInterval();
+};
+
+const rafLoop = () => {
+  if (!state$Ref) return;
+  transportTick(state$Ref, { updateUi: true });
+  if (state$Ref.getValue().sequencer.playing && !document.hidden) {
+    rafId = requestAnimationFrame(rafLoop);
+  } else {
+    rafId = 0;
+  }
+};
+
+const startRaf = () => {
+  if (rafId || document.hidden || !state$Ref?.getValue()?.sequencer?.playing) return;
+  rafId = requestAnimationFrame(rafLoop);
+};
+
+const startInterval = () => {
+  if (intervalId || !state$Ref) return;
+  intervalId = setInterval(() => {
+    if (state$Ref) transportTick(state$Ref, { updateUi: false });
+  }, SCHEDULE_INTERVAL_MS);
+};
+
+const onVisibilityChange = () => {
+  if (!state$Ref?.getValue()?.sequencer?.playing) return;
+
+  if (document.hidden) {
+    stopRaf();
+    return;
+  }
+
+  resume().then(() => {
+    transportTick(state$Ref, { updateUi: true });
+    startRaf();
+  });
+};
+
 const rescheduleRemainder = (state) => {
   const { cycle, cutoffTime, rescheduleFrom, steps } = audioCycleTiming(state);
   cancelScheduledAfter(cutoffTime);
@@ -107,46 +202,17 @@ const rescheduleRemainder = (state) => {
   }
 };
 
-const tick = (state$) => {
-  const state = state$.getValue();
-  if (!state.sequencer.playing) return;
-
-  const timing = audioCycleTiming(state);
-  const { cycle, duration } = timing;
-  const playhead = uiPlayhead(state);
-
-  if (playhead >= 0 && playhead !== lastPlayhead) {
-    lastPlayhead = playhead;
-    dispatch(patch(['sequencer', 'playhead'], playhead));
-  }
-
-  if (latestCycle === -1) {
-    scheduleCycle(state, 0);
-    latestCycle = 0;
-  } else if (cycle === latestCycle) {
-    const progress = (context.currentTime - startTime - cycle * duration) / duration;
-    if (progress > 0.7) {
-      scheduleCycle(state, cycle + 1);
-      latestCycle = cycle + 1;
-    }
-  }
-
-  rafId = requestAnimationFrame(() => tick(state$));
-};
-
 const pauseGracefully = (state) => {
+  stopLoops();
   cancelScheduledAfter(audioCycleTiming(state).cutoffTime);
-  cancelAnimationFrame(rafId);
-  rafId = 0;
   latestCycle = -1;
   lastPlayhead = -1;
   dispatch(patch(['sequencer', 'playhead'], null));
 };
 
 const reset = () => {
+  stopLoops();
   cancelAllScheduled();
-  cancelAnimationFrame(rafId);
-  rafId = 0;
   latestCycle = -1;
   lastPlayhead = -1;
   dispatch(patch(['sequencer', 'playhead'], null));
@@ -169,8 +235,12 @@ export let stop = () => {};
 
 export const start = ({ state$ }) => {
   let subs = [];
+  state$Ref = state$;
 
-  // Play/pause the sequencer
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', onVisibilityChange);
+  }
+
   subs.push(
     state$
       .pipe(distinctUntilChanged((a, b) => a.sequencer.playing === b.sequencer.playing))
@@ -179,7 +249,9 @@ export const start = ({ state$ }) => {
           resume().then(() => {
             startTime = context.currentTime + 0.05;
             latestCycle = -1;
-            tick(state$);
+            transportTick(state$, { updateUi: true });
+            startInterval();
+            startRaf();
           });
         } else {
           pauseGracefully(state);
@@ -187,7 +259,6 @@ export const start = ({ state$ }) => {
       }),
   );
 
-  // Reset the transport when the playing state changes
   subs.push(
     state$
       .pipe(
@@ -197,7 +268,6 @@ export const start = ({ state$ }) => {
       .subscribe(() => resetTransport()),
   );
 
-  // Reschedule the remainder of the cycle when the grid changes
   subs.push(
     state$
       .pipe(
@@ -216,8 +286,11 @@ export const start = ({ state$ }) => {
       }),
   );
 
-  // Reset the sequencer service when it stops
   stop = () => {
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    }
+    state$Ref = null;
     reset();
     subs.forEach((sub) => sub.unsubscribe());
     subs = [];
