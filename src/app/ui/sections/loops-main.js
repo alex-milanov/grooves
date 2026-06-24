@@ -1,4 +1,4 @@
-import { div, header, button, h2, label, i } from 'iblokz-snabbdom-helpers';
+import { div, header, button, h2, i } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { context } from '../../util/audio';
 import { getLoopSlot, getLoopsTrack, slotHasContent } from '../../util/loops-state';
@@ -208,8 +208,7 @@ export default (state) => {
         },
         [i('.fa.fa-trash')],
       ),
-      label('Input'),
-      dropdown('.loops-input.control', {
+      dropdown('.loops-input', {
         handle: [inputLabel(devices, inputId), caret()],
         items: inputItems,
       }),

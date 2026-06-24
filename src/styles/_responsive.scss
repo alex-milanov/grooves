@@ -30,18 +30,18 @@
 
   .workspace-strip-preview,
   .workspace-strip-slot {
-    width: 8.5em;
-    height: 4em;
+    width: 10em;
+    height: 6.5em;
   }
 
   .workspace-strip-preview .workspace-preview-inner {
-    --strip-preview-scale: 0.11;
+    --strip-preview-scale: 0.13;
   }
 
   .workspaces-strip {
     padding-left: 0.5rem;
     padding-right: 0.5rem;
-    min-height: 4.75em;
+    min-height: 7.5em;
   }
 }
 

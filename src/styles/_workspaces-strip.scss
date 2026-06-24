@@ -6,7 +6,7 @@
   gap: 0.35em;
   padding: 0.4em 0.75rem;
   box-sizing: border-box;
-  min-height: 5.5em;
+  min-height: 9em;
   background-color: var(--app-bg-header-formed, rgba(0, 0, 0, 0.35));
   border-bottom: 1px solid var(--app-border, rgba(255, 255, 255, 0.08));
   backdrop-filter: blur(8px);
@@ -28,8 +28,8 @@
 
 .workspace-strip-slot {
   flex: 0 0 auto;
-  width: 11em;
-  height: 4.75em;
+  width: 13em;
+  height: 8em;
   box-sizing: border-box;
   border: 2px dashed var(--app-border, rgba(255, 255, 255, 0.2));
   border-radius: 0.4em;
@@ -55,8 +55,8 @@
 
 .workspace-strip-preview {
   flex: 0 0 auto;
-  width: 11em;
-  height: 4.75em;
+  width: 13em;
+  height: 8em;
   padding: 0;
   margin: 0;
   border: 1px solid var(--app-border, rgba(255, 255, 255, 0.15));
@@ -65,6 +65,7 @@
   overflow: hidden;
   cursor: pointer;
   opacity: 0.85;
+  position: relative;
   transition: opacity 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 
   &:hover {
@@ -74,9 +75,12 @@
   }
 
   .workspace-preview-inner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
     width: max-content;
-    transform: scale(var(--strip-preview-scale, 0.14));
-    transform-origin: top left;
+    transform: translate(-50%, -50%) scale(var(--strip-preview-scale, 0.16));
+    transform-origin: center center;
     pointer-events: none;
     user-select: none;
 
