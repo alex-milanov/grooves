@@ -78,12 +78,14 @@ Reference apps and what Grooves might take from each. Status: **done** · **part
 
 ### js-loop-station
 **Path:** `~/Projects/dev/music/js-loop-station`  
-**Role:** Looper — layered loops, overdub
+**Role:** Looper — layered loops, overdub  
+**Grooves spec:** [`loops.md`](loops.md)
 
 | Idea | Notes | Status |
 |------|-------|--------|
-| Loop record / overdub / multi-track loops | Different paradigm from step grid | **reference only** |
-| Sync loops to master clock | Would build on grooves transport | **planned** (if loops added) |
+| Loop record / overdub / multi-track loops | 4 slots in one `loop` session track | **MVP spec** → [`loops.md`](loops.md) |
+| Sync loops to master clock | Session `startTime` + global BPM quantize | **planned** (MVP) |
+| Virtual click on first record | Not in js-loop-station; Grooves addition | **planned** (MVP) |
 
 ---
 
@@ -117,7 +119,7 @@ Incremental path aligned with “simple sequencer first”:
 2. **Library depth** — multi-kit, better browse UX (jam-station media library)
 3. **Sample interaction** — trim/start point, basic FX (xAmplR)
 4. **Live layer** — optional pad bank or keyboard trigger (xAmplR + jam-station MIDI)
-5. **Loop lanes** — if product goes beyond drum machine (js-loop-station)
+5. **Loop lanes** — [`loops.md`](loops.md) (js-loop-station port + transport sync)
 6. **Melodic / session** — only if groovebox scope expands (jam-station)
 
 Each step should leave the app deployable and demo-able.

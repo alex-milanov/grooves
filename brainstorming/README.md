@@ -12,6 +12,7 @@ Implementation specs graduate to `planning/`; completed work is recorded in `sum
 - [`project-formats.md`](project-formats.md) — JSON, ZIP, DAWproject, MIDI, MusicXML interchange
 - [`track-model.md`](track-model.md) — track types, naming, session structure, MIDI mapping
 - [`transport.md`](transport.md) — session vs per-track transport, shared startTime, scheduling
+- [`loops.md`](loops.md) — loop track MVP (4 slots, record, quantize, virtual click)
 - [`workspaces.md`](workspaces.md) — strip switcher, one workspace per track, mixer & routing screens
 
 ### Future (as topics grow)
@@ -21,7 +22,7 @@ Implementation specs graduate to `planning/`; completed work is recorded in `sum
 
 ## Current focus
 
-**Active:** workspaces strip + Drums editor + mixer ([`planning/2026-06-24-01-workspaces-strip-and-mixer.md`](../planning/2026-06-24-01-workspaces-strip-and-mixer.md)), track model / `tracks[]` migration, project formats.
+**Active:** loop track MVP ([`planning/2026-06-24-02-loops-mvp.md`](../planning/2026-06-24-02-loops-mvp.md)), workspaces strip + mixer, `tracks[]` migration, project formats.
 
 **Next implementation slice:** workspaces UI shell — strip, `activeWorkspace`, mixer columns (part mixer + buses + master).
 
@@ -33,5 +34,6 @@ Implementation specs graduate to `planning/`; completed work is recorded in `sum
 - 💾 **Project formats:** [`project-formats.md`](project-formats.md)
 - 🎚️ **Track model:** [`track-model.md`](track-model.md)
 - ⏯️ **Transport:** [`transport.md`](transport.md)
+- 🔁 **Loops:** [`loops.md`](loops.md)
 - 🖥️ **Workspaces:** [`workspaces.md`](workspaces.md)
 - 📦 **What exists today:** [README](../README)

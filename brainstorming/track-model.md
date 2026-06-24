@@ -167,22 +167,33 @@ One **track** = one workspace = **multi-row step grid** (today’s whole sequenc
 
 Each **row** = one sample + one grid line + one **MIDI note** inside the **group**; export and mixer treat the parent as **one track**.
 
-**`loop` (future)** — same pattern: e.g. 4 slots as sub-parts, `track.mixer` at group level, one MIDI/structure track on export.
+**`loop` (MVP spec)** — same pattern: **4 slots** as sub-parts, `track.mixer` at group level, one export lane. Full UI + services: [`loops.md`](loops.md).
 
-### `loop` (future)
+### `loop` (MVP — see [`loops.md`](loops.md))
 
 ```javascript
 {
-  id: 'trk-loop-a',
+  id: 'trk-loops',
   type: 'loop',
-  name: 'Loop A',
+  name: 'Loops',
+  transport: { armed: true, playing: false, stopPending: false },
+  mixer: { volume: 1, muted: false, solo: false },
   loop: {
-    bufferRef: 'samples/loop-a.wav',
-    start: 0,
-    end: 4,       // bars or seconds
-    overdub: false,
+    inputId: 'default',
+    clickArmed: false,
+    slots: [
+      {
+        id: 'slot-0',
+        process: 'empty',
+        startedAt: null,
+        layers: 0,
+        duration: 0,        // seconds, ≥ 1 bar after quantize
+        bufferKeys: [],
+        params: { volume: 1, muted: false, vcf: {}, sends: {} },
+      },
+      // … slots 1–3
+    ],
   },
-  mixer: { ... },
 }
 ```
 
@@ -289,5 +300,5 @@ Grooves: **unified session track list** (strip) + **type-specific editor** (work
 1. Introduce **`tracks[]` with `type: 'sample-seq'`** — refactor from index-based sequencer state without new types yet.
 2. Add **`mixer` + sends** (ties to FX brain dump).
 3. **`project.json` v1** using new shape.
-4. Add **`loop`** type when loop playback exists.
+4. Add **`loop`** type — [`planning/2026-06-24-02-loops-mvp.md`](../planning/2026-06-24-02-loops-mvp.md).
 5. Add **`instrument`** type with MIDI + MusicXML export path.

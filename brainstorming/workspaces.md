@@ -146,7 +146,7 @@ Grouped **left** (tracks) and **right** (system) — see § Flex layout.
 | Type | Workspace content | Reference |
 |------|-------------------|-----------|
 | `sample-seq` | **Multi-row** step grid (one row per sound / MIDI note), sample assign per row, row settings (waveform, VCF, sends) | Today’s full grooves grid = one such track |
-| `loop` | Up to 4 loop slots, overdub, sync to transport | js-loop-station |
+| `loop` | Up to 4 loop slots, overdub, sync to transport | [`loops.md`](loops.md) · js-loop-station |
 | `instrument` | Piano roll / synth UI, clips | jam-station `type: 'piano'` |
 
 Track **name** + small **type icon** on the strip tile (e.g. drum, loop, keys). Inside `sample-seq`, **row labels** show sample name; selected row drives settings panel (today’s `selectedTrack` → **selected row**).
@@ -341,7 +341,7 @@ routing: { nodes, edges }
 5. **Mixer workspace** — flex columns: tracks (left) | spacer | buses + master (right); vol, mute, solo, sends, bus FX.
 6. **Routing workspace** — read-only diagram.
 7. **Inactive tile previews** — animation + overlay.
-8. **Second session track** (`loop` type) + **+ Add track** menu.
+8. **Second session track** (`loop` type) — [`planning/2026-06-24-02-loops-mvp.md`](../planning/2026-06-24-02-loops-mvp.md).
 
 ---
 
