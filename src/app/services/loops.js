@@ -22,6 +22,7 @@ import {
   patchLoopSlot,
   slotHasContent,
 } from '../util/loops-state';
+import { LOOPS_TRACK_ID } from '../util/session-transport';
 import { WORKSPACE_LOOPS } from '../util/workspaces';
 import * as samples from '../util/samples';
 
@@ -291,11 +292,13 @@ const handleProcessChange = (state, slotIndex, process) => {
   stopSlotSources(slotIndex);
 };
 
-const syncLoopsToSession = (state) => {
+const syncLoopsToTrackTransport = (state) => {
   if (!anySlotHasContent(state)) return null;
+  const loopsTrack = getLoopsTrack(state);
+  const trackPlaying = !!loopsTrack?.transport?.playing;
 
-  if (state.transport?.playing) {
-    const needsStart = getLoopsTrack(state)?.loop?.slots?.some(
+  if (trackPlaying) {
+    const needsStart = loopsTrack?.loop?.slots?.some(
       (slot) => slotHasContent(slot) && slot.process === 'idle',
     );
     if (!needsStart) return null;
@@ -307,7 +310,7 @@ const syncLoopsToSession = (state) => {
     );
   }
 
-  const needsStop = getLoopsTrack(state)?.loop?.slots?.some((slot) =>
+  const needsStop = loopsTrack?.loop?.slots?.some((slot) =>
     ['play', 'record', 'overdub'].includes(slot.process),
   );
   if (!needsStop) return null;
@@ -322,6 +325,19 @@ const syncLoopsToSession = (state) => {
     };
   });
 };
+
+const loopsTransportKey = (state) => {
+  const tr = getLoopsTrack(state)?.transport ?? {};
+  return `${tr.playing}:${tr.stopPending}`;
+};
+
+const clearLoopsTrackStopPending = () =>
+  dispatch((s) => ({
+    ...s,
+    tracks: (s.tracks ?? []).map((t) =>
+      t.id === LOOPS_TRACK_ID ? { ...t, transport: { ...t.transport, stopPending: false } } : t,
+    ),
+  }));
 
 const stopAllSlots = () => {
   for (let i = 0; i < LOOPS_SLOT_COUNT; i++) {
@@ -408,15 +424,25 @@ export const start = ({ state$ }) => {
 
   subs.push(
     state$
-      .pipe(distinctUntilChanged((a, b) => a.transport?.playing === b.transport?.playing))
+      .pipe(distinctUntilChanged((a, b) => loopsTransportKey(a) === loopsTransportKey(b)))
       .subscribe((state) => {
         if (!anySlotHasContent(state)) return;
 
-        if (!state.transport?.playing) {
+        const loopsTr = getLoopsTrack(state)?.transport ?? {};
+
+        if (loopsTr.stopPending) {
+          stopAllSlots();
+          clearLoopsTrackStopPending();
+          const next = syncLoopsToTrackTransport(state);
+          if (next) dispatch(() => next);
+          return;
+        }
+
+        if (!loopsTr.playing) {
           stopAllSlots();
         }
 
-        const next = syncLoopsToSession(state);
+        const next = syncLoopsToTrackTransport(state);
         if (next) dispatch(() => next);
       }),
   );

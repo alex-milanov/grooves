@@ -23,6 +23,7 @@ import {
 import { nextSlotCycleTime } from './transport-clock';
 import { LOOPS_KIT_NAME } from '../services/loops-library';
 import { emptySlotRecordSchedule } from './loop-record-schedule';
+import { LOOPS_TRACK_ID } from './session-transport';
 
 export const selectLoopSlot = (slotIndex) => dispatch((s) => selectSlotState(s, slotIndex));
 
@@ -93,22 +94,47 @@ export const slotClear = (slotIndex) =>
     }),
   );
 
-export const loopsPlayAll = () =>
+export const loopsTogglePlay = () =>
   dispatch((s) => {
+    const loopsTrack = getLoopsTrack(s);
+    if (!loopsTrack) return s;
+    if (loopsTrack.transport?.playing) {
+      return {
+        ...s,
+        tracks: s.tracks.map((t) =>
+          t.id === LOOPS_TRACK_ID
+            ? { ...t, transport: { ...t.transport, playing: false, stopPending: false } }
+            : t,
+        ),
+      };
+    }
     const now = context.currentTime;
-    return mapLoopSlots(s, (slot) =>
+    const withSlots = mapLoopSlots(s, (slot) =>
       slotHasContent(slot) ? { ...slot, process: 'play', startedAt: now } : slot,
     );
+    return {
+      ...withSlots,
+      tracks: withSlots.tracks.map((t) =>
+        t.id === LOOPS_TRACK_ID
+          ? { ...t, transport: { ...t.transport, playing: true, stopPending: false } }
+          : t,
+      ),
+    };
   });
 
 export const loopsStopAll = () =>
-  dispatch((s) =>
-    mapLoopSlots(s, (slot) =>
+  dispatch((s) => ({
+    ...mapLoopSlots(s, (slot) =>
       slot.process === 'empty'
         ? slot
         : { ...slot, process: 'idle', countInAt: null, countInSilent: false },
     ),
-  );
+    tracks: s.tracks.map((t) =>
+      t.id === LOOPS_TRACK_ID
+        ? { ...t, transport: { ...t.transport, playing: false, stopPending: true } }
+        : t,
+    ),
+  }));
 
 export const loopsClearAll = () =>
   dispatch((s) =>

@@ -9,8 +9,14 @@ import {
   cancelAllScheduled,
   getOutputLatency,
 } from '../util/audio';
-import { getTransportStartTime, setTransportStartTime, stepTime } from '../util/transport-clock';
+import {
+  getTransportStartTime,
+  setTransportStartTime,
+  stepTime,
+  transportStartFromLoopPhase,
+} from '../util/transport-clock';
 import { DRUMS_TRACK_ID, isTrackScheduling } from '../util/session-transport';
+import { getActiveLoopCycle } from '../util/loops-state';
 import * as samples from '../util/samples';
 
 const SCHEDULE_INTERVAL_MS = 25;
@@ -140,7 +146,7 @@ const updatePlayhead = (state) => {
 
 const transportTick = (state$, { updateUi = false } = {}) => {
   const state = state$.getValue();
-  if (!state.transport?.playing) return;
+  if (!isTrackScheduling(state, DRUMS_TRACK_ID)) return;
 
   runScheduling(state);
   if (updateUi) updatePlayhead(state);
@@ -164,7 +170,7 @@ const stopLoops = () => {
 const rafLoop = () => {
   if (!state$Ref) return;
   transportTick(state$Ref, { updateUi: true });
-  if (state$Ref.getValue().transport?.playing && !document.hidden) {
+  if (isTrackScheduling(state$Ref.getValue(), DRUMS_TRACK_ID) && !document.hidden) {
     rafId = requestAnimationFrame(rafLoop);
   } else {
     rafId = 0;
@@ -172,7 +178,9 @@ const rafLoop = () => {
 };
 
 const startRaf = () => {
-  if (rafId || document.hidden || !state$Ref?.getValue()?.transport?.playing) return;
+  if (rafId || document.hidden || !isTrackScheduling(state$Ref?.getValue(), DRUMS_TRACK_ID)) {
+    return;
+  }
   rafId = requestAnimationFrame(rafLoop);
 };
 
@@ -184,7 +192,7 @@ const startInterval = () => {
 };
 
 const onVisibilityChange = () => {
-  if (!state$Ref?.getValue()?.transport?.playing) return;
+  if (!isTrackScheduling(state$Ref?.getValue(), DRUMS_TRACK_ID)) return;
 
   if (document.hidden) {
     stopRaf();
@@ -196,6 +204,20 @@ const onVisibilityChange = () => {
     startRaf();
   });
 };
+
+const clearDrumsStopPending = () =>
+  dispatch((s) => ({
+    ...s,
+    tracks: (s.tracks ?? []).map((t) =>
+      t.id === DRUMS_TRACK_ID ? { ...t, transport: { ...t.transport, stopPending: false } } : t,
+    ),
+  }));
+
+const transportChanged = (a, b) =>
+  a.transport?.bpm === b.transport?.bpm &&
+  a.transport?.timeSignature?.[0] === b.transport?.timeSignature?.[0] &&
+  a.transport?.timeSignature?.[1] === b.transport?.timeSignature?.[1] &&
+  a.transport?.resolution === b.transport?.resolution;
 
 const rescheduleRemainder = (state) => {
   const { cycle, cutoffTime, rescheduleFrom, steps } = audioCycleTiming(state);
@@ -230,18 +252,31 @@ const reset = () => {
   dispatch(patch(['transport', 'playhead'], null));
 };
 
+const anchorTransportStart = (state) => {
+  const now = context.currentTime;
+  const cycleDur = cycleDuration(state);
+  const loop = getActiveLoopCycle(state);
+  setTransportStartTime(
+    loop ? transportStartFromLoopPhase(loop.startedAt, loop.duration, cycleDur, now) : now + 0.05,
+  );
+};
+
 const resetTransport = () => {
   cancelScheduledAfter(context.currentTime);
-  setTransportStartTime(context.currentTime + 0.05);
+  if (state$Ref) anchorTransportStart(state$Ref.getValue());
+  else setTransportStartTime(context.currentTime + 0.05);
   latestCycle = -1;
   lastPlayhead = -1;
 };
 
-const transportChanged = (a, b) =>
-  a.transport?.bpm === b.transport?.bpm &&
-  a.transport?.timeSignature?.[0] === b.transport?.timeSignature?.[0] &&
-  a.transport?.timeSignature?.[1] === b.transport?.timeSignature?.[1] &&
-  a.transport?.resolution === b.transport?.resolution;
+const getDrumsTrack = (state) => state.tracks?.find((t) => t.id === DRUMS_TRACK_ID);
+
+const drumsTransport = (state) => getDrumsTrack(state)?.transport ?? {};
+
+const drumsTransportKey = (state) => {
+  const tr = drumsTransport(state);
+  return `${tr.playing}:${tr.stopPending}:${state.transport?.stopPending}`;
+};
 
 export let stop = () => {};
 
@@ -255,19 +290,30 @@ export const start = ({ state$ }) => {
 
   subs.push(
     state$
-      .pipe(distinctUntilChanged((a, b) => a.transport?.playing === b.transport?.playing))
+      .pipe(distinctUntilChanged((a, b) => drumsTransportKey(a) === drumsTransportKey(b)))
       .subscribe((state) => {
-        if (state.transport?.playing) {
+        const drums = drumsTransport(state);
+        const sessionStop = state.transport?.stopPending;
+
+        if (sessionStop || drums.stopPending) {
+          stopImmediately();
+          if (sessionStop) {
+            dispatch(patch(['transport', 'stopPending'], false));
+          }
+          if (drums.stopPending) {
+            clearDrumsStopPending();
+          }
+          return;
+        }
+
+        if (drums.playing) {
           resume().then(() => {
-            setTransportStartTime(context.currentTime + 0.05);
+            anchorTransportStart(state$Ref.getValue());
             latestCycle = -1;
             transportTick(state$, { updateUi: true });
             startInterval();
             startRaf();
           });
-        } else if (state.transport?.stopPending) {
-          stopImmediately();
-          dispatch(patch(['transport', 'stopPending'], false));
         } else {
           pauseGracefully(state);
         }
@@ -277,7 +323,7 @@ export const start = ({ state$ }) => {
   subs.push(
     state$
       .pipe(
-        filter((s) => s.transport?.playing),
+        filter((s) => isTrackScheduling(s, DRUMS_TRACK_ID)),
         distinctUntilChanged(transportChanged),
       )
       .subscribe(() => resetTransport()),
@@ -286,7 +332,7 @@ export const start = ({ state$ }) => {
   subs.push(
     state$
       .pipe(
-        filter((s) => s.transport?.playing && isTrackScheduling(s, DRUMS_TRACK_ID)),
+        filter((s) => isTrackScheduling(s, DRUMS_TRACK_ID)),
         pairwise(),
         filter(([prev, next]) => prev.sequencer.grid !== next.sequencer.grid),
       )

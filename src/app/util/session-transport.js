@@ -31,22 +31,20 @@ const stopLoopSlots = (state) =>
 const mapTrackTransport = (tracks, id, fn) =>
   (tracks ?? []).map((t) => (t.id === id ? { ...t, transport: fn(t.transport ?? {}) } : t));
 
-/** Session stops when no track schedulers remain active. */
-export const syncSessionFromTracks = (state) => {
-  if (!state.transport?.playing) return state;
-  const anyPlaying = state.tracks?.some((t) => t.transport?.playing);
-  if (anyPlaying) return state;
-  return {
-    ...state,
-    transport: {
-      ...state.transport,
-      playing: false,
-      playhead: null,
-      stopPending: false,
-    },
-  };
-};
+const startAllTrackTransports = (tracks) =>
+  (tracks ?? []).map((t) =>
+    t.transport?.armed === false
+      ? t
+      : { ...t, transport: { ...t.transport, playing: true, stopPending: false } },
+  );
 
+const stopAllTrackTransports = (tracks, { stopPending = false } = {}) =>
+  (tracks ?? []).map((t) => ({
+    ...t,
+    transport: { ...t.transport, playing: false, stopPending },
+  }));
+
+/** Session play/pause — all armed tracks follow session transport. */
 export const sessionTogglePlay = () =>
   dispatch((s) => {
     const nextPlaying = !s.transport?.playing;
@@ -54,23 +52,17 @@ export const sessionTogglePlay = () =>
       return {
         ...s,
         transport: { ...s.transport, playing: true, stopPending: false },
-        tracks: (s.tracks ?? []).map((t) =>
-          t.transport?.armed === false
-            ? t
-            : { ...t, transport: { ...t.transport, playing: true, stopPending: false } },
-        ),
+        tracks: startAllTrackTransports(s.tracks),
       };
     }
     return {
       ...s,
       transport: { ...s.transport, playing: false, playhead: null, stopPending: false },
-      tracks: (s.tracks ?? []).map((t) => ({
-        ...t,
-        transport: { ...t.transport, playing: false, stopPending: false },
-      })),
+      tracks: stopAllTrackTransports(s.tracks),
     };
   });
 
+/** Session stop — halts session and every track (including loop slots). */
 export const sessionStop = () =>
   dispatch((s) =>
     stopLoopSlots({
@@ -81,13 +73,11 @@ export const sessionStop = () =>
         playhead: null,
         stopPending: true,
       },
-      tracks: (s.tracks ?? []).map((t) => ({
-        ...t,
-        transport: { ...t.transport, playing: false, stopPending: false },
-      })),
+      tracks: stopAllTrackTransports(s.tracks),
     }),
   );
 
+/** Per-track play/pause — does not change session transport. */
 export const trackTogglePlay = (trackId = DRUMS_TRACK_ID) =>
   dispatch((s) => {
     const track = s.tracks?.find((t) => t.id === trackId);
@@ -95,56 +85,28 @@ export const trackTogglePlay = (trackId = DRUMS_TRACK_ID) =>
 
     const nextTrackPlaying = !track.transport?.playing;
 
-    if (nextTrackPlaying) {
-      return {
-        ...s,
-        transport: { ...s.transport, playing: true, stopPending: false },
-        tracks: mapTrackTransport(s.tracks, trackId, (tr) => ({
-          ...tr,
-          playing: true,
-          stopPending: false,
-        })),
-      };
-    }
-
-    return syncSessionFromTracks({
+    return {
       ...s,
       tracks: mapTrackTransport(s.tracks, trackId, (tr) => ({
         ...tr,
-        playing: false,
+        playing: nextTrackPlaying,
         stopPending: false,
       })),
-    });
-  });
-
-export const trackStop = (trackId = DRUMS_TRACK_ID) =>
-  dispatch((s) => {
-    const tracks = mapTrackTransport(s.tracks, trackId, (tr) => ({
-      ...tr,
-      playing: false,
-      stopPending: true,
-    }));
-    const anyPlaying = tracks.some((t) => t.transport?.playing);
-    if (anyPlaying) {
-      return { ...s, tracks };
-    }
-    return {
-      ...s,
-      tracks: tracks.map((t) => ({
-        ...t,
-        transport: { ...t.transport, stopPending: false },
-      })),
-      transport: {
-        ...s.transport,
-        playing: false,
-        playhead: null,
-        stopPending: true,
-      },
     };
   });
 
+/** Per-track stop — does not change session transport. */
+export const trackStop = (trackId = DRUMS_TRACK_ID) =>
+  dispatch((s) => ({
+    ...s,
+    tracks: mapTrackTransport(s.tracks, trackId, (tr) => ({
+      ...tr,
+      playing: false,
+      stopPending: true,
+    })),
+  }));
+
 export const isTrackScheduling = (state, trackId = DRUMS_TRACK_ID) => {
-  if (!state.transport?.playing) return false;
   const track = state.tracks?.find((t) => t.id === trackId);
   return !!track?.transport?.playing;
 };
@@ -152,4 +114,4 @@ export const isTrackScheduling = (state, trackId = DRUMS_TRACK_ID) => {
 export const isLoopsScheduling = (state) => isTrackScheduling(state, LOOPS_TRACK_ID);
 
 export const anyTrackScheduling = (state) =>
-  !!state.transport?.playing && state.tracks?.some((t) => t.transport?.playing);
+  state.tracks?.some((t) => t.transport?.playing) ?? false;

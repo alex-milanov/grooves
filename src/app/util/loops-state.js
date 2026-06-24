@@ -55,6 +55,17 @@ export const slotHasContent = (slot) => (slot?.bufferKeys?.length ?? 0) > 0;
 export const anySlotHasContent = (state) =>
   getLoopsTrack(state)?.loop?.slots?.some(slotHasContent) ?? false;
 
+/** First slot in `play` with a running cycle — reference for transport sync. */
+export const getActiveLoopCycle = (state) => {
+  const slots = getLoopsTrack(state)?.loop?.slots ?? [];
+  for (const slot of slots) {
+    if (slot.process === 'play' && slot.startedAt != null && slot.duration > 0) {
+      return { startedAt: slot.startedAt, duration: slot.duration };
+    }
+  }
+  return null;
+};
+
 export const mapLoopSlots = (state, fn) => {
   const track = getLoopsTrack(state);
   if (!track) return state;

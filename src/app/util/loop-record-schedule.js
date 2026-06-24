@@ -1,6 +1,28 @@
 import { context } from './audio';
-import { barSeconds, nextBarTime, nextLocalBarTime } from './transport-clock';
-import { anySessionActivity } from './session-transport';
+import {
+  barSeconds,
+  getTransportStartTime,
+  nextBarTime,
+  nextLocalBarTime,
+  nextLoopBarTime,
+} from './transport-clock';
+import { getActiveLoopCycle } from './loops-state';
+import { anySessionActivity, DRUMS_TRACK_ID, isTrackScheduling } from './session-transport';
+
+/** Bar grid from session, playing drums, or a playing loop. */
+const nextAlignedBarTime = (state, fromTime = context.currentTime) => {
+  const start = getTransportStartTime();
+  const onDrumsGrid =
+    start > 0 && (state.transport?.playing || isTrackScheduling(state, DRUMS_TRACK_ID));
+  if (onDrumsGrid) return nextBarTime(state.transport, fromTime);
+
+  const loop = getActiveLoopCycle(state);
+  if (loop) {
+    return nextLoopBarTime(state.transport, loop.startedAt, loop.duration, fromTime);
+  }
+
+  return nextLocalBarTime(state.transport, fromTime);
+};
 
 /** Record arm times for an empty slot. */
 export const emptySlotRecordSchedule = (state, clickOn) => {
@@ -9,11 +31,8 @@ export const emptySlotRecordSchedule = (state, clickOn) => {
   const playing = anySessionActivity(state);
 
   if (playing) {
-    const recordAt = state.transport?.playing
-      ? nextBarTime(state.transport, now)
-      : nextLocalBarTime(state.transport, now);
     return {
-      startedAt: recordAt,
+      startedAt: nextAlignedBarTime(state, now),
       countInAt: now,
       countInSilent: true,
     };

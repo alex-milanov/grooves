@@ -56,3 +56,30 @@ export const phaseAt = (startedAt, duration, atTime = context.currentTime) => {
   if (!startedAt || !duration) return 0;
   return ((atTime - startedAt) % duration) / duration;
 };
+
+/** Anchor transport start so cycleDuration progress matches loop cycle phase at `now`. */
+export const transportStartFromLoopPhase = (
+  loopStartedAt,
+  loopDuration,
+  cycleDuration,
+  now = context.currentTime,
+) => {
+  const elapsed = (((now - loopStartedAt) % loopDuration) + loopDuration) % loopDuration;
+  const phase = elapsed / loopDuration;
+  return now - phase * cycleDuration;
+};
+
+/** Next bar boundary on a playing loop's timeline. */
+export const nextLoopBarTime = (
+  transport,
+  loopStartedAt,
+  loopDuration,
+  fromTime = context.currentTime,
+) => {
+  const bar = barSeconds(transport);
+  if (!bar || !loopStartedAt || !loopDuration) return nextLocalBarTime(transport, fromTime);
+  const elapsed = (((fromTime - loopStartedAt) % loopDuration) + loopDuration) % loopDuration;
+  const intoBar = elapsed % bar;
+  const remaining = intoBar < 0.001 ? bar : bar - intoBar;
+  return fromTime + remaining;
+};

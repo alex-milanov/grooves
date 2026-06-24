@@ -5,8 +5,8 @@ import { getLoopSlot, getLoopsTrack, slotHasContent } from '../../util/loops-sta
 import {
   deselectLoopSlot,
   loopsClearAll,
-  loopsPlayAll,
   loopsStopAll,
+  loopsTogglePlay,
   openLoopLibraryPanel,
   setLoopsInput,
   slotClear,
@@ -153,6 +153,7 @@ const inputLabel = (devices, inputId) => {
 
 export default (state) => {
   const loopsTrack = getLoopsTrack(state);
+  const loopsPlaying = !!loopsTrack?.transport?.playing;
   const inputId = loopsTrack?.loop?.inputId ?? 'default';
   const devices = state.ui?.loops?.inputDevices ?? [];
 
@@ -175,19 +176,26 @@ export default (state) => {
       button(
         '.track-transport-btn.play-toggle',
         {
+          class: { active: loopsPlaying },
           props: {
             type: 'button',
-            title: 'Play all',
-            'aria-label': 'Play all loops',
+            title: loopsPlaying ? 'Pause loops track' : 'Play all',
+            'aria-label': loopsPlaying ? 'Pause loops track' : 'Play all loops',
+            'aria-pressed': String(loopsPlaying),
           },
-          on: { click: () => loopsPlayAll() },
+          on: { click: () => loopsTogglePlay() },
         },
-        [i('.fa.fa-play')],
+        [i(loopsPlaying ? '.fa.fa-pause' : '.fa.fa-play')],
       ),
       button(
         '.track-transport-btn.stop',
         {
-          props: { type: 'button', title: 'Stop all', 'aria-label': 'Stop all loops' },
+          props: {
+            type: 'button',
+            title: 'Stop loops track',
+            'aria-label': 'Stop all loops',
+            disabled: !loopsPlaying,
+          },
           on: { click: () => loopsStopAll() },
         },
         [i('.fa.fa-stop')],
