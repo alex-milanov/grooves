@@ -19,7 +19,7 @@ pnpm install
 pnpm start
 ```
 
-Open the URL Parcel prints (usually `http://localhost:1234`).
+Open the URL Parcel prints (usually `http://localhost:1234`). The dev server listens on all interfaces (`0.0.0.0`), so you can also open it from other devices on your LAN using your machine’s IP, e.g. `http://192.168.1.42:1234`.
 
 ```bash
 pnpm run build   # production build to dist/

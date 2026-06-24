@@ -4,7 +4,7 @@
   "description": "",
   "source": "src/index.pug",
   "scripts": {
-    "start": "parcel",
+    "start": "parcel serve --host 0.0.0.0",
     "build": "parcel build --public-url /grooves/",
     "lint": "biome lint ./src && eslint src",
     "lint:fix": "biome lint --write ./src && eslint src --fix",

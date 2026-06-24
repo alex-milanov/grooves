@@ -4,6 +4,41 @@
 .knob-field {
   @include knob-field;
 
+  .knob-value {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.38em;
+    line-height: 1;
+    color: var(--app-text);
+    @include text-shadow-label;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.1s ease;
+  }
+
+  &.dragging .knob-value {
+    opacity: 1;
+  }
+
+  .knob-hit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.75em;
+    min-height: 2.75em;
+    margin: 0 auto;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
   .knob {
     --knob-value: 0;
     --knob-accent: var(--app-btn-primary-bg);
@@ -11,11 +46,9 @@
     width: 2.8em;
     height: 2.8em;
     position: relative;
-    margin: 0 auto;
     display: inline-block;
     box-sizing: border-box;
-    cursor: grab;
-    touch-action: none;
+    pointer-events: none;
     transform: rotate(calc(var(--knob-value) * 360deg));
     background: conic-gradient(
       from 30deg,
@@ -35,10 +68,6 @@
       inset 1px 1px 0 #333,
       1px 1px 3px #333,
       0 0 calc(var(--knob-value) * 12px) var(--knob-accent);
-
-    &:active {
-      cursor: grabbing;
-    }
 
     &::before {
       content: '';

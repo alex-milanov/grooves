@@ -94,24 +94,28 @@ export default (state) => {
         knob({
           label: 'Cutoff',
           value: params.vcf.cutoff,
+          defaultValue: 0.64,
           disabled: !hasSample,
           onChange: (v) => patchParam(['vcf', 'cutoff'], v),
         }),
         knob({
           label: 'Res',
           value: params.vcf.resonance,
+          defaultValue: 0,
           disabled: !hasSample,
           onChange: (v) => patchParam(['vcf', 'resonance'], v),
         }),
         knob({
           label: 'Rev',
           value: params.sends.reverb,
+          defaultValue: 0,
           disabled: !hasSample,
           onChange: (v) => patchParam(['sends', 'reverb'], v),
         }),
         knob({
           label: 'Dly',
           value: params.sends.delay,
+          defaultValue: 0,
           disabled: !hasSample,
           onChange: (v) => patchParam(['sends', 'delay'], v),
         }),
