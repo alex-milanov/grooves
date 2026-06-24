@@ -4,25 +4,8 @@
 .knob-field {
   @include knob-field;
 
-  .knob-value {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 0.38em;
-    line-height: 1;
-    color: var(--app-text);
-    @include text-shadow-label;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.1s ease;
-  }
-
-  &.dragging .knob-value {
-    opacity: 1;
-  }
-
   .knob-hit {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -37,6 +20,27 @@
     &:active {
       cursor: grabbing;
     }
+  }
+
+  .knob-value {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 0.2em;
+    font-size: 0.38em;
+    line-height: 1;
+    color: var(--app-text);
+    @include text-shadow-label;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1;
+    transition: opacity 0.1s ease;
+  }
+
+  &.dragging .knob-value {
+    opacity: 1;
   }
 
   .knob {

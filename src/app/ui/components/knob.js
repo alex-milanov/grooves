@@ -147,7 +147,6 @@ export default ({
       class: { disabled },
     },
     [
-      span('.knob-value'),
       div(
         '.knob-hit',
         {
@@ -166,6 +165,7 @@ export default ({
           },
         },
         [
+          span('.knob-value'),
           div('.knob', {
             style: { '--knob-value': String(knobValue) },
           }),
