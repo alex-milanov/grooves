@@ -226,7 +226,7 @@ export const start = ({ state$ }) => {
   subs.push(
     state$
       .pipe(
-        map((s) => s.sequencer.playing),
+        map((s) => s.transport?.playing),
         distinctUntilChanged(),
       )
       .subscribe((playing) => {

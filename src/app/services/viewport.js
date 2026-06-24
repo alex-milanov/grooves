@@ -136,13 +136,13 @@ export const start = ({ state$ }) => {
           track: s.sequencer?.selectedTrack,
           library: s.sequencer?.panels?.library,
           settings: s.sequencer?.panels?.settings,
-          tracks: s.tracks ?? s.sequencer?.tracks,
+          tracks: s.sequencer?.tracks,
           steps:
-            s.sequencer?.timeSignature && s.sequencer?.resolution
+            s.transport?.timeSignature && s.transport?.resolution
               ? Number(
                   (
-                    s.sequencer.resolution *
-                    (s.sequencer.timeSignature[0] / s.sequencer.timeSignature[1])
+                    s.transport.resolution *
+                    (s.transport.timeSignature[0] / s.transport.timeSignature[1])
                   ).toFixed(0),
                 )
               : s.sequencer?.steps,

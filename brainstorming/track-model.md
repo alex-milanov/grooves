@@ -213,11 +213,11 @@ Each **row** = one sample + one grid line + one **MIDI note** inside the **group
 state.sequencer.{ tracks, grid, assignments, trackParams, bpm, ... }
 ```
 
-**Direction:**
+**Direction:** see [`transport.md`](transport.md) for session vs per-track transport, shared `startTime`, and scheduler split.
 
 ```
 state.session.title
-state.transport.{ bpm, timeSignature, resolution, playing, playhead }
+state.transport.{ bpm, timeSignature, resolution, playing, startTime, playhead }
 state.tracks[]                    // typed track list
 state.mixer.{ master, buses }     // shared reverb/delay — see audio-routing-and-fx.md
 state.library.{ ... }             // unchanged

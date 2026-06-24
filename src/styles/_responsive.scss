@@ -1,3 +1,16 @@
+@media (max-width: 900px) {
+  .site-header {
+    .site-nav {
+      grid-template-columns: auto 1fr auto;
+      gap: 4px;
+    }
+
+    .site-transport .transport-bpm-label {
+      display: none;
+    }
+  }
+}
+
 // Mobile — scale workspace to fit wrapper; compact strip previews
 @media (max-width: 900px) {
   .app {

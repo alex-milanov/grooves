@@ -11,6 +11,7 @@ Implementation specs graduate to `planning/`; completed work is recorded in `sum
 - [`audio-routing-and-fx.md`](audio-routing-and-fx.md) — VCF inserts, reverb/delay busses, routing state & visualization
 - [`project-formats.md`](project-formats.md) — JSON, ZIP, DAWproject, MIDI, MusicXML interchange
 - [`track-model.md`](track-model.md) — track types, naming, session structure, MIDI mapping
+- [`transport.md`](transport.md) — session vs per-track transport, shared startTime, scheduling
 - [`workspaces.md`](workspaces.md) — strip switcher, one workspace per track, mixer & routing screens
 
 ### Future (as topics grow)
@@ -31,5 +32,6 @@ Implementation specs graduate to `planning/`; completed work is recorded in `sum
 - 🎛️ **FX & routing:** [`audio-routing-and-fx.md`](audio-routing-and-fx.md)
 - 💾 **Project formats:** [`project-formats.md`](project-formats.md)
 - 🎚️ **Track model:** [`track-model.md`](track-model.md)
+- ⏯️ **Transport:** [`transport.md`](transport.md)
 - 🖥️ **Workspaces:** [`workspaces.md`](workspaces.md)
 - 📦 **What exists today:** [README](../README)

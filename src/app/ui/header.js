@@ -8,6 +8,7 @@ import { LANGS, LANG_LABELS, flagSrc } from '../util/lang';
 import { themePreview } from '../util/theme-preview';
 import { stripVisible } from '../util/workspaces';
 import dropdown, { caret } from './components/dropdown';
+import headerTransport from './header-transport';
 
 const onHomeClick = (ev) => {
   ev.preventDefault();
@@ -66,35 +67,33 @@ const themeOption = (family, mode, label) => {
 
 export default (state) => {
   const lang = state.lang || 'en';
-  const { scroll, size } = state.viewport.screen;
-  const scrollY = scroll?.y ?? 0;
+  const scrollY = state.viewport.screen.scroll?.y ?? 0;
   const progress = headerProgress(scrollY);
-  const paddingTop = (scrollY > 28 || ['xs', 'sm'].includes(size) ? 8 : 28 - scrollY) + 'px';
 
   return header(
     '.site-header.fixed-top',
     {
       class: { 'is-formed': progress > 0.05 },
-      style: {
-        paddingTop,
-        '--header-progress': progress,
-      },
+      style: { '--header-progress': progress },
     },
     [
       nav('.site-nav', [
-        a(
-          '.site-title[href="#hero"]',
-          {
-            on: { click: onHomeClick },
-          },
-          [
-            img('.site-logo', {
-              props: { src: 'assets/logo.svg', alt: '' },
-            }),
-            'Grooves',
-          ],
-        ),
-        div('.site-controls', [
+        div('.site-nav-start', [
+          a(
+            '.site-title[href="#hero"]',
+            {
+              on: { click: onHomeClick },
+            },
+            [
+              img('.site-logo', {
+                props: { src: 'assets/logo.svg', alt: '' },
+              }),
+              'Grooves',
+            ],
+          ),
+        ]),
+        div('.site-nav-center', [headerTransport(state)]),
+        div('.site-nav-end.site-controls', [
           dropdown('.flags.control', {
             flags: true,
             handle: [

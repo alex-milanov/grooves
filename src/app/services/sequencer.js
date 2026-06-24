@@ -10,6 +10,7 @@ import {
   cancelAllScheduled,
   getOutputLatency,
 } from '../util/audio';
+import { DRUMS_TRACK_ID, isTrackScheduling } from '../util/session-transport';
 import * as samples from '../util/samples';
 
 const SCHEDULE_INTERVAL_MS = 25;
@@ -25,18 +26,17 @@ const timeSignatureToSteps = (timeSignature, resolution) =>
   Number((resolution * (timeSignature[0] / timeSignature[1])).toFixed(0));
 
 const stepCount = (state) =>
-  timeSignatureToSteps(state.sequencer.timeSignature, state.sequencer.resolution);
+  timeSignatureToSteps(state.transport.timeSignature, state.transport.resolution);
 
 const cycleDuration = (state) => {
   const steps = stepCount(state);
-  return stepTime(state.sequencer.bpm) * steps;
+  return stepTime(state.transport.bpm) * steps;
 };
 
-// Audio-time transport (scheduling). UI playhead uses effectiveStart = startTime + outputLatency.
 const audioCycleTiming = (state) => {
   const steps = stepCount(state);
   const duration = cycleDuration(state);
-  const dt = stepTime(state.sequencer.bpm);
+  const dt = stepTime(state.transport.bpm);
   const now = context.currentTime;
   const cycle = Math.floor((now - startTime) / duration);
   const progress = ((now - startTime) % duration) / duration;
@@ -80,17 +80,19 @@ const gridCellChanges = (prevGrid, nextGrid, tracks, steps) => {
 };
 
 const scheduleCycle = (state, cycle, fromStep = 0) => {
+  if (!isTrackScheduling(state, DRUMS_TRACK_ID)) return;
+
   const { sequencer } = state;
-  const tracks = state.tracks ?? sequencer.tracks;
+  const rowCount = sequencer.tracks;
   const steps = stepCount(state);
-  const dt = stepTime(sequencer.bpm);
+  const dt = stepTime(state.transport.bpm);
   const base = startTime + cycle * cycleDuration(state);
   const now = context.currentTime;
 
   for (let step = fromStep; step < steps; step++) {
     const when = base + step * dt;
     if (when <= now) continue;
-    for (let track = 0; track < tracks; track++) {
+    for (let track = 0; track < rowCount; track++) {
       if (!sequencer.grid[track]?.[step]) continue;
       const assignment = sequencer.assignments?.[track];
       if (!assignment) continue;
@@ -101,6 +103,8 @@ const scheduleCycle = (state, cycle, fromStep = 0) => {
 };
 
 const runScheduling = (state) => {
+  if (!isTrackScheduling(state, DRUMS_TRACK_ID)) return;
+
   const timing = audioCycleTiming(state);
   const { cycle, duration } = timing;
 
@@ -130,13 +134,13 @@ const updatePlayhead = (state) => {
   const playhead = uiPlayhead(state);
   if (playhead >= 0 && playhead !== lastPlayhead) {
     lastPlayhead = playhead;
-    dispatch(patch(['sequencer', 'playhead'], playhead));
+    dispatch(patch(['transport', 'playhead'], playhead));
   }
 };
 
 const transportTick = (state$, { updateUi = false } = {}) => {
   const state = state$.getValue();
-  if (!state.sequencer.playing) return;
+  if (!state.transport?.playing) return;
 
   runScheduling(state);
   if (updateUi) updatePlayhead(state);
@@ -160,7 +164,7 @@ const stopLoops = () => {
 const rafLoop = () => {
   if (!state$Ref) return;
   transportTick(state$Ref, { updateUi: true });
-  if (state$Ref.getValue().sequencer.playing && !document.hidden) {
+  if (state$Ref.getValue().transport?.playing && !document.hidden) {
     rafId = requestAnimationFrame(rafLoop);
   } else {
     rafId = 0;
@@ -168,7 +172,7 @@ const rafLoop = () => {
 };
 
 const startRaf = () => {
-  if (rafId || document.hidden || !state$Ref?.getValue()?.sequencer?.playing) return;
+  if (rafId || document.hidden || !state$Ref?.getValue()?.transport?.playing) return;
   rafId = requestAnimationFrame(rafLoop);
 };
 
@@ -180,7 +184,7 @@ const startInterval = () => {
 };
 
 const onVisibilityChange = () => {
-  if (!state$Ref?.getValue()?.sequencer?.playing) return;
+  if (!state$Ref?.getValue()?.transport?.playing) return;
 
   if (document.hidden) {
     stopRaf();
@@ -207,7 +211,15 @@ const pauseGracefully = (state) => {
   cancelScheduledAfter(audioCycleTiming(state).cutoffTime);
   latestCycle = -1;
   lastPlayhead = -1;
-  dispatch(patch(['sequencer', 'playhead'], null));
+  dispatch(patch(['transport', 'playhead'], null));
+};
+
+const stopImmediately = () => {
+  stopLoops();
+  cancelAllScheduled();
+  latestCycle = -1;
+  lastPlayhead = -1;
+  dispatch(patch(['transport', 'playhead'], null));
 };
 
 const reset = () => {
@@ -215,7 +227,7 @@ const reset = () => {
   cancelAllScheduled();
   latestCycle = -1;
   lastPlayhead = -1;
-  dispatch(patch(['sequencer', 'playhead'], null));
+  dispatch(patch(['transport', 'playhead'], null));
 };
 
 const resetTransport = () => {
@@ -226,10 +238,10 @@ const resetTransport = () => {
 };
 
 const transportChanged = (a, b) =>
-  a.sequencer.bpm === b.sequencer.bpm &&
-  a.sequencer.timeSignature?.[0] === b.sequencer.timeSignature?.[0] &&
-  a.sequencer.timeSignature?.[1] === b.sequencer.timeSignature?.[1] &&
-  a.sequencer.resolution === b.sequencer.resolution;
+  a.transport?.bpm === b.transport?.bpm &&
+  a.transport?.timeSignature?.[0] === b.transport?.timeSignature?.[0] &&
+  a.transport?.timeSignature?.[1] === b.transport?.timeSignature?.[1] &&
+  a.transport?.resolution === b.transport?.resolution;
 
 export let stop = () => {};
 
@@ -243,9 +255,9 @@ export const start = ({ state$ }) => {
 
   subs.push(
     state$
-      .pipe(distinctUntilChanged((a, b) => a.sequencer.playing === b.sequencer.playing))
+      .pipe(distinctUntilChanged((a, b) => a.transport?.playing === b.transport?.playing))
       .subscribe((state) => {
-        if (state.sequencer.playing) {
+        if (state.transport?.playing) {
           resume().then(() => {
             startTime = context.currentTime + 0.05;
             latestCycle = -1;
@@ -253,6 +265,9 @@ export const start = ({ state$ }) => {
             startInterval();
             startRaf();
           });
+        } else if (state.transport?.stopPending) {
+          stopImmediately();
+          dispatch(patch(['transport', 'stopPending'], false));
         } else {
           pauseGracefully(state);
         }
@@ -262,7 +277,7 @@ export const start = ({ state$ }) => {
   subs.push(
     state$
       .pipe(
-        filter((s) => s.sequencer.playing),
+        filter((s) => s.transport?.playing),
         distinctUntilChanged(transportChanged),
       )
       .subscribe(() => resetTransport()),
@@ -271,14 +286,14 @@ export const start = ({ state$ }) => {
   subs.push(
     state$
       .pipe(
-        filter((s) => s.sequencer.playing),
+        filter((s) => s.transport?.playing && isTrackScheduling(s, DRUMS_TRACK_ID)),
         pairwise(),
         filter(([prev, next]) => prev.sequencer.grid !== next.sequencer.grid),
       )
       .subscribe(([prev, next]) => {
-        const tracks = next.tracks ?? next.sequencer.tracks;
+        const rowCount = next.sequencer.tracks;
         const steps = stepCount(next);
-        const changes = gridCellChanges(prev.sequencer.grid, next.sequencer.grid, tracks, steps);
+        const changes = gridCellChanges(prev.sequencer.grid, next.sequencer.grid, rowCount, steps);
         const { playhead } = audioCycleTiming(next);
         if (changes.some(({ step }) => step > playhead)) {
           rescheduleRemainder(next);

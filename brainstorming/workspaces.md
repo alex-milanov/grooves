@@ -32,7 +32,7 @@ Related docs: [`track-model.md`](track-model.md) (typed `tracks[]`, `rows[]`, MI
 - **Strip** — fixed under header, above main workspace area; **collapsible** on small screens.
 - **Strip toggle** — header control (see below) shows/hides the strip to reclaim vertical space on mobile.
 - **Workspace** — one full editor at a time; content depends on `track.type` or global mode (`routing`, `mixer`).
-- **Transport** (play, BPM, time signature) — global; stays audible regardless of active workspace (TBD: strip vs header vs workspace chrome).
+- **Transport** (play, pause, stop, BPM) — **global session** in header; shared `startTime` for all tracks. Per-track arm/play/pause when multiple session tracks exist. See [`transport.md`](transport.md).
 
 ---
 
@@ -322,7 +322,7 @@ routing: { nodes, edges }
 
 ## Open questions
 
-- [ ] Transport controls — header, strip, or inside each workspace?
+- [x] Transport controls — **session** in header (play/stop/BPM); **per-track** in workspace when multi-track ([`transport.md`](transport.md)).
 - [ ] Strip scroll when many tracks — horizontal scroll vs collapse?
 - [ ] Rename strip tiles — inline on tab or only in workspace?
 - [ ] Default project — one `sample-seq` track with 4 rows (current kit) vs empty?

@@ -2,6 +2,7 @@ import { obj } from 'iblokz-data';
 import { getInitialTheme } from '../util/theme';
 import { buildDefaultRouting } from '../util/routing';
 import { WORKSPACE_DRUMS, defaultWorkspacesStripOpen } from '../util/workspaces';
+import { DRUMS_TRACK_ID } from '../util/session-transport';
 
 const TRACK_COUNT = 4;
 
@@ -10,6 +11,26 @@ export const initial = {
     activeWorkspace: WORKSPACE_DRUMS,
     workspacesStripOpen: typeof window !== 'undefined' ? defaultWorkspacesStripOpen() : true,
   },
+  transport: {
+    playing: false,
+    playhead: null,
+    stopPending: false,
+    bpm: 120,
+    timeSignature: [4, 4],
+    resolution: 16,
+  },
+  tracks: [
+    {
+      id: DRUMS_TRACK_ID,
+      type: 'sample-seq',
+      name: 'Drums',
+      transport: {
+        armed: true,
+        playing: false,
+        stopPending: false,
+      },
+    },
+  ],
   partMixer: {
     name: 'Drums',
     volume: 1,
@@ -25,13 +46,8 @@ export const initial = {
     },
   },
   sequencer: {
-    bpm: 120,
-    timeSignature: [4, 4],
-    resolution: 16,
     tracks: TRACK_COUNT,
     steps: 16,
-    playing: false,
-    playhead: null,
     selectedTrack: null,
     panels: {
       library: false,
@@ -43,7 +59,7 @@ export const initial = {
       2: { kit: 'basic_drum_kit', sample: 'HCR-01.wav' },
     },
     trackParams: {},
-    grid: [], // [[]] (tracks x steps) on/off 1/0 grid
+    grid: [],
   },
   library: {
     path: ['library'],
