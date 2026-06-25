@@ -17,6 +17,16 @@ export const anySessionActivity = (state) => {
   return anyLoopSlotActive(state);
 };
 
+/** Running musical cycle excluding a slot being armed (for play join). */
+export const hasRunningCycle = (state, excludeSlotIndex = null) => {
+  if (state.transport?.playing) return true;
+  if (state.tracks?.some((t) => t.transport?.playing)) return true;
+  const slots = getLoopsTrack(state)?.loop?.slots ?? [];
+  return slots.some(
+    (s, i) => i !== excludeSlotIndex && ACTIVE_LOOP_PROCESSES.has(s.process),
+  );
+};
+
 const stopLoopSlots = (state) =>
   mapLoopSlots(state, (slot) => {
     if (slot.process === 'empty') return slot;
@@ -25,6 +35,7 @@ const stopLoopSlots = (state) =>
       process: slotHasContent(slot) ? 'idle' : 'empty',
       countInAt: null,
       countInSilent: false,
+      partialPlay: false,
     };
   });
 

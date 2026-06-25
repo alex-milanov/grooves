@@ -73,8 +73,8 @@ const updatePlayRecProgress = () => {
       anyActive = true;
       const inFade =
         startedAt != null &&
-        now < startedAt - 0.001 &&
-        (countInAt == null || slot.countInSilent || now >= countInAt - 0.001);
+        slot.partialPlay &&
+        now < startedAt - 0.001;
       btn.classList.toggle('count-in', inFade);
       btn.style.setProperty('--pgPercentage', String(calcProgress(startedAt, duration)));
     } else if (process === 'record' && countInAt != null && now < startedAt) {
@@ -325,14 +325,6 @@ const beginPlay = (state, slotIndex) => {
   const slot = getLoopSlot(state, slotIndex);
   if (!slot || !slotHasContent(slot)) return;
 
-  const track = getLoopsTrack(state);
-  const now = context.currentTime;
-  const playAt = slot.startedAt ?? now;
-
-  if (track?.loop?.clickEnabled && !slot.countInSilent && slot.countInAt != null && playAt > now) {
-    scheduleBeatClicks(state.transport, slot.countInAt, playAt);
-  }
-
   const armPlayback = () => {
     resume().then(() => {
       const s = state$Ref?.getValue();
@@ -342,8 +334,8 @@ const beginPlay = (state, slotIndex) => {
     });
   };
 
-  const { when } = slotPlaybackTiming(slot, now);
-  const delayMs = Math.max(0, (when - now) * 1000);
+  const { when } = slotPlaybackTiming(slot, context.currentTime);
+  const delayMs = Math.max(0, (when - context.currentTime) * 1000);
   if (delayMs > 1) {
     clearPlayStartTimer(slotIndex);
     playStartTimers.set(
@@ -388,11 +380,9 @@ const syncLoopsToTrackTransport = (state) => {
       (slot) => slotHasContent(slot) && slot.process === 'idle',
     );
     if (!needsStart) return null;
-    const clickOn = !!loopsTrack?.loop?.clickEnabled;
-    const schedule = slotPlaySchedule(state, clickOn);
-    return mapLoopSlots(state, (slot) =>
+    return mapLoopSlots(state, (slot, i) =>
       slotHasContent(slot) && slot.process === 'idle'
-        ? { ...slot, process: 'play', ...schedule }
+        ? { ...slot, process: 'play', ...slotPlaySchedule(state, i) }
         : slot,
     );
   }
@@ -409,6 +399,7 @@ const syncLoopsToTrackTransport = (state) => {
       process: slotHasContent(slot) ? 'idle' : 'empty',
       countInAt: null,
       countInSilent: false,
+      partialPlay: false,
     };
   });
 };
@@ -511,26 +502,36 @@ export const start = ({ state$ }) => {
 
   subs.push(
     state$
-      .pipe(distinctUntilChanged((a, b) => loopsTransportKey(a) === loopsTransportKey(b)))
-      .subscribe((state) => {
-        if (!anySlotHasContent(state)) return;
+      .pipe(
+        map(loopsTransportKey),
+        pairwise(),
+      )
+      .subscribe(([prevKey, key]) => {
+        if (!anySlotHasContent(state$Ref.getValue())) return;
 
-        const loopsTr = getLoopsTrack(state)?.transport ?? {};
+        const loopsTr = getLoopsTrack(state$Ref.getValue())?.transport ?? {};
 
         if (loopsTr.stopPending) {
           stopAllSlots();
           clearLoopsTrackStopPending();
-          const next = syncLoopsToTrackTransport(state);
+          const next = syncLoopsToTrackTransport(state$Ref.getValue());
           if (next) dispatch(() => next);
           return;
         }
 
-        if (!loopsTr.playing) {
+        const wasPlaying = prevKey.startsWith('true:');
+        const isPlaying = key.startsWith('true:');
+        if (wasPlaying && !isPlaying) {
           stopAllSlots();
+          const next = syncLoopsToTrackTransport(state$Ref.getValue());
+          if (next) dispatch(() => next);
+          return;
         }
 
-        const next = syncLoopsToTrackTransport(state);
-        if (next) dispatch(() => next);
+        if (isPlaying) {
+          const next = syncLoopsToTrackTransport(state$Ref.getValue());
+          if (next) dispatch(() => next);
+        }
       }),
   );
 

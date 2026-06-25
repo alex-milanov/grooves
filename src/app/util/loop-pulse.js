@@ -1,24 +1,12 @@
 import { context } from './audio';
 import { barSeconds, beatSeconds, getTransportStartTime } from './transport-clock';
-import { getLoopsTrack } from './loops-state';
 
-const ACTIVE_PROCESSES = new Set(['play', 'record', 'overdub']);
+const PULSE_PROCESSES = new Set(['play', 'overdub']);
 
 /** Whether the slot circle should pulse to the current BPM. */
-export const slotTempoPulseEnabled = (state, slot, slotIndex) => {
+export const slotTempoPulseEnabled = (state, slot) => {
   const process = slot?.process;
-  if (!ACTIVE_PROCESSES.has(process)) return false;
-
-  if (process === 'record' && getTransportStartTime() <= 0) {
-    const sessionPlaying = !!state.transport?.playing;
-    const trackPlaying = state.tracks?.some((t) => t.transport?.playing);
-    const otherSlot = getLoopsTrack(state)?.loop?.slots?.some(
-      (s, i) => i !== slotIndex && ACTIVE_PROCESSES.has(s.process),
-    );
-    if (!sessionPlaying && !trackPlaying && !otherSlot) return false;
-  }
-
-  return true;
+  return PULSE_PROCESSES.has(process);
 };
 
 /** Phase within the current quarter-note beat (0 = downbeat). */

@@ -1,25 +1,20 @@
 import { context } from './audio';
 import { phaseAt } from './transport-clock';
 
-export const isFullCountIn = (slot) =>
-  slot?.countInAt != null &&
-  !slot?.countInSilent &&
-  slot?.startedAt != null &&
-  slot.startedAt > slot.countInAt + 0.001;
-
 /** Audio start time, fade-in end, and loop phase for buffer offset. */
 export const slotPlaybackTiming = (slot, atTime = context.currentTime) => {
-  const { startedAt, duration, countInAt } = slot ?? {};
+  const { startedAt, duration, partialPlay } = slot ?? {};
   if (!duration) {
     return { when: atTime, fadeUntil: null, phase: 0 };
   }
 
-  if (isFullCountIn(slot)) {
-    const when = Math.max(atTime, countInAt);
-    const elapsed = Math.max(0, when - countInAt);
-    const phase = (elapsed % duration) / duration;
-    const fadeUntil = startedAt > when + 0.001 ? startedAt : null;
-    return { when, fadeUntil, phase };
+  if (!partialPlay) {
+    const when = startedAt != null && startedAt > atTime + 0.001 ? startedAt : atTime;
+    const phase =
+      startedAt != null && startedAt <= atTime + 0.001
+        ? phaseAt(startedAt, duration, when)
+        : 0;
+    return { when, fadeUntil: null, phase };
   }
 
   const when = atTime;

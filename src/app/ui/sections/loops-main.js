@@ -4,6 +4,7 @@ import { context } from '../../util/audio';
 import { phaseAt } from '../../util/transport-clock';
 import { slotTempoPulseEnabled } from '../../util/loop-pulse';
 import { getLoopSlot, getLoopsTrack, slotHasContent } from '../../util/loops-state';
+import { anyLoopSlotActive } from '../../util/session-transport';
 import {
   deselectLoopSlot,
   loopsClearAll,
@@ -73,16 +74,13 @@ const slotStrip = (state, index) => {
   const panels = state.ui?.loops?.panels ?? {};
   const isSelected = selectedSlot === index;
   const now = context.currentTime;
-  const { startedAt, duration, countInAt, countInSilent } = slot ?? {};
+  const { startedAt, duration, countInAt, partialPlay } = slot ?? {};
   let pgPercentage = 0;
   if (process === 'play' && duration > 0) {
     pgPercentage = calcProgress(startedAt, duration);
   }
   const inPlayFade =
-    process === 'play' &&
-    startedAt != null &&
-    now < startedAt - 0.001 &&
-    (countInAt == null || countInSilent || now >= countInAt - 0.001);
+    process === 'play' && partialPlay && startedAt != null && now < startedAt - 0.001;
 
   const tempoPulse = slotTempoPulseEnabled(state, slot, index);
 
@@ -172,6 +170,7 @@ const inputLabel = (devices, inputId) => {
 export default (state) => {
   const loopsTrack = getLoopsTrack(state);
   const loopsPlaying = !!loopsTrack?.transport?.playing;
+  const anySlotActive = anyLoopSlotActive(state);
   const inputId = loopsTrack?.loop?.inputId ?? 'default';
   const devices = state.ui?.loops?.inputDevices ?? [];
 
@@ -212,7 +211,7 @@ export default (state) => {
             type: 'button',
             title: 'Stop loops track',
             'aria-label': 'Stop all loops',
-            disabled: !loopsPlaying,
+            disabled: !anySlotActive,
           },
           on: { click: () => loopsStopAll() },
         },
@@ -237,8 +236,8 @@ export default (state) => {
           props: {
             type: 'button',
             title: loopsTrack?.loop?.clickEnabled
-              ? 'Count-in click on (1 bar)'
-              : 'Count-in click off',
+              ? 'Record count-in click on (1 bar)'
+              : 'Record count-in click off',
             'aria-label': 'Toggle count-in click',
             'aria-pressed': String(!!loopsTrack?.loop?.clickEnabled),
           },

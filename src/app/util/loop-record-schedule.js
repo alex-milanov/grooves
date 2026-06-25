@@ -7,7 +7,12 @@ import {
   nextLoopBarTime,
 } from './transport-clock';
 import { getActiveLoopCycle } from './loops-state';
-import { anySessionActivity, DRUMS_TRACK_ID, isTrackScheduling } from './session-transport';
+import {
+  anySessionActivity,
+  DRUMS_TRACK_ID,
+  hasRunningCycle,
+  isTrackScheduling,
+} from './session-transport';
 
 /** Bar grid from session, playing drums, or a playing loop. */
 const nextAlignedBarTime = (state, fromTime = context.currentTime) => {
@@ -24,8 +29,14 @@ const nextAlignedBarTime = (state, fromTime = context.currentTime) => {
   return nextLocalBarTime(state.transport, fromTime);
 };
 
-/** Bar-aligned start + optional count-in for record/play arm. */
-export const slotBarSchedule = (state, clickOn) => {
+const clearArmFields = {
+  countInAt: null,
+  countInSilent: false,
+  partialPlay: false,
+};
+
+/** Count-in + bar align for record arm only. */
+export const emptySlotRecordSchedule = (state, clickOn) => {
   const bar = barSeconds(state.transport);
   const now = context.currentTime;
   const playing = anySessionActivity(state);
@@ -35,6 +46,7 @@ export const slotBarSchedule = (state, clickOn) => {
       startedAt: nextAlignedBarTime(state, now),
       countInAt: now,
       countInSilent: true,
+      partialPlay: false,
     };
   }
 
@@ -44,18 +56,58 @@ export const slotBarSchedule = (state, clickOn) => {
       startedAt: countInAt + bar,
       countInAt,
       countInSilent: false,
+      partialPlay: false,
     };
   }
 
   return {
     startedAt: nextLocalBarTime(state.transport, now),
-    countInAt: null,
-    countInSilent: false,
+    ...clearArmFields,
   };
 };
 
-/** Record arm times for an empty slot. */
-export const emptySlotRecordSchedule = (state, clickOn) => slotBarSchedule(state, clickOn);
+/** Fraction of a bar treated as “near” a cycle edge (one beat in 4/4). */
+const CYCLE_EDGE = 0.125;
 
-/** Play arm times for an idle slot with content. */
-export const slotPlaySchedule = (state, clickOn) => slotBarSchedule(state, clickOn);
+/** Play arm — no count-in; partial join only mid-cycle on a running grid. */
+export const slotPlaySchedule = (state, slotIndex = null) => {
+  const now = context.currentTime;
+  const transport = state.transport;
+  const bar = barSeconds(transport);
+
+  if (!hasRunningCycle(state, slotIndex)) {
+    return {
+      startedAt: now,
+      ...clearArmFields,
+    };
+  }
+
+  const nextBar = nextAlignedBarTime(state, now);
+  const prevBar = nextBar - bar;
+  const elapsed = now - prevBar;
+  const remaining = nextBar - now;
+  const progress = bar > 0 ? elapsed / bar : 0;
+
+  if (remaining <= bar * CYCLE_EDGE) {
+    return {
+      startedAt: nextBar,
+      ...clearArmFields,
+    };
+  }
+
+  if (progress <= CYCLE_EDGE) {
+    return {
+      startedAt: prevBar,
+      ...clearArmFields,
+    };
+  }
+
+  return {
+    startedAt: nextBar,
+    countInAt: now,
+    countInSilent: true,
+    partialPlay: true,
+  };
+};
+
+export { nextAlignedBarTime };

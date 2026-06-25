@@ -70,7 +70,7 @@ export const slotTogglePlayRec = (slotIndex) =>
     }
 
     if (process === 'idle' && slotHasContent(slot)) {
-      const schedule = slotPlaySchedule(s, clickOn);
+      const schedule = slotPlaySchedule(s, slotIndex);
       return patchLoopSlot(s, slotIndex, {
         process: 'play',
         ...schedule,
@@ -88,6 +88,7 @@ export const slotStop = (slotIndex) =>
       process: slotHasContent(slot) ? 'idle' : 'empty',
       countInAt: null,
       countInSilent: false,
+      partialPlay: false,
     });
   });
 
@@ -105,7 +106,11 @@ export const loopsTogglePlay = () =>
     if (!loopsTrack) return s;
     if (loopsTrack.transport?.playing) {
       return {
-        ...s,
+        ...mapLoopSlots(s, (slot) =>
+          ['play', 'record', 'overdub'].includes(slot.process)
+            ? { ...slot, process: slotHasContent(slot) ? 'idle' : 'empty', countInAt: null, countInSilent: false, partialPlay: false }
+            : slot,
+        ),
         tracks: s.tracks.map((t) =>
           t.id === LOOPS_TRACK_ID
             ? { ...t, transport: { ...t.transport, playing: false, stopPending: false } }
@@ -113,8 +118,7 @@ export const loopsTogglePlay = () =>
         ),
       };
     }
-    const clickOn = !!loopsTrack?.loop?.clickEnabled;
-    const schedule = slotPlaySchedule(s, clickOn);
+    const schedule = slotPlaySchedule(s);
     const withSlots = mapLoopSlots(s, (slot) =>
       slotHasContent(slot) ? { ...slot, process: 'play', ...schedule } : slot,
     );
@@ -133,7 +137,7 @@ export const loopsStopAll = () =>
     ...mapLoopSlots(s, (slot) =>
       slot.process === 'empty'
         ? slot
-        : { ...slot, process: 'idle', countInAt: null, countInSilent: false },
+        : { ...slot, process: 'idle', countInAt: null, countInSilent: false, partialPlay: false },
     ),
     tracks: s.tracks.map((t) =>
       t.id === LOOPS_TRACK_ID
