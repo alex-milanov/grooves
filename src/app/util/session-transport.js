@@ -1,10 +1,27 @@
 import { dispatch } from 'iblokz-state';
+import { context } from './audio';
 import { getLoopsTrack, mapLoopSlots, slotHasContent } from './loops-state';
+import {
+  getTransportStartTime,
+  nextTransportStart,
+  resetTransportStartTime,
+  setTransportStartTime,
+} from './transport-clock';
 
 export const DRUMS_TRACK_ID = 'drums';
 export const LOOPS_TRACK_ID = 'trk-loops';
 
 const ACTIVE_LOOP_PROCESSES = new Set(['play', 'record', 'overdub']);
+
+export const isTrackScheduling = (state, trackId = DRUMS_TRACK_ID) => {
+  const track = state.tracks?.find((t) => t.id === trackId);
+  return !!track?.transport?.playing;
+};
+
+export const isLoopsScheduling = (state) => isTrackScheduling(state, LOOPS_TRACK_ID);
+
+export const anyTrackScheduling = (state) =>
+  state.tracks?.some((t) => t.transport?.playing) ?? false;
 
 export const anyLoopSlotActive = (state) =>
   getLoopsTrack(state)?.loop?.slots?.some((slot) => ACTIVE_LOOP_PROCESSES.has(slot.process)) ??
@@ -17,14 +34,21 @@ export const anySessionActivity = (state) => {
   return anyLoopSlotActive(state);
 };
 
-/** Running musical cycle excluding a slot being armed (for play join). */
+/**
+ * True when there is already a musical cycle underway to join mid-bar.
+ * Transport/track `playing` alone does not count — those flags flip before audio is armed,
+ * which would wrongly treat a cold start as a mid-cycle join.
+ */
 export const hasRunningCycle = (state, excludeSlotIndex = null) => {
-  if (state.transport?.playing) return true;
-  if (state.tracks?.some((t) => t.transport?.playing)) return true;
   const slots = getLoopsTrack(state)?.loop?.slots ?? [];
-  return slots.some(
-    (s, i) => i !== excludeSlotIndex && ACTIVE_LOOP_PROCESSES.has(s.process),
-  );
+  if (slots.some((s, i) => i !== excludeSlotIndex && ACTIVE_LOOP_PROCESSES.has(s.process))) {
+    return true;
+  }
+
+  const start = getTransportStartTime();
+  const drumsOrSession = !!state.transport?.playing || isTrackScheduling(state, DRUMS_TRACK_ID);
+  // Only join once the shared transport anchor is in the past (audio underway).
+  return drumsOrSession && start > 0 && context.currentTime >= start;
 };
 
 const stopLoopSlots = (state) =>
@@ -33,6 +57,7 @@ const stopLoopSlots = (state) =>
     return {
       ...slot,
       process: slotHasContent(slot) ? 'idle' : 'empty',
+      startedAt: null,
       countInAt: null,
       countInSilent: false,
       partialPlay: false,
@@ -60,6 +85,8 @@ export const sessionTogglePlay = () =>
   dispatch((s) => {
     const nextPlaying = !s.transport?.playing;
     if (nextPlaying) {
+      // Shared downbeat for drums + loops before either service schedules audio.
+      setTransportStartTime(nextTransportStart());
       return {
         ...s,
         transport: { ...s.transport, playing: true, stopPending: false },
@@ -75,8 +102,9 @@ export const sessionTogglePlay = () =>
 
 /** Session stop — halts session and every track (including loop slots). */
 export const sessionStop = () =>
-  dispatch((s) =>
-    stopLoopSlots({
+  dispatch((s) => {
+    resetTransportStartTime();
+    return stopLoopSlots({
       ...s,
       transport: {
         ...s.transport,
@@ -85,8 +113,8 @@ export const sessionStop = () =>
         stopPending: true,
       },
       tracks: stopAllTrackTransports(s.tracks),
-    }),
-  );
+    });
+  });
 
 /** Per-track play/pause — does not change session transport. */
 export const trackTogglePlay = (trackId = DRUMS_TRACK_ID) =>
@@ -95,6 +123,9 @@ export const trackTogglePlay = (trackId = DRUMS_TRACK_ID) =>
     if (!track) return s;
 
     const nextTrackPlaying = !track.transport?.playing;
+    if (nextTrackPlaying && trackId === DRUMS_TRACK_ID && getTransportStartTime() <= 0) {
+      setTransportStartTime(nextTransportStart());
+    }
 
     return {
       ...s,
@@ -108,21 +139,16 @@ export const trackTogglePlay = (trackId = DRUMS_TRACK_ID) =>
 
 /** Per-track stop — does not change session transport. */
 export const trackStop = (trackId = DRUMS_TRACK_ID) =>
-  dispatch((s) => ({
-    ...s,
-    tracks: mapTrackTransport(s.tracks, trackId, (tr) => ({
-      ...tr,
-      playing: false,
-      stopPending: true,
-    })),
-  }));
-
-export const isTrackScheduling = (state, trackId = DRUMS_TRACK_ID) => {
-  const track = state.tracks?.find((t) => t.id === trackId);
-  return !!track?.transport?.playing;
-};
-
-export const isLoopsScheduling = (state) => isTrackScheduling(state, LOOPS_TRACK_ID);
-
-export const anyTrackScheduling = (state) =>
-  state.tracks?.some((t) => t.transport?.playing) ?? false;
+  dispatch((s) => {
+    if (trackId === DRUMS_TRACK_ID && !anyLoopSlotActive(s)) {
+      resetTransportStartTime();
+    }
+    return {
+      ...s,
+      tracks: mapTrackTransport(s.tracks, trackId, (tr) => ({
+        ...tr,
+        playing: false,
+        stopPending: true,
+      })),
+    };
+  });

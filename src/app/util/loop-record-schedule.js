@@ -14,6 +14,12 @@ import {
   isTrackScheduling,
 } from './session-transport';
 
+/** Cold-start downbeat: prefer a shared future transport anchor when present. */
+const coldStartAt = (now = context.currentTime) => {
+  const start = getTransportStartTime();
+  return start > now + 0.001 ? start : now;
+};
+
 /** Bar grid from session, playing drums, or a playing loop. */
 const nextAlignedBarTime = (state, fromTime = context.currentTime) => {
   const start = getTransportStartTime();
@@ -77,7 +83,7 @@ export const slotPlaySchedule = (state, slotIndex = null) => {
 
   if (!hasRunningCycle(state, slotIndex)) {
     return {
-      startedAt: now,
+      startedAt: coldStartAt(now),
       ...clearArmFields,
     };
   }

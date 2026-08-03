@@ -11,6 +11,8 @@ import {
 } from '../util/audio';
 import {
   getTransportStartTime,
+  nextTransportStart,
+  resetTransportStartTime,
   setTransportStartTime,
   stepTime,
   transportStartFromLoopPhase,
@@ -239,6 +241,7 @@ const pauseGracefully = (state) => {
 const stopImmediately = () => {
   stopLoops();
   cancelAllScheduled();
+  resetTransportStartTime();
   latestCycle = -1;
   lastPlayhead = -1;
   dispatch(patch(['transport', 'playhead'], null));
@@ -247,6 +250,7 @@ const stopImmediately = () => {
 const reset = () => {
   stopLoops();
   cancelAllScheduled();
+  resetTransportStartTime();
   latestCycle = -1;
   lastPlayhead = -1;
   dispatch(patch(['transport', 'playhead'], null));
@@ -256,15 +260,22 @@ const anchorTransportStart = (state) => {
   const now = context.currentTime;
   const cycleDur = cycleDuration(state);
   const loop = getActiveLoopCycle(state);
-  setTransportStartTime(
-    loop ? transportStartFromLoopPhase(loop.startedAt, loop.duration, cycleDur, now) : now + 0.05,
-  );
+  if (loop) {
+    setTransportStartTime(
+      transportStartFromLoopPhase(loop.startedAt, loop.duration, cycleDur, now),
+    );
+    return;
+  }
+  // Keep a session-level future anchor so drums and loops share one downbeat.
+  const existing = getTransportStartTime();
+  if (existing > now + 0.001) return;
+  setTransportStartTime(nextTransportStart(now));
 };
 
 const resetTransport = () => {
   cancelScheduledAfter(context.currentTime);
   if (state$Ref) anchorTransportStart(state$Ref.getValue());
-  else setTransportStartTime(context.currentTime + 0.05);
+  else setTransportStartTime(nextTransportStart());
   latestCycle = -1;
   lastPlayhead = -1;
 };

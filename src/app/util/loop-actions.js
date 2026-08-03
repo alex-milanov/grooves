@@ -86,6 +86,7 @@ export const slotStop = (slotIndex) =>
     if (!slot || slot.process === 'empty') return s;
     return patchLoopSlot(s, slotIndex, {
       process: slotHasContent(slot) ? 'idle' : 'empty',
+      startedAt: null,
       countInAt: null,
       countInSilent: false,
       partialPlay: false,
@@ -108,7 +109,14 @@ export const loopsTogglePlay = () =>
       return {
         ...mapLoopSlots(s, (slot) =>
           ['play', 'record', 'overdub'].includes(slot.process)
-            ? { ...slot, process: slotHasContent(slot) ? 'idle' : 'empty', countInAt: null, countInSilent: false, partialPlay: false }
+            ? {
+                ...slot,
+                process: slotHasContent(slot) ? 'idle' : 'empty',
+                startedAt: null,
+                countInAt: null,
+                countInSilent: false,
+                partialPlay: false,
+              }
             : slot,
         ),
         tracks: s.tracks.map((t) =>
@@ -137,7 +145,14 @@ export const loopsStopAll = () =>
     ...mapLoopSlots(s, (slot) =>
       slot.process === 'empty'
         ? slot
-        : { ...slot, process: 'idle', countInAt: null, countInSilent: false, partialPlay: false },
+        : {
+            ...slot,
+            process: 'idle',
+            startedAt: null,
+            countInAt: null,
+            countInSilent: false,
+            partialPlay: false,
+          },
     ),
     tracks: s.tracks.map((t) =>
       t.id === LOOPS_TRACK_ID

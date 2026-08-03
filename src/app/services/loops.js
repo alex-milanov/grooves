@@ -397,6 +397,7 @@ const syncLoopsToTrackTransport = (state) => {
     return {
       ...slot,
       process: slotHasContent(slot) ? 'idle' : 'empty',
+      startedAt: null,
       countInAt: null,
       countInSilent: false,
       partialPlay: false,

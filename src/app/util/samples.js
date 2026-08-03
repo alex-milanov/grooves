@@ -1,4 +1,4 @@
-const cache = new Map();
+let cache = new Map();
 
 export const get = (key) => cache.get(key);
 export const set = (key, buffer) => cache.set(key, buffer);

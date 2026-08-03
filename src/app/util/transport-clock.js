@@ -1,5 +1,8 @@
 import { context } from './audio';
 
+/** Shared lookahead so session, drums, and loops cold-start on the same downbeat. */
+export const TRANSPORT_START_LOOKAHEAD = 0.05;
+
 let startTime = 0;
 
 export const setTransportStartTime = (t) => {
@@ -11,6 +14,10 @@ export const getTransportStartTime = () => startTime;
 export const resetTransportStartTime = () => {
   startTime = 0;
 };
+
+/** Absolute audio time for a fresh transport/loop cold start. */
+export const nextTransportStart = (fromTime = context.currentTime) =>
+  fromTime + TRANSPORT_START_LOOKAHEAD;
 
 export const stepTime = (bpm) => 60 / bpm / 4;
 
@@ -28,7 +35,7 @@ export const barSeconds = (transport) => beatSeconds(transport) * beatsPerBar(tr
 
 export const nextLocalBarTime = (transport, fromTime = context.currentTime) => {
   const bar = barSeconds(transport);
-  if (!bar) return fromTime + 0.05;
+  if (!bar) return nextTransportStart(fromTime);
   const barsElapsed = Math.floor(fromTime / bar);
   const next = (barsElapsed + 1) * bar;
   return next <= fromTime + 0.001 ? next + bar : next;
@@ -38,14 +45,14 @@ export const nextBarTime = (transport, fromTime = context.currentTime) => {
   const bar = barSeconds(transport);
   const start = getTransportStartTime();
   if (!start || fromTime < start) {
-    return fromTime + 0.05;
+    return nextTransportStart(fromTime);
   }
   const barsElapsed = Math.floor((fromTime - start) / bar);
   return start + (barsElapsed + 1) * bar;
 };
 
 export const nextSlotCycleTime = (slotStartedAt, duration, fromTime = context.currentTime) => {
-  if (!slotStartedAt || !duration) return fromTime + 0.05;
+  if (!slotStartedAt || !duration) return nextTransportStart(fromTime);
   const elapsed = fromTime - slotStartedAt;
   const cycles = Math.floor(elapsed / duration);
   return slotStartedAt + (cycles + 1) * duration;
@@ -64,6 +71,11 @@ export const transportStartFromLoopPhase = (
   cycleDuration,
   now = context.currentTime,
 ) => {
+  if (!loopStartedAt || !loopDuration || !cycleDuration) {
+    return nextTransportStart(now);
+  }
+  // Loop armed in the future — share that downbeat rather than wrapping a negative phase.
+  if (loopStartedAt > now + 0.001) return loopStartedAt;
   const elapsed = (((now - loopStartedAt) % loopDuration) + loopDuration) % loopDuration;
   const phase = elapsed / loopDuration;
   return now - phase * cycleDuration;

@@ -22,7 +22,7 @@
     "@parcel/transformer-sass": "2.16.4",
     "buffer": "^6.0.3",
     "eslint": "^8.57.0",
-    "eslint-plugin-iblokz-style": "link:../../org/iblokz/eslint-plugin-iblokz-style",
+    "eslint-plugin-iblokz-style": "^0.2.0",
     "parcel": "^2.16.4",
     "parcel-reporter-static-files-copy": "^1.5.3",
     "process": "^0.11.10"

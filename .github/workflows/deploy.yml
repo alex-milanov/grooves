@@ -33,14 +33,7 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: |
-          node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            delete pkg.devDependencies['eslint-plugin-iblokz-style'];
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
-          "
-          pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Build
         run: pnpm run build
