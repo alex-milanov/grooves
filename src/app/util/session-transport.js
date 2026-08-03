@@ -61,6 +61,7 @@ const stopLoopSlots = (state) =>
       countInAt: null,
       countInSilent: false,
       partialPlay: false,
+      leadPadSeconds: 0,
     };
   });
 

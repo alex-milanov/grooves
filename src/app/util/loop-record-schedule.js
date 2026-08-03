@@ -6,6 +6,7 @@ import {
   nextLocalBarTime,
   nextLoopBarTime,
 } from './transport-clock';
+import { CYCLE_EDGE } from './loop-quantize';
 import { getActiveLoopCycle } from './loops-state';
 import {
   anySessionActivity,
@@ -39,6 +40,18 @@ const clearArmFields = {
   countInAt: null,
   countInSilent: false,
   partialPlay: false,
+  leadPadSeconds: 0,
+};
+
+/** Position within the current aligned bar. */
+const barProgress = (state, now = context.currentTime) => {
+  const bar = barSeconds(state.transport);
+  const nextBar = nextAlignedBarTime(state, now);
+  const prevBar = nextBar - bar;
+  const elapsed = now - prevBar;
+  const remaining = nextBar - now;
+  const progress = bar > 0 ? elapsed / bar : 0;
+  return { bar, nextBar, prevBar, elapsed, remaining, progress };
 };
 
 /** Count-in + bar align for record arm only. */
@@ -48,11 +61,32 @@ export const emptySlotRecordSchedule = (state, clickOn) => {
   const playing = anySessionActivity(state);
 
   if (playing) {
+    const { nextBar, prevBar, remaining, progress } = barProgress(state, now);
+
+    // Near end of bar — wait for the next downbeat.
+    if (remaining <= bar * CYCLE_EDGE) {
+      return {
+        startedAt: nextBar,
+        ...clearArmFields,
+        countInAt: now,
+        countInSilent: true,
+      };
+    }
+
+    // First 1/8 of the bar — punch in now; lead pad is measured at actual record start.
+    if (progress <= CYCLE_EDGE) {
+      return {
+        startedAt: prevBar,
+        ...clearArmFields,
+      };
+    }
+
+    // Mid-bar — wait for the next downbeat.
     return {
-      startedAt: nextAlignedBarTime(state, now),
+      startedAt: nextBar,
+      ...clearArmFields,
       countInAt: now,
       countInSilent: true,
-      partialPlay: false,
     };
   }
 
@@ -60,9 +94,9 @@ export const emptySlotRecordSchedule = (state, clickOn) => {
     const countInAt = nextLocalBarTime(state.transport, now);
     return {
       startedAt: countInAt + bar,
+      ...clearArmFields,
       countInAt,
       countInSilent: false,
-      partialPlay: false,
     };
   }
 
@@ -72,14 +106,10 @@ export const emptySlotRecordSchedule = (state, clickOn) => {
   };
 };
 
-/** Fraction of a bar treated as “near” a cycle edge (one beat in 4/4). */
-const CYCLE_EDGE = 0.125;
-
 /** Play arm — no count-in; partial join only mid-cycle on a running grid. */
 export const slotPlaySchedule = (state, slotIndex = null) => {
   const now = context.currentTime;
-  const transport = state.transport;
-  const bar = barSeconds(transport);
+  const { bar, nextBar, prevBar, remaining, progress } = barProgress(state, now);
 
   if (!hasRunningCycle(state, slotIndex)) {
     return {
@@ -87,12 +117,6 @@ export const slotPlaySchedule = (state, slotIndex = null) => {
       ...clearArmFields,
     };
   }
-
-  const nextBar = nextAlignedBarTime(state, now);
-  const prevBar = nextBar - bar;
-  const elapsed = now - prevBar;
-  const remaining = nextBar - now;
-  const progress = bar > 0 ? elapsed / bar : 0;
 
   if (remaining <= bar * CYCLE_EDGE) {
     return {
@@ -110,6 +134,7 @@ export const slotPlaySchedule = (state, slotIndex = null) => {
 
   return {
     startedAt: nextBar,
+    ...clearArmFields,
     countInAt: now,
     countInSilent: true,
     partialPlay: true,

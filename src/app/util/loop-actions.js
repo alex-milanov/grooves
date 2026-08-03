@@ -90,6 +90,7 @@ export const slotStop = (slotIndex) =>
       countInAt: null,
       countInSilent: false,
       partialPlay: false,
+      leadPadSeconds: 0,
     });
   });
 
@@ -116,6 +117,7 @@ export const loopsTogglePlay = () =>
                 countInAt: null,
                 countInSilent: false,
                 partialPlay: false,
+                leadPadSeconds: 0,
               }
             : slot,
         ),
@@ -152,6 +154,7 @@ export const loopsStopAll = () =>
             countInAt: null,
             countInSilent: false,
             partialPlay: false,
+            leadPadSeconds: 0,
           },
     ),
     tracks: s.tracks.map((t) =>
