@@ -292,4 +292,15 @@ export const stepTime = (bpm) => 60 / bpm / 4;
 export const getOutputLatency = (ctx = context) =>
   (ctx.baseLatency ?? 0) + (ctx.outputLatency ?? 0);
 
+/**
+ * Seconds to skip at the start of a live take so it lines up with the session grid.
+ * Performers sync to what they hear; that monitor path is delayed by output latency
+ * (Bluetooth especially), so the mic capture lands late relative to AudioContext time.
+ * Slack covers MediaRecorder/capture buffering and browsers that under-report BT latency.
+ */
+const RECORD_CAPTURE_SLACK = 0.08;
+
+export const getRecordLatencyCompensation = (ctx = context) =>
+  getOutputLatency(ctx) + RECORD_CAPTURE_SLACK;
+
 export { trackGain } from './track-params';

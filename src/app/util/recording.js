@@ -6,6 +6,14 @@ export const listInputDevices = () =>
     .then((devices) => devices.filter((d) => d.kind === 'audioinput')) ?? Promise.resolve([]);
 
 export const createInputStream = (deviceId = 'default') => {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    const where = typeof location !== 'undefined' ? location.origin : 'this origin';
+    return Promise.reject(
+      new Error(
+        `Microphone needs a secure context (https:// or http://localhost). Current: ${where}`,
+      ),
+    );
+  }
   const constraints =
     deviceId && deviceId !== 'default'
       ? { audio: { deviceId: { exact: deviceId } } }

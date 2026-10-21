@@ -7,6 +7,7 @@ import {
   applyRouting,
   getLoopSlotInput,
   syncPartLoopsMixer,
+  getRecordLatencyCompensation,
 } from '../util/audio';
 import { quantizeTargetSeconds, trimPadBuffer, leadingSilenceSeconds } from '../util/loop-quantize';
 import { barSeconds, phaseAt } from '../util/transport-clock';
@@ -216,12 +217,16 @@ const finishRecording = async (state, slotIndex, blob, fixedDuration = null, lea
   const transport = state.transport;
   const bar = barSeconds(transport);
   const slot = getLoopSlot(state, slotIndex);
-  // Drop MediaRecorder preroll so it doesn't stack on top of musical lead pad.
-  const preroll = fixedDuration != null ? 0 : leadingSilenceSeconds(raw);
+  // Monitor latency shifts the performance late vs the AudioContext bar; leading silence
+  // often measures the real (heard) offset better when outputLatency under-reports.
+  // Take the larger so we don't double-compensate.
+  const latencySkip = getRecordLatencyCompensation();
+  const preroll = leadingSilenceSeconds(raw, { threshold: 0.03, maxSeconds: 0.45 });
+  const skipSeconds = Math.max(latencySkip, preroll);
   const leadPad = fixedDuration != null ? 0 : Math.max(0, leadPadSeconds);
-  const measured = Math.max(0, raw.duration - preroll) + leadPad;
+  const measured = Math.max(0, raw.duration - skipSeconds) + leadPad;
   const targetSeconds = fixedDuration ?? quantizeTargetSeconds(measured, bar);
-  const trimmed = trimPadBuffer(context, raw, targetSeconds, leadPad, preroll);
+  const trimmed = trimPadBuffer(context, raw, targetSeconds, leadPad, skipSeconds);
   const layerIndex = slot?.process === 'overdub' ? (slot?.bufferKeys?.length ?? 0) : 0;
   const key = loopBufferKey(slotIndex, layerIndex);
   samples.set(key, trimmed);
@@ -343,7 +348,9 @@ const beginRecording = async (state, slotIndex) => {
   } catch (err) {
     console.warn('loop record failed:', err);
     stopBarClicks();
-    dispatch(patchLoopSlot(state, slotIndex, { process: slotHasContent(slot) ? 'idle' : 'empty' }));
+    dispatch((s) =>
+      patchLoopSlot(s, slotIndex, { process: slotHasContent(slot) ? 'idle' : 'empty' }),
+    );
   }
 };
 
