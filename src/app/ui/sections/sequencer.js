@@ -2,7 +2,7 @@ import { div, h2, button, header, label, input, i } from 'iblokz-snabbdom-helper
 import { dispatch } from 'iblokz-state';
 import { patch } from '../../state';
 import { pipe } from 'iblokz-data/lib/fn.js';
-import { selectTrack, deselectTrack, openLibraryPanel } from '../../util/panels';
+import { deselectTrack, openLibraryPanel, selectTrack } from '../../state/sequencer';
 import { DRUMS_TRACK_ID, trackTogglePlay, trackStop } from '../../util/session-transport';
 
 const rowCount = 4;
@@ -26,7 +26,7 @@ const onTrackClick = (track, ev) => {
   let deferDeselect = false;
   dispatch((s) => {
     if (s.sequencer.selectedTrack !== track) {
-      return selectTrack(s, track);
+      return selectTrack(track)(s);
     }
     deferDeselect = true;
     return s;
@@ -48,7 +48,7 @@ const onTrackClick = (track, ev) => {
 const onTrackDblClick = (track, ev) => {
   ev.preventDefault();
   clearTrackClickTimer();
-  dispatch((s) => openLibraryPanel(s, track));
+  dispatch(openLibraryPanel(track));
 };
 
 export default (state) =>
@@ -104,9 +104,10 @@ export default (state) =>
                   const next = Math.max(1, Number(ev.target.value));
                   const prev = s.sequencer.tracks ?? rowCount;
                   if (next > prev) {
+                    const withSelect = selectTrack(next - 1)(s);
                     return {
-                      ...selectTrack(s, next - 1),
-                      sequencer: { ...s.sequencer, tracks: next },
+                      ...withSelect,
+                      sequencer: { ...withSelect.sequencer, tracks: next },
                     };
                   }
                   return { ...s, sequencer: { ...s.sequencer, tracks: next } };

@@ -1,7 +1,7 @@
 import { div, header, span, button, label, input } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../../state';
-import { getLoopsTrack, patchLoopsMixer } from '../../util/loops-state';
+import { getLoopsTrack, patchLoopsMixer } from '../../state/loops';
 import knob from '../components/knob';
 
 const patchPart = (path, value) => dispatch(patch(['partMixer', ...path], value));

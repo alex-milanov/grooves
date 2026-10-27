@@ -7,7 +7,7 @@ import {
   nextLoopBarTime,
 } from './transport-clock';
 import { CYCLE_EDGE } from './loop-quantize';
-import { getActiveLoopCycle } from './loops-state';
+import { getActiveLoopCycle } from '../state/loops';
 import {
   anySessionActivity,
   DRUMS_TRACK_ID,

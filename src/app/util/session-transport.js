@@ -1,6 +1,6 @@
 import { dispatch } from 'iblokz-state';
 import { context } from './audio';
-import { getLoopsTrack, mapLoopSlots, slotHasContent } from './loops-state';
+import { getLoopsTrack, LOOPS_TRACK_ID, mapLoopSlots, slotHasContent } from '../state/loops';
 import {
   getTransportStartTime,
   nextTransportStart,
@@ -9,7 +9,7 @@ import {
 } from './transport-clock';
 
 export const DRUMS_TRACK_ID = 'drums';
-export const LOOPS_TRACK_ID = 'trk-loops';
+export { LOOPS_TRACK_ID };
 
 const ACTIVE_LOOP_PROCESSES = new Set(['play', 'record', 'overdub']);
 
@@ -81,25 +81,35 @@ const stopAllTrackTransports = (tracks, { stopPending = false } = {}) =>
     transport: { ...t.transport, playing: false, stopPending },
   }));
 
+const playReducer = (s) => {
+  if (s.transport?.playing) return s;
+  // Shared downbeat for drums + loops before either service schedules audio.
+  setTransportStartTime(nextTransportStart());
+  return {
+    ...s,
+    transport: { ...s.transport, playing: true, stopPending: false },
+    tracks: startAllTrackTransports(s.tracks),
+  };
+};
+
+const pauseReducer = (s) => {
+  if (!s.transport?.playing) return s;
+  return {
+    ...s,
+    transport: { ...s.transport, playing: false, playhead: null, stopPending: false },
+    tracks: stopAllTrackTransports(s.tracks),
+  };
+};
+
+/** Idempotent session start — used by Media Session play (avoid toggle races). */
+export const sessionPlay = () => dispatch(playReducer);
+
+/** Idempotent session pause — used by Media Session pause. */
+export const sessionPause = () => dispatch(pauseReducer);
+
 /** Session play/pause — all armed tracks follow session transport. */
 export const sessionTogglePlay = () =>
-  dispatch((s) => {
-    const nextPlaying = !s.transport?.playing;
-    if (nextPlaying) {
-      // Shared downbeat for drums + loops before either service schedules audio.
-      setTransportStartTime(nextTransportStart());
-      return {
-        ...s,
-        transport: { ...s.transport, playing: true, stopPending: false },
-        tracks: startAllTrackTransports(s.tracks),
-      };
-    }
-    return {
-      ...s,
-      transport: { ...s.transport, playing: false, playhead: null, stopPending: false },
-      tracks: stopAllTrackTransports(s.tracks),
-    };
-  });
+  dispatch((s) => (s.transport?.playing ? pauseReducer(s) : playReducer(s)));
 
 /** Session stop — halts session and every track (including loop slots). */
 export const sessionStop = () =>

@@ -1,4 +1,4 @@
-import { getSlotParams } from './loops-state';
+import { getSlotParams } from '../state/loops';
 
 export const getTrackInputId = (track) => `track-${track}-in`;
 

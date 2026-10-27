@@ -22,10 +22,11 @@ import {
   getLoopSlot,
   loopBufferKey,
   LOOPS_SLOT_COUNT,
+  LOOPS_TRACK_ID,
   mapLoopSlots,
   patchLoopSlot,
   slotHasContent,
-} from '../util/loops-state';
+} from '../state/loops';
 import {
   DEFAULT_LOOP_SOURCE_BPM,
   loopPlaybackDuration,
@@ -33,7 +34,6 @@ import {
   slotPlaybackPatch,
   slotSourceBpm,
 } from '../util/loop-tempo';
-import { LOOPS_TRACK_ID } from '../util/session-transport';
 import { WORKSPACE_LOOPS } from '../util/workspaces';
 import * as samples from '../util/samples';
 
@@ -72,10 +72,7 @@ const updatePlayRecProgress = () => {
 
     if (process === 'play' && duration > 0) {
       anyActive = true;
-      const inFade =
-        startedAt != null &&
-        slot.partialPlay &&
-        now < startedAt - 0.001;
+      const inFade = startedAt != null && slot.partialPlay && now < startedAt - 0.001;
       btn.classList.toggle('count-in', inFade);
       btn.style.setProperty('--pgPercentage', String(calcProgress(startedAt, duration)));
     } else if (process === 'record' && countInAt != null && now < startedAt) {
@@ -146,7 +143,14 @@ const connectInput = async (deviceId = 'default') => {
   }
 };
 
-const startLayer = (buffer, slotIndex, when, sourceBpm, transport, { phase = 0, fadeUntil = null } = {}) => {
+const startLayer = (
+  buffer,
+  slotIndex,
+  when,
+  sourceBpm,
+  transport,
+  { phase = 0, fadeUntil = null } = {},
+) => {
   const input = getLoopSlotInput(slotIndex);
   if (!input) return null;
   const source = context.createBufferSource();
@@ -154,7 +158,10 @@ const startLayer = (buffer, slotIndex, when, sourceBpm, transport, { phase = 0, 
   source.loop = true;
   source.playbackRate.value = loopPlaybackRate(sourceBpm, transport);
 
-  const offset = Math.min(Math.max(0, phase * buffer.duration), Math.max(0, buffer.duration - 0.001));
+  const offset = Math.min(
+    Math.max(0, phase * buffer.duration),
+    Math.max(0, buffer.duration - 0.001),
+  );
   if (fadeUntil != null && fadeUntil > when + 0.001) {
     const fade = context.createGain();
     fade.gain.setValueAtTime(0, when);
@@ -212,7 +219,13 @@ const startSlotPlayback = (state, slotIndex, atTime = context.currentTime) => {
   ensureProgressLoop();
 };
 
-const finishRecording = async (state, slotIndex, blob, fixedDuration = null, leadPadSeconds = 0) => {
+const finishRecording = async (
+  state,
+  slotIndex,
+  blob,
+  fixedDuration = null,
+  leadPadSeconds = 0,
+) => {
   const raw = await decodeBlob(blob);
   const transport = state.transport;
   const bar = barSeconds(transport);
@@ -317,9 +330,7 @@ const beginRecording = async (state, slotIndex) => {
       const actualStart = context.currentTime;
       // Pad only the real gap between cycle origin and when capture begins.
       leadPadSeconds =
-        cycleOrigin != null && actualStart > cycleOrigin + 0.001
-          ? actualStart - cycleOrigin
-          : 0;
+        cycleOrigin != null && actualStart > cycleOrigin + 0.001 ? actualStart - cycleOrigin : 0;
       recorder.start();
     }, delayMs);
 
@@ -371,10 +382,7 @@ const beginPlay = (state, slotIndex) => {
   const delayMs = Math.max(0, (when - context.currentTime) * 1000);
   if (delayMs > 1) {
     clearPlayStartTimer(slotIndex);
-    playStartTimers.set(
-      slotIndex,
-      setTimeout(armPlayback, delayMs),
-    );
+    playStartTimers.set(slotIndex, setTimeout(armPlayback, delayMs));
   } else {
     armPlayback();
   }
@@ -537,10 +545,7 @@ export const start = ({ state$ }) => {
 
   subs.push(
     state$
-      .pipe(
-        map(loopsTransportKey),
-        pairwise(),
-      )
+      .pipe(map(loopsTransportKey), distinctUntilChanged(), pairwise())
       .subscribe(([prevKey, key]) => {
         if (!anySlotHasContent(state$Ref.getValue())) return;
 
@@ -563,7 +568,9 @@ export const start = ({ state$ }) => {
           return;
         }
 
-        if (isPlaying) {
+        // Only when transport *becomes* playing — not on every state$ tick while playing
+        // (that was re-arming slots after per-slot stop).
+        if (!wasPlaying && isPlaying) {
           const next = syncLoopsToTrackTransport(state$Ref.getValue());
           if (next) dispatch(() => next);
         }
@@ -595,7 +602,12 @@ export const start = ({ state$ }) => {
           }));
         }
         const s = changed
-          ? { ...state, tracks: state.tracks.map((t) => (t.id === LOOPS_TRACK_ID ? { ...t, loop: { ...t.loop, slots: nextSlots } } : t)) }
+          ? {
+              ...state,
+              tracks: state.tracks.map((t) =>
+                t.id === LOOPS_TRACK_ID ? { ...t, loop: { ...t.loop, slots: nextSlots } } : t,
+              ),
+            }
           : state;
         for (let i = 0; i < LOOPS_SLOT_COUNT; i++) {
           const slot = getLoopSlot(s, i);

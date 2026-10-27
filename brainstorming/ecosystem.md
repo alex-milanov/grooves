@@ -83,9 +83,9 @@ Reference apps and what Grooves might take from each. Status: **done** · **part
 
 | Idea | Notes | Status |
 |------|-------|--------|
-| Loop record / overdub / multi-track loops | 4 slots in one `loop` session track | **MVP spec** → [`loops.md`](loops.md) |
-| Sync loops to master clock | Session `startTime` + global BPM quantize | **planned** (MVP) |
-| Virtual click on first record | Not in js-loop-station; Grooves addition | **planned** (MVP) |
+| Loop record / overdub / multi-track loops | 4 slots in one `loop` session track | **done** (MVP) — [`loops.md`](loops.md) |
+| Sync loops to master clock | Session `startTime` + global BPM quantize | **done** (MVP) |
+| Virtual click on first record | Not in js-loop-station; Grooves addition | **done** (MVP) |
 
 ---
 
@@ -115,12 +115,14 @@ Reference apps and what Grooves might take from each. Status: **done** · **part
 
 Incremental path aligned with “simple sequencer first”:
 
-1. **Transport polish** — pause/resume re-anchor, tap tempo (world-metronome + jam-station)
-2. **Library depth** — multi-kit, better browse UX (jam-station media library)
-3. **Sample interaction** — trim/start point, basic FX (xAmplR)
-4. **Live layer** — optional pad bank or keyboard trigger (xAmplR + jam-station MIDI)
-5. **Loop lanes** — [`loops.md`](loops.md) (js-loop-station port + transport sync)
+1. **App structure** — `state/` document API, pure `util/`, `services/audio/` ([`app-structure.md`](app-structure.md), [planning](../planning/2026-10-21-01-app-structure-refactor.md))
+2. **Transport polish** — pause/resume re-anchor, tap tempo (world-metronome + jam-station)
+3. **Library depth** — multi-kit, better browse UX (jam-station media library)
+4. **Sample interaction** — trim/start point, basic FX (xAmplR)
+5. **Live layer** — optional pad bank or keyboard trigger (xAmplR + jam-station MIDI)
 6. **Melodic / session** — only if groovebox scope expands (jam-station)
+
+~~Loop lanes~~ — done (MVP).
 
 Each step should leave the app deployable and demo-able.
 
@@ -134,3 +136,5 @@ Each step should leave the app deployable and demo-able.
 - **Service `start({ state$ })` / `stop()`** lifecycle
 - **Theme families** from boilerplate (pixel default for grooves)
 - **planning/** + **summaries/** docs when moving from brainstorm → implement → record
+- **Document API folder:** jam uses `actions/` (initial + reducers); Grooves uses **`state/`** for the same slot — see [`app-structure.md`](app-structure.md)
+- **`util/`:** pure helpers only in Grooves; live audio under `services/audio/` (jam pattern / WM schedule split)

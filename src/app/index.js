@@ -15,6 +15,7 @@ import loops from './services/loops';
 import sequencer from './services/sequencer';
 import waveform from './services/waveform';
 import mixer from './services/mixer';
+import mediaSession from './services/media-session';
 // ui
 import ui from './ui';
 
@@ -30,6 +31,7 @@ loops.start({ state$ });
 sequencer.start({ state$ });
 waveform.start({ state$ });
 mixer.start({ state$ });
+mediaSession.start({ state$ });
 
 // theme change tracking
 state$
@@ -53,18 +55,13 @@ if (module.hot) {
     sequencer.stop();
     waveform.stop();
     mixer.stop();
+    mediaSession.stop();
     patchSubscription.unsubscribe();
     state$.complete();
-    document.body.innerHTML = document.body.innerHTML;
+    vnode$.complete();
+    // document.body.innerHTML = document.body.innerHTML;
   });
   module.hot.accept(function () {
     dispatch(() => module.hot.data.state);
-    viewport.start({ state$ });
-    library.start({ state$ });
-    loopsLibrary.start({ state$ });
-    loops.start({ state$ });
-    sequencer.start({ state$ });
-    waveform.start({ state$ });
-    mixer.start({ state$ });
   });
 }

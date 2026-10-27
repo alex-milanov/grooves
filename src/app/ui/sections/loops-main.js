@@ -3,21 +3,23 @@ import { dispatch } from 'iblokz-state';
 import { context } from '../../util/audio';
 import { phaseAt } from '../../util/transport-clock';
 import { slotTempoPulseEnabled } from '../../util/loop-pulse';
-import { getLoopSlot, getLoopsTrack, slotHasContent } from '../../util/loops-state';
 import { anyLoopSlotActive } from '../../util/session-transport';
 import {
   deselectLoopSlot,
+  getLoopSlot,
+  getLoopsTrack,
   loopsClearAll,
   loopsStopAll,
   loopsTogglePlay,
   openLoopLibraryPanel,
+  selectLoopSlot,
   setLoopsInput,
   slotClear,
+  slotHasContent,
   slotStop,
   slotTogglePlayRec,
   toggleLoopsClick,
-} from '../../util/loop-actions';
-import { selectLoopSlot as selectSlotState } from '../../util/loops-panels';
+} from '../../state/loops';
 import dropdown, { caret } from '../components/dropdown';
 
 const SLOT_COUNT = 4;
@@ -37,7 +39,7 @@ const onSlotClick = (index, ev) => {
   let deferDeselect = false;
   dispatch((s) => {
     if (s.ui?.loops?.selectedSlot !== index) {
-      return selectSlotState(s, index);
+      return selectLoopSlot(index)(s);
     }
     deferDeselect = true;
     return s;
@@ -59,7 +61,7 @@ const onSlotClick = (index, ev) => {
 const onSlotDblClick = (index, ev) => {
   ev.preventDefault();
   clearSlotClickTimer();
-  dispatch((s) => openLoopLibraryPanel(s, index));
+  dispatch(openLoopLibraryPanel(index));
 };
 
 const calcProgress = (startedAt, duration) => {
@@ -130,7 +132,7 @@ const slotStrip = (state, index) => {
         on: {
           click: (ev) => {
             ev.stopPropagation();
-            slotTogglePlayRec(index);
+            dispatch(slotTogglePlayRec(index));
           },
         },
       },
@@ -147,12 +149,12 @@ const slotStrip = (state, index) => {
         on: {
           click: (ev) => {
             ev.stopPropagation();
-            slotStop(index);
+            dispatch(slotStop(index));
           },
           dblclick: (ev) => {
             ev.preventDefault();
             ev.stopPropagation();
-            slotClear(index);
+            dispatch(slotClear(index));
           },
         },
       },
@@ -178,12 +180,12 @@ export default (state) => {
     {
       label: 'Default input',
       active: inputId === 'default',
-      onSelect: () => setLoopsInput('default'),
+      onSelect: () => dispatch(setLoopsInput('default')),
     },
     ...devices.map((d) => ({
       label: d.label || `Input ${d.deviceId.slice(0, 6)}`,
       active: d.deviceId === inputId,
-      onSelect: () => setLoopsInput(d.deviceId),
+      onSelect: () => dispatch(setLoopsInput(d.deviceId)),
     })),
   ];
 
@@ -200,7 +202,7 @@ export default (state) => {
             'aria-label': loopsPlaying ? 'Pause loops track' : 'Play all loops',
             'aria-pressed': String(loopsPlaying),
           },
-          on: { click: () => loopsTogglePlay() },
+          on: { click: () => dispatch(loopsTogglePlay) },
         },
         [i(loopsPlaying ? '.fa.fa-pause' : '.fa.fa-play')],
       ),
@@ -213,7 +215,7 @@ export default (state) => {
             'aria-label': 'Stop all loops',
             disabled: !anySlotActive,
           },
-          on: { click: () => loopsStopAll() },
+          on: { click: () => dispatch(loopsStopAll) },
         },
         [i('.fa.fa-stop')],
       ),
@@ -221,7 +223,7 @@ export default (state) => {
         '.track-transport-btn.loops-clear-all',
         {
           props: { type: 'button', title: 'Clear all slots', 'aria-label': 'Clear all slots' },
-          on: { click: () => loopsClearAll() },
+          on: { click: () => dispatch(loopsClearAll) },
         },
         [i('.fa.fa-trash')],
       ),
@@ -241,7 +243,7 @@ export default (state) => {
             'aria-label': 'Toggle count-in click',
             'aria-pressed': String(!!loopsTrack?.loop?.clickEnabled),
           },
-          on: { click: () => toggleLoopsClick() },
+          on: { click: () => dispatch(toggleLoopsClick) },
         },
         [i('.fa.fa-bullseye')],
       ),

@@ -10,7 +10,7 @@ import {
   getOutputLatency,
 } from '../util/audio';
 import { bufferToWav } from '../util/buffer-to-wav';
-import { getLoopSlot, getSlotParams, slotHasContent } from '../util/loops-state';
+import { getLoopSlot, getSlotParams, slotHasContent } from '../state/loops';
 import { slotPlaybackFromBuffer } from '../util/loop-tempo';
 import { isLoopsWorkspace } from '../util/workspaces';
 import * as samples from '../util/samples';

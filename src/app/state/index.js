@@ -3,7 +3,7 @@ import { getInitialTheme } from '../util/theme';
 import { buildDefaultRouting } from '../util/routing';
 import { WORKSPACE_DRUMS, defaultWorkspacesStripOpen } from '../util/workspaces';
 import { DRUMS_TRACK_ID } from '../util/session-transport';
-import { createLoopsTrack, LOOPS_SLOT_COUNT } from '../util/loops-state';
+import { createLoopsTrack, LOOPS_SLOT_COUNT } from './loops';
 
 const TRACK_COUNT = 4;
 

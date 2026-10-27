@@ -18,7 +18,7 @@ import {
   transportStartFromLoopPhase,
 } from '../util/transport-clock';
 import { DRUMS_TRACK_ID, isTrackScheduling } from '../util/session-transport';
-import { getActiveLoopCycle } from '../util/loops-state';
+import { getActiveLoopCycle } from '../state/loops';
 import * as samples from '../util/samples';
 
 const SCHEDULE_INTERVAL_MS = 25;

@@ -1,5 +1,5 @@
 import { distinctUntilChanged, map } from 'rxjs';
-import { getLoopsTrack } from '../util/loops-state';
+import { getLoopsTrack } from '../state/loops';
 import { applyRouting } from '../util/audio';
 
 export let stop = () => {};

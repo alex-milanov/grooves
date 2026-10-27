@@ -1,8 +1,43 @@
 import { div, header, span, ul, li } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../../state';
+import {
+  assignLoopSample,
+  DEFAULT_LOOP_SOURCE_BPM,
+  loopBufferKey,
+  loopPlaybackDuration,
+} from '../../state/loops';
+import { context } from '../../util/audio';
 import { entriesAt, isFolder, isSample, navigate } from '../../util/library';
-import { assignLoopSample } from '../../util/loop-actions';
+import { quantizeTargetSeconds, trimPadBuffer } from '../../util/loop-quantize';
+import { barSeconds } from '../../util/transport-clock';
+import * as samples from '../../util/samples';
+
+/**
+ * Load/quantize buffer (impure), then apply pure assignLoopSample.
+ * samples.set stays at the edge until services/audio move (Step 2).
+ */
+const assignSampleToSlot = (slotIndex, kit, sample) => {
+  dispatch((s) => {
+    const buffer = samples.get(samples.key(kit, sample));
+    if (!buffer) {
+      console.warn('loop sample not loaded:', kit, sample);
+      return s;
+    }
+    const targetSeconds = quantizeTargetSeconds(buffer.duration, barSeconds(s.transport));
+    const trimmed = trimPadBuffer(context, buffer, targetSeconds);
+    const key = loopBufferKey(slotIndex, 0);
+    samples.set(key, trimmed);
+    const duration = loopPlaybackDuration(trimmed.duration, DEFAULT_LOOP_SOURCE_BPM, s.transport);
+    return assignLoopSample(slotIndex, {
+      bufferKey: key,
+      sourceBpm: DEFAULT_LOOP_SOURCE_BPM,
+      duration,
+      kit,
+      sample,
+    })(s);
+  });
+};
 
 export default (state) => {
   const { kits, path, selectedSample } = state.loopsLibrary ?? {};
@@ -40,7 +75,7 @@ export default (state) => {
                 dblclick: (ev) => {
                   ev.preventDefault();
                   if (selectedSlot == null || !isSample(kits, path, item) || !kit) return;
-                  assignLoopSample(selectedSlot, kit, item);
+                  assignSampleToSlot(selectedSlot, kit, item);
                 },
               },
             },

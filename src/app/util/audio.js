@@ -7,7 +7,7 @@ import {
 } from 'iblokz-audio';
 import { resolveEdgeGain } from './routing';
 import { getTrackParams } from './track-params';
-import { getSlotParams } from './loops-state';
+import { getSlotParams } from '../state/loops';
 
 export { context };
 

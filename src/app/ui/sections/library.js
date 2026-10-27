@@ -1,8 +1,8 @@
 import { div, header, span, ul, li } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../../state';
+import { assignTrackSample } from '../../state/sequencer';
 import { entriesAt, isFolder, isSample, navigate } from '../../util/library';
-import { panelsAfterAssign } from '../../util/panels';
 
 export default (state) => {
   const { kits, path, selectedSample } = state.library;
@@ -49,21 +49,7 @@ export default (state) => {
                 dblclick: (ev) => {
                   ev.preventDefault();
                   if (selectedTrack == null || !isSample(kits, path, item) || !kit) return;
-                  dispatch((s) => ({
-                    ...s,
-                    sequencer: {
-                      ...s.sequencer,
-                      assignments: {
-                        ...s.sequencer.assignments,
-                        [selectedTrack]: { kit, sample: item },
-                      },
-                      panels: panelsAfterAssign(s),
-                    },
-                    library: {
-                      ...s.library,
-                      selectedSample: item,
-                    },
-                  }));
+                  dispatch(assignTrackSample(selectedTrack, kit, item));
                 },
               },
             },

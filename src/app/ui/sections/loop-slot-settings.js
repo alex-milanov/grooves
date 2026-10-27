@@ -1,8 +1,8 @@
 import { div, header, span, button, label, input, i } from 'iblokz-snabbdom-helpers';
+import { dispatch } from 'iblokz-state';
 import knob from '../components/knob';
 import { previewLoopSlot } from '../../services/waveform';
-import { getLoopSlot, getSlotParams, slotHasContent } from '../../util/loops-state';
-import { patchSlotParam } from '../../util/loop-actions';
+import { getLoopSlot, getSlotParams, patchSlotParam, slotHasContent } from '../../state/loops';
 
 export default (state) => {
   const selectedSlot = state.ui?.loops?.selectedSlot;
@@ -15,7 +15,7 @@ export default (state) => {
 
   const patchParam = (path, value) => {
     if (selectedSlot == null) return;
-    patchSlotParam(selectedSlot, path, value);
+    dispatch(patchSlotParam(selectedSlot, path, value));
   };
 
   return div(
