@@ -2,7 +2,7 @@ import { obj } from 'iblokz-data';
 import { getInitialTheme } from '../util/theme';
 import { buildDefaultRouting } from '../util/routing';
 import { WORKSPACE_DRUMS, defaultWorkspacesStripOpen } from '../util/workspaces';
-import { DRUMS_TRACK_ID } from '../util/session-transport';
+import { DRUMS_TRACK_ID } from './transport';
 import { createLoopsTrack, LOOPS_SLOT_COUNT } from './loops';
 
 const TRACK_COUNT = 4;

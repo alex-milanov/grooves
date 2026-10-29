@@ -1,6 +1,6 @@
 import { distinctUntilChanged, map } from 'rxjs';
-import { resume } from '../util/audio';
-import { sessionPause, sessionPlay, sessionStop } from '../util/session-transport';
+import { resume } from './audio';
+import { sessionPause, sessionPlay, sessionStop } from '../state/transport';
 
 /**
  * Bluetooth / OS media keys via Media Session (no HTMLAudioElement keep-alive).
@@ -116,13 +116,14 @@ const syncFromState = (state) => {
   }
 };
 
-export let stop = () => {};
+let onStop = () => {};
+export const stop = () => onStop();
 
 export const start = ({ state$ }) => {
   stop();
 
   if (!supported()) {
-    stop = () => {};
+    onStop = () => {};
     return;
   }
 
@@ -146,7 +147,7 @@ export const start = ({ state$ }) => {
       }),
   );
 
-  stop = () => {
+  onStop = () => {
     clearHandlers();
     sessionArmed = false;
     if (supported()) {
@@ -159,7 +160,7 @@ export const start = ({ state$ }) => {
     }
     state$Ref = null;
     subs.forEach((sub) => sub.unsubscribe());
-    stop = () => {};
+    onStop = () => {};
   };
 };
 

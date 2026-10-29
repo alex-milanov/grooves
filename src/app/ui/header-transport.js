@@ -1,7 +1,7 @@
 import { div, button, label, input, i, span } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../state';
-import { sessionTogglePlay, sessionStop, anySessionActivity } from '../util/session-transport';
+import { sessionTogglePlay, sessionStop, anySessionActivity } from '../state/transport';
 
 const clampBpm = (value) => Math.min(300, Math.max(40, value || 120));
 

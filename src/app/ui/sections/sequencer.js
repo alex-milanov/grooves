@@ -3,7 +3,7 @@ import { dispatch } from 'iblokz-state';
 import { patch } from '../../state';
 import { pipe } from 'iblokz-data/lib/fn.js';
 import { deselectTrack, openLibraryPanel, selectTrack } from '../../state/sequencer';
-import { DRUMS_TRACK_ID, trackTogglePlay, trackStop } from '../../util/session-transport';
+import { DRUMS_TRACK_ID, trackTogglePlay, trackStop } from '../../state/transport';
 
 const rowCount = 4;
 let trackClickTimer = null;

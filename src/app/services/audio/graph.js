@@ -5,9 +5,9 @@ import {
   update as updateAudio,
   vcf as createVcf,
 } from 'iblokz-audio';
-import { resolveEdgeGain } from './routing';
-import { getTrackParams } from './track-params';
-import { getSlotParams } from '../state/loops';
+import { resolveEdgeGain } from '../../util/routing';
+import { getTrackParams } from '../../util/track-params';
+import { getSlotParams } from '../../state/loops';
 
 export { context };
 
@@ -293,14 +293,10 @@ export const getOutputLatency = (ctx = context) =>
   (ctx.baseLatency ?? 0) + (ctx.outputLatency ?? 0);
 
 /**
- * Seconds to skip at the start of a live take so it lines up with the session grid.
- * Performers sync to what they hear; that monitor path is delayed by output latency
- * (Bluetooth especially), so the mic capture lands late relative to AudioContext time.
- * Slack covers MediaRecorder/capture buffering and browsers that under-report BT latency.
+ * Monitor latency from the AudioContext (baseLatency + outputLatency).
+ * Performers sync to what they hear; capture is late vs the transport grid by this amount.
+ * Use as a timing offset — not silence detection.
  */
-const RECORD_CAPTURE_SLACK = 0.08;
+export const getRecordLatencyCompensation = (ctx = context) => getOutputLatency(ctx);
 
-export const getRecordLatencyCompensation = (ctx = context) =>
-  getOutputLatency(ctx) + RECORD_CAPTURE_SLACK;
-
-export { trackGain } from './track-params';
+export { trackGain } from '../../util/track-params';

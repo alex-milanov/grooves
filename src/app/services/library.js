@@ -1,8 +1,7 @@
 import JSZip from 'jszip';
 import { dispatch } from 'iblokz-state';
-import { context } from '../util/audio';
+import { context, samples } from './audio';
 import { defaultAssignments, filesFromMetadata, samplesFromMetadata } from '../util/library';
-import * as samples from '../util/samples';
 
 const KIT_URL = 'assets/kits/basic-drum-kit.zip';
 const KIT_NAME = 'basic_drum_kit';
@@ -18,7 +17,8 @@ const loadBuffers = (zip, meta) =>
     ),
   );
 
-export let stop = () => {};
+let onStop = () => {};
+export const stop = () => onStop();
 export const start = ({ state$ }) => {
   fetch(KIT_URL)
     .then((res) => res.arrayBuffer())
@@ -41,7 +41,7 @@ export const start = ({ state$ }) => {
     })
     .catch((err) => console.warn('library load failed:', err));
 
-  stop = () => {};
+  onStop = () => {};
 };
 
 export default {

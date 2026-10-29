@@ -8,14 +8,23 @@ import {
   getLoopSlotInput,
   syncPartLoopsMixer,
   getRecordLatencyCompensation,
-} from '../util/audio';
-import { quantizeTargetSeconds, trimPadBuffer, leadingSilenceSeconds } from '../util/loop-quantize';
+  scheduleBeatClicks,
+  stopBarClicks,
+  createInputStream,
+  createRecorder,
+  decodeBlob,
+  listInputDevices,
+  samples,
+} from './audio';
+import {
+  quantizeTargetSeconds,
+  trimPadBuffer,
+  growingRecordProgress,
+} from '../util/loop-quantize';
 import { barSeconds, phaseAt } from '../util/transport-clock';
-import { scheduleBeatClicks, stopBarClicks } from '../util/loop-click';
 import { slotPlaySchedule } from '../util/loop-record-schedule';
 import { slotPlaybackTiming } from '../util/loop-playback-timing';
 import { applyTempoPulseToButton } from '../util/loop-pulse';
-import { createInputStream, createRecorder, decodeBlob, listInputDevices } from '../util/recording';
 import {
   anySlotHasContent,
   getLoopsTrack,
@@ -35,13 +44,12 @@ import {
   slotSourceBpm,
 } from '../util/loop-tempo';
 import { WORKSPACE_LOOPS } from '../util/workspaces';
-import * as samples from '../util/samples';
 
 /** @type {Map<number, AudioBufferSourceNode[]>} */
 const slotSources = new Map();
 /** @type {Map<number, number>} */
 const playStartTimers = new Map();
-/** @type {Map<number, { recorder: ReturnType<typeof createRecorder>, timeoutId: number }>} */
+/** @type {Map<number, { recorder: ReturnType<typeof createRecorder>, timeoutId: number, autoStopId?: number }>} */
 const activeRecords = new Map();
 /** @type {Set<number>} */
 const discardRecordings = new Set();
@@ -74,7 +82,16 @@ const updatePlayRecProgress = () => {
       anyActive = true;
       const inFade = startedAt != null && slot.partialPlay && now < startedAt - 0.001;
       btn.classList.toggle('count-in', inFade);
-      btn.style.setProperty('--pgPercentage', String(calcProgress(startedAt, duration)));
+      if (inFade && countInAt != null) {
+        const countInDuration = startedAt - countInAt;
+        const pct =
+          countInDuration > 0
+            ? Math.min(100, Math.max(0, ((now - countInAt) / countInDuration) * 100))
+            : 0;
+        btn.style.setProperty('--pgPercentage', String(pct));
+      } else {
+        btn.style.setProperty('--pgPercentage', String(calcProgress(startedAt, duration, now)));
+      }
     } else if (process === 'record' && countInAt != null && now < startedAt) {
       anyActive = true;
       btn.classList.add('count-in');
@@ -87,12 +104,15 @@ const updatePlayRecProgress = () => {
     } else if (process === 'overdub' && duration > 0 && startedAt != null) {
       anyActive = true;
       btn.classList.remove('count-in');
-      const elapsed = Math.max(0, now - startedAt);
-      btn.style.setProperty('--pgPercentage', String(Math.min(100, (elapsed / duration) * 100)));
-    } else if (process === 'record') {
+      btn.style.setProperty('--pgPercentage', String(calcProgress(startedAt, duration, now)));
+    } else if (process === 'record' && startedAt != null) {
       anyActive = true;
       btn.classList.remove('count-in');
-      btn.style.setProperty('--pgPercentage', '0');
+      // Grow 1→2→3… bars instead of wrapping every bar.
+      btn.style.setProperty(
+        '--pgPercentage',
+        String(growingRecordProgress(startedAt, barSeconds(state.transport), now)),
+      );
     } else {
       btn.classList.remove('count-in');
       btn.style.setProperty('--pgPercentage', '0');
@@ -226,62 +246,94 @@ const finishRecording = async (
   fixedDuration = null,
   leadPadSeconds = 0,
 ) => {
-  const raw = await decodeBlob(blob);
-  const transport = state.transport;
-  const bar = barSeconds(transport);
-  const slot = getLoopSlot(state, slotIndex);
-  // Monitor latency shifts the performance late vs the AudioContext bar; leading silence
-  // often measures the real (heard) offset better when outputLatency under-reports.
-  // Take the larger so we don't double-compensate.
-  const latencySkip = getRecordLatencyCompensation();
-  const preroll = leadingSilenceSeconds(raw, { threshold: 0.03, maxSeconds: 0.45 });
-  const skipSeconds = Math.max(latencySkip, preroll);
-  const leadPad = fixedDuration != null ? 0 : Math.max(0, leadPadSeconds);
-  const measured = Math.max(0, raw.duration - skipSeconds) + leadPad;
-  const targetSeconds = fixedDuration ?? quantizeTargetSeconds(measured, bar);
-  const trimmed = trimPadBuffer(context, raw, targetSeconds, leadPad, skipSeconds);
-  const layerIndex = slot?.process === 'overdub' ? (slot?.bufferKeys?.length ?? 0) : 0;
-  const key = loopBufferKey(slotIndex, layerIndex);
-  samples.set(key, trimmed);
-  const recordBpm = transport?.bpm ?? DEFAULT_LOOP_SOURCE_BPM;
-  const isOverdub = slot?.process === 'overdub';
-
-  dispatch((s) => {
-    const current = getLoopSlot(s, slotIndex);
-    const keys = [...(current?.bufferKeys ?? [])];
-    let sourceBpms = [...(current?.sourceBpms ?? [])];
-    if (isOverdub) {
-      keys.push(key);
-      sourceBpms.push(recordBpm);
-    } else {
-      keys.length = 0;
-      keys.push(key);
-      sourceBpms = [recordBpm];
+  const slotAtStart = getLoopSlot(state, slotIndex);
+  try {
+    const raw = await decodeBlob(blob);
+    if (!raw?.length || !raw.sampleRate) {
+      throw new Error('decoded recording is empty');
     }
-    const primaryBuffer = samples.get(keys[0]);
-    const duration = primaryBuffer
-      ? loopPlaybackDuration(primaryBuffer.duration, slotSourceBpm({ sourceBpms }, 0), s.transport)
-      : loopPlaybackDuration(trimmed.duration, recordBpm, s.transport);
+    const transport = state.transport;
+    const bar = barSeconds(transport);
+    // Align to the transport grid using Web Audio's reported monitor latency only
+    // (baseLatency + outputLatency). No silence chopping.
+    const skipSeconds = getRecordLatencyCompensation();
+    const leadPad = fixedDuration != null ? 0 : Math.max(0, leadPadSeconds);
+    const measured = Math.max(0, (raw.duration || 0) - skipSeconds) + leadPad;
+    const targetSeconds =
+      Number.isFinite(fixedDuration) && fixedDuration > 0
+        ? fixedDuration
+        : quantizeTargetSeconds(measured, bar);
+    const trimmed = trimPadBuffer(context, raw, targetSeconds, leadPad, skipSeconds);
+    // Prefer arm snapshot; fall back to fixedDuration (overdub always passes loop length).
+    const isOverdub =
+      slotAtStart?.process === 'overdub' ||
+      (Number.isFinite(fixedDuration) && fixedDuration > 0 && (slotAtStart?.bufferKeys?.length ?? 0) > 0);
+    const layerIndex = isOverdub ? (slotAtStart?.bufferKeys?.length ?? 0) : 0;
+    const key = loopBufferKey(slotIndex, layerIndex);
+    samples.set(key, trimmed);
+    const recordBpm = transport?.bpm ?? DEFAULT_LOOP_SOURCE_BPM;
 
-    return patchLoopSlot(s, slotIndex, {
-      bufferKeys: keys,
-      sourceBpm: sourceBpms[0] ?? recordBpm,
-      sourceBpms,
-      duration,
-      layers: keys.length,
-      process: 'play',
-      startedAt: slot?.startedAt ?? context.currentTime,
-      countInAt: null,
-      countInSilent: false,
-      leadPadSeconds: 0,
+    let skipPlaybackStart = false;
+    dispatch((s) => {
+      const current = getLoopSlot(s, slotIndex);
+      // A newer arm (overdub/record) may have started while this take was decoding —
+      // merge buffers but don't clobber that arm or cancel its MediaRecorder via pairwise.
+      const liveArm =
+        current?.process === 'record' || current?.process === 'overdub'
+          ? current.process
+          : null;
+      skipPlaybackStart = liveArm != null && liveArm !== slotAtStart?.process;
+
+      const keys = [...(current?.bufferKeys ?? [])];
+      let sourceBpms = [...(current?.sourceBpms ?? [])];
+      if (isOverdub) {
+        if (!keys.includes(key)) {
+          keys.push(key);
+          sourceBpms.push(recordBpm);
+        }
+      } else {
+        keys.length = 0;
+        keys.push(key);
+        sourceBpms = [recordBpm];
+      }
+      const primaryBuffer = samples.get(keys[0]);
+      const duration = primaryBuffer
+        ? loopPlaybackDuration(primaryBuffer.duration, slotSourceBpm({ sourceBpms }, 0), s.transport)
+        : loopPlaybackDuration(trimmed.duration, recordBpm, s.transport);
+
+      return patchLoopSlot(s, slotIndex, {
+        bufferKeys: keys,
+        sourceBpm: sourceBpms[0] ?? recordBpm,
+        sourceBpms,
+        duration,
+        layers: keys.length,
+        process: liveArm ?? 'play',
+        startedAt: liveArm
+          ? current.startedAt
+          : (slotAtStart?.startedAt ?? context.currentTime),
+        countInAt: liveArm ? current.countInAt : null,
+        countInSilent: liveArm ? current.countInSilent : false,
+        leadPadSeconds: 0,
+      });
     });
-  });
 
-  const next = state$Ref?.getValue();
-  if (next) {
-    // Use currentTime so phaseAt(startedAt, …) joins the live session cycle —
-    // passing startedAt (in the past) forced phase 0 and started the buffer from the top.
-    startSlotPlayback(next, slotIndex, context.currentTime);
+    if (skipPlaybackStart) return;
+
+    const next = state$Ref?.getValue();
+    if (next) {
+      // Use currentTime so phaseAt(startedAt, …) joins the live session cycle —
+      // passing startedAt (in the past) forced phase 0 and started the buffer from the top.
+      startSlotPlayback(next, slotIndex, context.currentTime);
+    }
+  } catch (err) {
+    console.warn('loop finishRecording failed:', err);
+    dispatch((s) =>
+      patchLoopSlot(s, slotIndex, {
+        process: slotHasContent(getLoopSlot(s, slotIndex) ?? slotAtStart) ? 'idle' : 'empty',
+        countInAt: null,
+        countInSilent: false,
+      }),
+    );
   }
 };
 
@@ -290,6 +342,7 @@ const cancelPendingRecord = (slotIndex, { discard = true } = {}) => {
   if (!pending) return;
   if (discard) discardRecordings.add(slotIndex);
   clearTimeout(pending.timeoutId);
+  if (pending.autoStopId) clearTimeout(pending.autoStopId);
   try {
     pending.recorder.stop();
   } catch (_) {
@@ -317,45 +370,61 @@ const beginRecording = async (state, slotIndex) => {
   }
 
   try {
+    // Prefer the already-open mic; don't await getUserMedia before arming the timer
+    // (that delay was eating the visual count-in / missing the punch-in on a live grid).
     const stream = inputStream ?? (await connectInput(deviceId));
+    if (!stream) throw new Error('no input stream');
+
+    const live = getLoopSlot(state$Ref?.getValue() ?? state, slotIndex);
+    if (!live || (live.process !== 'record' && live.process !== 'overdub')) return;
+
+    const origin = live.startedAt ?? cycleOrigin;
     const recorder = createRecorder(stream);
-    // Recompute after await so delay / lead pad match the real clock.
     const startAt =
-      cycleOrigin != null && cycleOrigin > context.currentTime + 0.001
-        ? cycleOrigin
-        : context.currentTime;
+      origin != null && origin > context.currentTime + 0.001 ? origin : context.currentTime;
     const delayMs = Math.max(0, (startAt - context.currentTime) * 1000);
+    const isOverdub = live.process === 'overdub';
+    const overdubSeconds =
+      isOverdub && Number.isFinite(live.duration) && live.duration > 0 ? live.duration : 0;
     let leadPadSeconds = 0;
+    let autoStopId = 0;
     const timeoutId = setTimeout(() => {
+      const active = activeRecords.get(slotIndex);
+      if (!active || active.recorder !== recorder) return;
       const actualStart = context.currentTime;
-      // Pad only the real gap between cycle origin and when capture begins.
       leadPadSeconds =
-        cycleOrigin != null && actualStart > cycleOrigin + 0.001 ? actualStart - cycleOrigin : 0;
-      recorder.start();
+        origin != null && actualStart > origin + 0.001 ? actualStart - origin : 0;
+      try {
+        recorder.start();
+      } catch (err) {
+        console.warn('MediaRecorder.start failed:', err);
+        return;
+      }
+      // Schedule stop only after start — same-delay autoStop was settling an empty blob.
+      if (overdubSeconds > 0) {
+        autoStopId = setTimeout(() => {
+          const cur = activeRecords.get(slotIndex);
+          if (cur?.recorder === recorder) cur.recorder.stop();
+        }, overdubSeconds * 1000);
+        const cur = activeRecords.get(slotIndex);
+        if (cur) cur.autoStopId = autoStopId;
+      }
     }, delayMs);
 
-    activeRecords.set(slotIndex, { recorder, timeoutId });
+    activeRecords.set(slotIndex, { recorder, timeoutId, autoStopId: 0 });
     ensureProgressLoop();
-
-    const isOverdub = slot.process === 'overdub';
 
     recorder.stopped.then((blob) => {
       stopBarClicks();
+      const pending = activeRecords.get(slotIndex);
+      if (pending?.autoStopId) clearTimeout(pending.autoStopId);
       const discard = discardRecordings.has(slotIndex);
       discardRecordings.delete(slotIndex);
       activeRecords.delete(slotIndex);
       if (discard || !blob?.size) return;
-      const fixed = isOverdub ? slot.duration : null;
+      const fixed = overdubSeconds > 0 ? overdubSeconds : null;
       finishRecording(state, slotIndex, blob, fixed, leadPadSeconds).catch(console.warn);
     });
-
-    if (isOverdub) {
-      const autoStopMs = delayMs + slot.duration * 1000;
-      setTimeout(() => {
-        const active = activeRecords.get(slotIndex);
-        if (active?.recorder) active.recorder.stop();
-      }, autoStopMs);
-    }
   } catch (err) {
     console.warn('loop record failed:', err);
     stopBarClicks();
@@ -397,8 +466,11 @@ const handleProcessChange = (state, slotIndex, process) => {
 
   if (process === 'play') {
     if (activeRecords.has(slotIndex)) {
+      const pending = activeRecords.get(slotIndex);
+      clearTimeout(pending.timeoutId);
+      if (pending.autoStopId) clearTimeout(pending.autoStopId);
       discardRecordings.delete(slotIndex);
-      activeRecords.get(slotIndex).recorder.stop();
+      pending.recorder.stop();
     }
     if (slotHasContent(getLoopSlot(state, slotIndex))) {
       beginPlay(state, slotIndex);
@@ -469,7 +541,8 @@ const stopAllSlots = () => {
   stopProgressLoop();
 };
 
-export let stop = () => {};
+let onStop = () => {};
+export const stop = () => onStop();
 
 export const start = ({ state$ }) => {
   const subs = [];
@@ -618,7 +691,7 @@ export const start = ({ state$ }) => {
       }),
   );
 
-  stop = () => {
+  onStop = () => {
     stopAllSlots();
     inputStream?.getTracks().forEach((t) => t.stop());
     inputStream = null;

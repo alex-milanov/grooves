@@ -1,9 +1,10 @@
 import { div, header, button, h2, i } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
-import { context } from '../../util/audio';
-import { phaseAt } from '../../util/transport-clock';
+import { context } from '../../services/audio';
+import { barSeconds, phaseAt } from '../../util/transport-clock';
+import { growingRecordProgress } from '../../util/loop-quantize';
 import { slotTempoPulseEnabled } from '../../util/loop-pulse';
-import { anyLoopSlotActive } from '../../util/session-transport';
+import { anyLoopSlotActive } from '../../state/transport';
 import {
   deselectLoopSlot,
   getLoopSlot,
@@ -77,12 +78,33 @@ const slotStrip = (state, index) => {
   const isSelected = selectedSlot === index;
   const now = context.currentTime;
   const { startedAt, duration, countInAt, partialPlay } = slot ?? {};
-  let pgPercentage = 0;
-  if (process === 'play' && duration > 0) {
-    pgPercentage = calcProgress(startedAt, duration);
-  }
   const inPlayFade =
     process === 'play' && partialPlay && startedAt != null && now < startedAt - 0.001;
+  let pgPercentage = 0;
+  if (inPlayFade && countInAt != null && startedAt != null) {
+    const countInDuration = startedAt - countInAt;
+    pgPercentage =
+      countInDuration > 0
+        ? Math.min(100, Math.max(0, ((now - countInAt) / countInDuration) * 100))
+        : 0;
+  } else if (process === 'play' && duration > 0) {
+    pgPercentage = calcProgress(startedAt, duration);
+  } else if (
+    process === 'record' &&
+    countInAt != null &&
+    startedAt != null &&
+    now < startedAt
+  ) {
+    const countInDuration = startedAt - countInAt;
+    pgPercentage =
+      countInDuration > 0
+        ? Math.min(100, Math.max(0, ((now - countInAt) / countInDuration) * 100))
+        : 0;
+  } else if (process === 'overdub' && duration > 0 && startedAt != null) {
+    pgPercentage = calcProgress(startedAt, duration);
+  } else if (process === 'record' && startedAt != null) {
+    pgPercentage = growingRecordProgress(startedAt, barSeconds(state.transport), now);
+  }
 
   const tempoPulse = slotTempoPulseEnabled(state, slot, index);
 

@@ -1,5 +1,6 @@
-import { context } from './audio';
-import { barSeconds, beatSeconds, getTransportStartTime } from './transport-clock';
+import { context } from '../services/audio';
+import { getTransportStartTime } from '../services/audio/clock';
+import { barSeconds, beatSeconds } from './transport-clock';
 
 const PULSE_PROCESSES = new Set(['play', 'overdub']);
 

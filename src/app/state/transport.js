@@ -1,12 +1,12 @@
 import { dispatch } from 'iblokz-state';
-import { context } from './audio';
-import { getLoopsTrack, LOOPS_TRACK_ID, mapLoopSlots, slotHasContent } from '../state/loops';
+import { context } from '../services/audio/graph';
 import {
   getTransportStartTime,
   nextTransportStart,
   resetTransportStartTime,
   setTransportStartTime,
-} from './transport-clock';
+} from '../services/audio/clock';
+import { getLoopsTrack, LOOPS_TRACK_ID, mapLoopSlots, slotHasContent } from './loops';
 
 export const DRUMS_TRACK_ID = 'drums';
 export { LOOPS_TRACK_ID };
@@ -81,10 +81,9 @@ const stopAllTrackTransports = (tracks, { stopPending = false } = {}) =>
     transport: { ...t.transport, playing: false, stopPending },
   }));
 
-const playReducer = (s) => {
+/** Pure — no clock mutation. */
+export const sessionPlayReducer = (s) => {
   if (s.transport?.playing) return s;
-  // Shared downbeat for drums + loops before either service schedules audio.
-  setTransportStartTime(nextTransportStart());
   return {
     ...s,
     transport: { ...s.transport, playing: true, stopPending: false },
@@ -92,7 +91,8 @@ const playReducer = (s) => {
   };
 };
 
-const pauseReducer = (s) => {
+/** Pure — no clock mutation. */
+export const sessionPauseReducer = (s) => {
   if (!s.transport?.playing) return s;
   return {
     ...s,
@@ -101,30 +101,69 @@ const pauseReducer = (s) => {
   };
 };
 
-/** Idempotent session start — used by Media Session play (avoid toggle races). */
-export const sessionPlay = () => dispatch(playReducer);
+/** Pure — no clock mutation. */
+export const sessionStopReducer = (s) =>
+  stopLoopSlots({
+    ...s,
+    transport: {
+      ...s.transport,
+      playing: false,
+      playhead: null,
+      stopPending: true,
+    },
+    tracks: stopAllTrackTransports(s.tracks),
+  });
 
-/** Idempotent session pause — used by Media Session pause. */
-export const sessionPause = () => dispatch(pauseReducer);
+/** Pure — no clock mutation. */
+export const trackTogglePlayReducer = (trackId = DRUMS_TRACK_ID) => (s) => {
+  const track = s.tracks?.find((t) => t.id === trackId);
+  if (!track) return s;
+
+  const nextTrackPlaying = !track.transport?.playing;
+  return {
+    ...s,
+    tracks: mapTrackTransport(s.tracks, trackId, (tr) => ({
+      ...tr,
+      playing: nextTrackPlaying,
+      stopPending: false,
+    })),
+  };
+};
+
+/** Pure — no clock mutation. */
+export const trackStopReducer = (trackId = DRUMS_TRACK_ID) => (s) => ({
+  ...s,
+  tracks: mapTrackTransport(s.tracks, trackId, (tr) => ({
+    ...tr,
+    playing: false,
+    stopPending: true,
+  })),
+});
+
+/** Idempotent session start — clock then document. */
+export const sessionPlay = () =>
+  dispatch((s) => {
+    if (s.transport?.playing) return s;
+    setTransportStartTime(nextTransportStart());
+    return sessionPlayReducer(s);
+  });
+
+/** Idempotent session pause. */
+export const sessionPause = () => dispatch(sessionPauseReducer);
 
 /** Session play/pause — all armed tracks follow session transport. */
 export const sessionTogglePlay = () =>
-  dispatch((s) => (s.transport?.playing ? pauseReducer(s) : playReducer(s)));
+  dispatch((s) => {
+    if (s.transport?.playing) return sessionPauseReducer(s);
+    setTransportStartTime(nextTransportStart());
+    return sessionPlayReducer(s);
+  });
 
-/** Session stop — halts session and every track (including loop slots). */
+/** Session stop — resets clock, then document. */
 export const sessionStop = () =>
   dispatch((s) => {
     resetTransportStartTime();
-    return stopLoopSlots({
-      ...s,
-      transport: {
-        ...s.transport,
-        playing: false,
-        playhead: null,
-        stopPending: true,
-      },
-      tracks: stopAllTrackTransports(s.tracks),
-    });
+    return sessionStopReducer(s);
   });
 
 /** Per-track play/pause — does not change session transport. */
@@ -137,15 +176,7 @@ export const trackTogglePlay = (trackId = DRUMS_TRACK_ID) =>
     if (nextTrackPlaying && trackId === DRUMS_TRACK_ID && getTransportStartTime() <= 0) {
       setTransportStartTime(nextTransportStart());
     }
-
-    return {
-      ...s,
-      tracks: mapTrackTransport(s.tracks, trackId, (tr) => ({
-        ...tr,
-        playing: nextTrackPlaying,
-        stopPending: false,
-      })),
-    };
+    return trackTogglePlayReducer(trackId)(s);
   });
 
 /** Per-track stop — does not change session transport. */
@@ -154,12 +185,5 @@ export const trackStop = (trackId = DRUMS_TRACK_ID) =>
     if (trackId === DRUMS_TRACK_ID && !anyLoopSlotActive(s)) {
       resetTransportStartTime();
     }
-    return {
-      ...s,
-      tracks: mapTrackTransport(s.tracks, trackId, (tr) => ({
-        ...tr,
-        playing: false,
-        stopPending: true,
-      })),
-    };
+    return trackStopReducer(trackId)(s);
   });

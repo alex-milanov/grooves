@@ -6,6 +6,7 @@
   "scripts": {
     "start": "parcel serve --host 0.0.0.0",
     "build": "parcel build --public-url /grooves/",
+    "build:check": "parcel build --public-url /grooves/ --dist-dir .tmp/parcel-check --cache-dir .tmp/parcel-check-cache",
     "lint": "biome lint ./src && eslint src",
     "lint:fix": "biome lint --write ./src && eslint src --fix",
     "format": "biome format --write ./src",

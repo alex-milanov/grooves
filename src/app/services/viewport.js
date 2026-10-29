@@ -63,7 +63,8 @@ const observeWorkspace = () => {
     .forEach((el) => resizeObserver.observe(el));
 };
 
-export let stop = () => {};
+let onStop = () => {};
+export const stop = () => onStop();
 
 export const start = ({ state$ }) => {
   const subs = [];
@@ -172,7 +173,7 @@ export const start = ({ state$ }) => {
   observeWorkspace();
   scheduleFit();
 
-  stop = () => {
+  onStop = () => {
     cancelAnimationFrame(fitRaf);
     cancelAnimationFrame(transitionFitRaf);
     resizeObserver?.disconnect();

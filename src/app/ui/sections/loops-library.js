@@ -7,16 +7,12 @@ import {
   loopBufferKey,
   loopPlaybackDuration,
 } from '../../state/loops';
-import { context } from '../../util/audio';
+import { context, samples } from '../../services/audio';
 import { entriesAt, isFolder, isSample, navigate } from '../../util/library';
 import { quantizeTargetSeconds, trimPadBuffer } from '../../util/loop-quantize';
 import { barSeconds } from '../../util/transport-clock';
-import * as samples from '../../util/samples';
 
-/**
- * Load/quantize buffer (impure), then apply pure assignLoopSample.
- * samples.set stays at the edge until services/audio move (Step 2).
- */
+/** Load/quantize buffer (impure), then apply pure assignLoopSample. */
 const assignSampleToSlot = (slotIndex, kit, sample) => {
   dispatch((s) => {
     const buffer = samples.get(samples.key(kit, sample));

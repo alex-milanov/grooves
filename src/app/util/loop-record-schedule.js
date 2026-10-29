@@ -1,7 +1,7 @@
-import { context } from './audio';
+import { context } from '../services/audio';
+import { getTransportStartTime } from '../services/audio/clock';
 import {
   barSeconds,
-  getTransportStartTime,
   nextBarTime,
   nextLocalBarTime,
   nextLoopBarTime,
@@ -13,7 +13,7 @@ import {
   DRUMS_TRACK_ID,
   hasRunningCycle,
   isTrackScheduling,
-} from './session-transport';
+} from '../state/transport';
 
 /** Cold-start downbeat: prefer a shared future transport anchor when present. */
 const coldStartAt = (now = context.currentTime) => {
@@ -63,7 +63,8 @@ export const emptySlotRecordSchedule = (state, clickOn) => {
   if (playing) {
     const { nextBar, prevBar, remaining, progress } = barProgress(state, now);
 
-    // Near end of bar — wait for the next downbeat.
+    // Live grid (sequencer/session): no audible click — drums are the pulse.
+    // Still set countInAt so the ring fills while waiting for the downbeat.
     if (remaining <= bar * CYCLE_EDGE) {
       return {
         startedAt: nextBar,
@@ -81,7 +82,7 @@ export const emptySlotRecordSchedule = (state, clickOn) => {
       };
     }
 
-    // Mid-bar — wait for the next downbeat.
+    // Mid-bar — wait for the next downbeat (visual count-in only).
     return {
       startedAt: nextBar,
       ...clearArmFields,

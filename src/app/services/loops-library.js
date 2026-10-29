@@ -1,8 +1,7 @@
 import JSZip from 'jszip';
 import { dispatch } from 'iblokz-state';
-import { context } from '../util/audio';
+import { context, samples } from './audio';
 import { filesFromMetadata, samplesFromMetadata } from '../util/library';
-import * as samples from '../util/samples';
 
 const KIT_URL = 'assets/loops/basic-loops.zip';
 export const LOOPS_KIT_NAME = 'basic_loops';
@@ -18,7 +17,8 @@ const loadBuffers = (zip, meta) =>
     ),
   );
 
-export let stop = () => {};
+let onStop = () => {};
+export const stop = () => onStop();
 
 export const start = ({ state$ }) => {
   fetch(KIT_URL)
@@ -38,7 +38,7 @@ export const start = ({ state$ }) => {
     })
     .catch((err) => console.warn('loops library load failed:', err));
 
-  stop = () => {};
+  onStop = () => {};
 };
 
 export default {

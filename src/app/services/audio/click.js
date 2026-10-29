@@ -1,5 +1,5 @@
-import { context } from './audio';
-import { barSeconds, beatSeconds, beatsPerBar } from './transport-clock';
+import { context } from './graph';
+import { barSeconds, beatSeconds, beatsPerBar } from '../../util/transport-clock';
 
 const scheduled = [];
 

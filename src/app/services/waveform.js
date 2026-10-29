@@ -8,12 +8,12 @@ import {
   trackGain,
   getLoopSlotInput,
   getOutputLatency,
-} from '../util/audio';
+  samples,
+} from './audio';
 import { bufferToWav } from '../util/buffer-to-wav';
 import { getLoopSlot, getSlotParams, slotHasContent } from '../state/loops';
 import { slotPlaybackFromBuffer } from '../util/loop-tempo';
 import { isLoopsWorkspace } from '../util/workspaces';
-import * as samples from '../util/samples';
 
 let ws = null;
 let loopWs = null;
@@ -336,7 +336,8 @@ export const previewLoopSlot = () => {
   });
 };
 
-export let stop = () => {};
+let onStop = () => {};
+export const stop = () => onStop();
 
 export const start = ({ state$ }) => {
   const subs = [];
@@ -411,7 +412,7 @@ export const start = ({ state$ }) => {
   syncWaveform(state$.getValue());
   syncLoopWaveform(state$.getValue());
 
-  stop = () => {
+  onStop = () => {
     destroyWaveform();
     destroyLoopWaveform();
     subs.forEach((sub) => sub.unsubscribe());

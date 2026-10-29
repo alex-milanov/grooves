@@ -8,18 +8,17 @@ import {
   cancelScheduledAfter,
   cancelAllScheduled,
   getOutputLatency,
-} from '../util/audio';
+  samples,
+} from './audio';
 import {
   getTransportStartTime,
   nextTransportStart,
   resetTransportStartTime,
   setTransportStartTime,
-  stepTime,
-  transportStartFromLoopPhase,
-} from '../util/transport-clock';
-import { DRUMS_TRACK_ID, isTrackScheduling } from '../util/session-transport';
+} from './audio/clock';
+import { stepTime, transportStartFromLoopPhase } from '../util/transport-clock';
+import { DRUMS_TRACK_ID, isTrackScheduling } from '../state/transport';
 import { getActiveLoopCycle } from '../state/loops';
-import * as samples from '../util/samples';
 
 const SCHEDULE_INTERVAL_MS = 25;
 
@@ -289,7 +288,8 @@ const drumsTransportKey = (state) => {
   return `${tr.playing}:${tr.stopPending}:${state.transport?.stopPending}`;
 };
 
-export let stop = () => {};
+let onStop = () => {};
+export const stop = () => onStop();
 
 export const start = ({ state$ }) => {
   let subs = [];
@@ -358,7 +358,7 @@ export const start = ({ state$ }) => {
       }),
   );
 
-  stop = () => {
+  onStop = () => {
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', onVisibilityChange);
     }

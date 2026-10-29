@@ -1,8 +1,9 @@
 import { distinctUntilChanged, map } from 'rxjs';
 import { getLoopsTrack } from '../state/loops';
-import { applyRouting } from '../util/audio';
+import { applyRouting } from './audio';
 
-export let stop = () => {};
+let onStop = () => {};
+export const stop = () => onStop();
 
 export const start = ({ state$ }) => {
   const subs = [];
@@ -39,7 +40,7 @@ export const start = ({ state$ }) => {
       }),
   );
 
-  stop = () => {
+  onStop = () => {
     subs.forEach((sub) => sub.unsubscribe());
   };
 };

@@ -1,10 +1,11 @@
-# App structure refactor — state, util purity, audio engine
+# App structure refactor — state slices, infra silos, util/lib
 
-**Date:** 2026-10-21  
-**Status:** In progress — Step 1 done; Steps 2–4 pending  
+**Date:** 2026-10-21; **revised 2026-10-29** (iblokz folder-constraints session)  
+**Status:** In progress — Steps 1–3 done; Step 4 pending  
 **Brainstorming:** [`brainstorming/app-structure.md`](../brainstorming/app-structure.md)  
+**Stack-wide:** [`org/iblokz/brainstorming/architecture/folder-constraints.md`](../../../org/iblokz/brainstorming/architecture/folder-constraints.md)  
 **Depends on:** Loops MVP + workspaces in place (no feature dependency; structure-only)  
-**Goal:** Encode folder roles in the tree with **move-first, behavior-preserving** steps. App stays deployable after each step.
+**Goal:** Encode folder roles with **move-first, behavior-preserving** steps. App stays deployable after each step.
 
 ---
 
@@ -12,17 +13,20 @@
 
 **In:**
 
-1. Document locked folder rules (brainstorming — done with this slice’s companion doc)
-2. Grow **`state/`** as document home (shape + pure reducers); keep name `state/` (not jam `actions/`)
-3. Move live audio runtime out of **`util/`** into **`services/audio/`**
-4. Split mutable transport clock from pure bar/beat math
-5. Leave `util/` pure-only going forward
+1. Locked folder / layer rules (docs — refreshed 2026-10-29)
+2. Grow **`state/`** as document home (shape + reducers + **domain helpers/enums** per slice)
+3. Establish **`services/audio/`** as a non-domain **infra/engine silo** (side effects, reusable)
+4. Keep **`services/viewport`** as the other infra example (already in place — no redesign)
+5. Split mutable transport clock from pure bar/beat math; pure transport document API → `state/transport`
+6. Leave root **`util/`** for shared pure / API abstractions only; colocate thin helpers otherwise
 
 **Out:**
 
-- Drums `sequencer.*` → `tracks[].rows` migration ([`track-model.md`](../brainstorming/track-model.md))
-- Adopting `createState` / `adapt` action trees
-- Splitting `services/loops.js` FSM beyond what’s needed for imports
+- Drums `sequencer.*` → `tracks[].rows` ([`track-model.md`](../brainstorming/track-model.md))
+- Adopting `createState` / `adapt` action trees (same one-way loop; optional later)
+- Expanding `services/loops` FSM beyond import/wiring needs
+- UI tree rename (`layout/` / `pages/`) — studio shell is fine; no CMS `pages/`
+- Extracting audio to a shared package (silo first; package later if reuse demands)
 - Product changes (latency UI, MIDI, pads)
 
 ---
@@ -31,77 +35,93 @@
 
 | Topic | Decision |
 |-------|----------|
-| Document folder name | **`state/`** — holds `initial` + `(…args) => state => next` |
-| vs jam `actions/` | Same *slot*; different name. No rename pressure. |
-| `util/` | Pure helpers only; no `dispatch`, no node/buffer registries |
-| Live engine | **`services/audio/`** (graph, samples, recording, click, mutable `startTime`) |
-| Orchestration | Existing services (`loops`, `sequencer`, `mixer`, …) call engine + `dispatch` |
+| One-way loop | `actions → state$ → ui → actions` — unchanged |
+| Action edge | `dispatch(reducer(…))` **or** `actions.ns.fn(…)` are the **same arrow**; Grooves uses **direct dispatch** + import from `state/<slice>` this iteration |
+| Document folder | **`state/`** (same slot as jam `actions/`) |
+| Slice contents | Reducers **and** domain helpers / enums / defaults; matching UI content imports from that slice |
+| Thin helpers | Colocate in `state/` or `ui/` unless shared → util/lib |
+| Service layer | **Side effects + reusability**; not domain-specific unless the silo **manages domain** |
+| Infra silos | **`viewport`** and **`audio` engine** are both valid services — not product ontology |
+| Domain orchestration | `services/loops`, `sequencer`, `mixer`, … stay thinner; call engine + `dispatch(state.*)` |
+| Live audio | **`services/audio/`** owns living graph / samples Map / recording / click / mutable `startTime`; may keep **local** util until shared |
+| Root `util/` | Shared pure math/data + grouped API abstractions; **no** `dispatch`, living registries, or full UI modules |
 | `createState` / adapt | **Not** in this slice |
-| Import style | Prefer `dispatch(loops.slotTogglePlayRec(i))` where `slotTogglePlayRec` is a pure factory; thin façades OK if needed for ergonomics |
+| Import style | Prefer `dispatch(loops.slotTogglePlayRec(i))`; thin façades OK |
 
 ---
 
-## Steps (quick wins, in order)
+## Steps (in order)
 
 ### Step 0 — Convention (docs)
 
-- [x] [`brainstorming/app-structure.md`](../brainstorming/app-structure.md)
-- [x] Link from brainstorming README + mark structure as current focus
-- [x] Note in `ecosystem.md` (loops MVP done; structure in integration order; state/ vs jam actions/)
+- [x] [`brainstorming/app-structure.md`](../brainstorming/app-structure.md) (initial + 2026-10-29 refresh)
+- [x] iblokz [`folder-constraints.md`](../../../org/iblokz/brainstorming/architecture/folder-constraints.md) + overview / services / ui-pages links
+- [x] Link from brainstorming README + `ecosystem.md`
+- [x] This plan revised for silos, dual edge, helper placement (2026-10-29)
 
-### Step 1 — Grow `state/` for loops (no engine move yet)
+### Step 1 — Grow `state/` for loops / sequencer panels ✅
 
-Move / extract **pure** code only:
+Move / extract **pure** domain code only (done):
 
 | From | Toward |
 |------|--------|
-| `util/loops-state.js` | `state/loops.js` |
-| Pure bodies in `util/loop-actions.js` | `state/loops.js` factories `(…) => state => next` |
-| `util/loops-panels.js` (pure transforms) | `state/loops.js` |
-| Relevant pure bits of `util/panels.js` | `state/sequencer.js` when touching drums panels (**deferred**) |
+| `util/loops-state.js`, loop-actions bodies, loops-panels | `state/loops.js` |
+| Drums panels + `assignTrackSample` | `state/sequencer.js` |
 
-Wire UI/services to `dispatch(factory(…))`. Delete or shrink `util/loop-actions.js` to zero impure leftovers (any `samples.set` / `context` work moves to service *after* dispatch, or stays temporarily with a comment until Step 2).
+- [x] `state/loops.js` — slots, panels, pure reducers; `LOOPS_TRACK_ID` owned here  
+- [x] UI/services import from `state/loops`; `dispatch(…)` at the edge  
+- [x] Library assign: impure prep in UI, pure `assignLoopSample`  
+- [x] Removed `util/loops-state.js`, `util/loops-panels.js`, `util/loop-actions.js`  
+- [x] Fixed `loopsTogglePlay` / `loopsStopAll` stale `tracks` overwrite  
+- [x] Drums panels + assign → `state/sequencer.js`
 
-**Done when:** loops domain transitions are findable under `state/`; `util/loop-actions.js` is gone or trivial; behavior unchanged.
+### Step 2 — `services/audio/` infra silo (move-only) ✅
 
-- [x] `state/loops.js` — slots, panels, pure reducers; `LOOPS_TRACK_ID` owned here
-- [x] UI/services import from `state/loops`; `dispatch(…)` at the edge
-- [x] Library assign: impure prep in `ui/sections/loops-library.js`, pure `assignLoopSample`
-- [x] Removed `util/loops-state.js`, `util/loops-panels.js`, `util/loop-actions.js`
-- [x] Fixed `loopsTogglePlay` / `loopsStopAll` overwriting slot patches with stale `tracks`
-- [x] Drums panels + `assignTrackSample` → `state/sequencer.js` (same library assign pattern as loops)
-
-### Step 2 — `services/audio/` move-only
-
-Move (update imports; no logic rewrite):
+**Intent:** Audio is a **reusable side-effect engine**, not loops/drums domain. Same class of service as **viewport**. Move living runtime out of root `util/`; no logic rewrite.
 
 | From `util/` | To |
 |--------------|-----|
-| `audio.js` | `services/audio/graph.js` (or `index.js`) |
+| `audio.js` | `services/audio/graph.js` |
 | `samples.js` | `services/audio/samples.js` |
 | `recording.js` | `services/audio/recording.js` |
 | `loop-click.js` | `services/audio/click.js` |
 
-Re-export from `services/audio/index.js` if that eases churn.
+- [x] Moved four modules; `services/audio/index.js` re-exports for churn  
+- [x] Updated services, UI, and util consumers (`transport-clock`, session-transport, loop-*)  
+- [x] Left pure shared math in root util; orchestration services unchanged  
+- [x] **`services/viewport`:** left as-is  
 
-**Done when:** no living graph / MediaRecorder / sample `Map` under `util/`; play/record still work.
+**Done when:** no living graph / MediaRecorder / sample `Map` under root `util/`; play/record/overdub still work; other services import from `services/audio`.
 
-### Step 3 — Clock split
+### Step 3 — Clock + transport document API ✅
 
 | Concern | Home |
 |---------|------|
-| `barSeconds`, `phaseAt`, `beatsPerBar`, … | `util/transport-math.js` (or keep name `transport-clock.js` but **pure only**) |
-| `startTime` get/set/reset, lookahead constant used to *set* anchor | `services/audio/clock.js` (or beside graph) |
+| `barSeconds`, `phaseAt`, `beatsPerBar`, … | Root `util/transport-clock.js` (no mutable `startTime`) |
+| `startTime` get/set/reset, lookahead used to *set* anchor | `services/audio/clock.js` (engine silo) |
+| Pure predicates / session·track play-stop **reducers** | `state/transport.js` |
+| Effects that mutate clock **while** dispatching | Edge wrappers in `state/transport.js` (`sessionPlay`, …) — clock then pure reducer |
 
-`session-transport`: pure predicates + reducers → `state/transport.js`; functions that **mutate** startTime while dispatching → service/audio clock called from UI/service edge, not inside the reducer.
+- [x] `services/audio/clock.js` + re-export from `services/audio/index.js`
+- [x] Purified `util/transport-clock.js` (imports clock; no module-level mutable time)
+- [x] `state/transport.js` — predicates, pure `*Reducer`s, edge `session*` / `track*`
+- [x] Removed `util/session-transport.js`; UI/services import from `state/transport`
+- [x] Sequencer / loop helpers import clock from `services/audio/clock`
 
-**Done when:** reducers never call `setTransportStartTime`; util clock math has no module-level mutable time.
+**Done when:** reducers never call `setTransportStartTime`; util clock math has no module-level mutable time; session/track transport actions are findable under `state/transport`.
 
-### Step 4 — Hygiene
+### Step 4 — Hygiene + remaining domain placement
 
-- Remove duplicate `stepTime` if still in both audio + clock
-- Grep: `dispatch` only from `ui/`, `services/`, `index.js` — not from `util/`
-- Grep: `util/` has no `AudioContext` node creation / `navigator.mediaDevices` / `document.querySelector` (scroll/theme exceptions: either leave tiny impure UI helpers under `ui/util` or document as allowed exceptions)
+- Remove duplicate `stepTime` if still in both graph + clock.  
+- Grep: `dispatch` only from `ui/`, `services/`, `index.js` — not from root `util/`.  
+- Grep: root `util/` has no node creation / `navigator.mediaDevices` / living Maps (scroll/theme: colocate under `ui/` or document as allowed chrome helpers).  
+- Move leftover **domain** helpers/enums still in util when cheap:  
+  - workspace ids / strip predicates → `state/ui` (or `state/workspaces`) if document-shaped; UI structure modules import from there  
+  - track-params defaults tied to sequencer → `state/sequencer` if clearly document  
+- Leave true shared pure modules in util (`loop-tempo`, routing data, theme serialize, lang, library path nav if shared).  
+- Optional light grouping (`util/loop/*`) only if root util is still noisy after moves — not required for “done.”
+
+**Done when:** litmus in [`app-structure.md`](../brainstorming/app-structure.md) holds for grepped smells; smoke still green.
 
 ---
 
@@ -111,21 +131,29 @@ Re-export from `services/audio/index.js` if that eases churn.
 src/app/
   state/
     index.js
-    loops.js          # (+ optional loops-ui)
-    transport.js      # as Step 3 lands
+    loops.js
+    sequencer.js
+    transport.js       # Step 3
+    ui.js | workspaces # optional Step 4 — workspace ids / strip
   services/
-    audio/
+    viewport.js        # infra (existing)
+    audio/             # infra engine silo
       index.js
-      graph.js        # ex util/audio.js
+      graph.js
       samples.js
       recording.js
       click.js
-      clock.js        # mutable startTime (Step 3)
-    loops.js
+      clock.js         # Step 3
+    loops.js           # domain orchestration (thin)
     sequencer.js
+    mixer.js
     …
-  util/               # pure remainder
+  util/                # shared pure / API abs only
   ui/
+    components/        # shared leaves
+    sections/          # content
+    workspaces/ …      # structure
+  index.js
 ```
 
 ---
@@ -134,11 +162,12 @@ src/app/
 
 After each step:
 
-- [ ] Cold start → play drums grid
-- [ ] Arm empty loop slot → count-in / bar wait → record → stop → loop plays in phase
-- [ ] Overdub one layer
-- [ ] Session stop / track stop; restart
-- [ ] Mixer / mute / library assign sample to loop slot
+- [ ] Cold start → play drums grid  
+- [ ] Arm empty loop slot → count-in / bar wait → record → stop → loop plays in phase  
+- [ ] Overdub one layer  
+- [ ] Session stop / track stop; restart  
+- [ ] Mixer / mute / library assign sample to loop slot  
+- [ ] Resize / workspace strip (viewport still sane)  
 - [ ] HMR: services stop/start without stuck record or silent graph (smoke)
 
 No new automated suite required for move-only; manual smoke is the gate.
@@ -148,13 +177,14 @@ No new automated suite required for move-only; manual smoke is the gate.
 ## Out / later
 
 - Track-model drums migration  
-- `createState` + adapt  
+- `createState` + adapt (optional; same loop)  
 - Further split of `services/loops.js`  
+- Shared `iblokz-audio` / cross-app package extract  
 - Ecosystem feature order (tap tempo, pads, …) unchanged  
 
 ---
 
 ## References
 
-- Sister: world-metronome `util/audio` + `services/audio`; jam-station `actions/` + `services/audio`
-- iblokz: `architecture/overview.md`, `architecture/services.md`
+- Sister: world-metronome toolkit vs schedule; jam-station `services/audio`; psy-rogue infra silos; canvas/notes modern `state/`  
+- iblokz: `architecture/folder-constraints.md`, `overview.md`, `services.md`

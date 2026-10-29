@@ -2,7 +2,14 @@
 export const CYCLE_EDGE = 0.125;
 
 export const quantizeBarCount = (rawSeconds, barSeconds) => {
-  if (rawSeconds <= 0 || barSeconds <= 0) return 1;
+  if (
+    !Number.isFinite(rawSeconds) ||
+    rawSeconds <= 0 ||
+    !Number.isFinite(barSeconds) ||
+    barSeconds <= 0
+  ) {
+    return 1;
+  }
   if (rawSeconds < barSeconds) return 1;
 
   const fullBars = Math.floor(rawSeconds / barSeconds);
@@ -14,8 +21,36 @@ export const quantizeBarCount = (rawSeconds, barSeconds) => {
   return fullBars + 1;
 };
 
-export const quantizeTargetSeconds = (rawSeconds, barSeconds) =>
-  quantizeBarCount(rawSeconds, barSeconds) * barSeconds;
+export const quantizeTargetSeconds = (rawSeconds, barSeconds) => {
+  const bar = Number(barSeconds);
+  if (!Number.isFinite(bar) || bar <= 0) {
+    const raw = Number(rawSeconds);
+    return Number.isFinite(raw) && raw > 0 ? raw : 0.1;
+  }
+  return quantizeBarCount(rawSeconds, bar) * bar;
+};
+
+/**
+ * Live first-take length while recording: 1 bar, then 2, 3, … as elapsed crosses
+ * each bar boundary (same idea as post-take quantize, without the edge cut).
+ */
+export const growingRecordBars = (elapsedSeconds, barSec) => {
+  if (!Number.isFinite(barSec) || barSec <= 0) return 1;
+  const elapsed = Math.max(0, Number(elapsedSeconds) || 0);
+  return Math.max(1, Math.ceil(elapsed / barSec) || 1);
+};
+
+export const growingRecordCycleSeconds = (elapsedSeconds, barSec) =>
+  growingRecordBars(elapsedSeconds, barSec) * barSec;
+
+/** 0–100 progress through the current growing bar scope (no wrap). */
+export const growingRecordProgress = (startedAt, barSec, atTime) => {
+  if (startedAt == null || !Number.isFinite(barSec) || barSec <= 0) return 0;
+  const elapsed = Math.max(0, atTime - startedAt);
+  const cycle = growingRecordCycleSeconds(elapsed, barSec);
+  if (!cycle) return 0;
+  return Math.min(100, (elapsed / cycle) * 100);
+};
 
 /** Seconds of near-silence at the start of a buffer (MediaRecorder preroll, etc.). */
 export const leadingSilenceSeconds = (
@@ -43,10 +78,16 @@ export const leadingSilenceSeconds = (
  */
 export const trimPadBuffer = (ctx, buffer, targetSeconds, leadPadSeconds = 0, skipSeconds = 0) => {
   const sampleRate = buffer.sampleRate;
-  const targetLength = Math.max(1, Math.round(targetSeconds * sampleRate));
+  if (!sampleRate || !Number.isFinite(sampleRate)) {
+    throw new Error('trimPadBuffer: invalid sampleRate');
+  }
+  const targetLength = Math.max(
+    1,
+    Math.round((Number.isFinite(targetSeconds) ? targetSeconds : 0) * sampleRate) || 1,
+  );
   const leadSamples = Math.max(0, Math.min(targetLength, Math.round(leadPadSeconds * sampleRate)));
   const skipSamples = Math.max(0, Math.min(buffer.length, Math.round(skipSeconds * sampleRate)));
-  const channels = buffer.numberOfChannels;
+  const channels = Math.max(1, buffer.numberOfChannels || 1);
   const out = ctx.createBuffer(channels, targetLength, sampleRate);
 
   for (let ch = 0; ch < channels; ch++) {

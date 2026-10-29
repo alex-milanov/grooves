@@ -133,8 +133,9 @@ Each step should leave the app deployable and demo-able.
 - **pnpm** + Parcel 2 + Biome check
 - **AGPL-3.0** licensing
 - **GitHub Pages** deploy (`--public-url /grooves/`)
-- **Service `start({ state$ })` / `stop()`** lifecycle
+- **Service `start({ state$ })` / `stop()`** lifecycle (silos; audio engine candidate for shared extract)
 - **Theme families** from boilerplate (pixel default for grooves)
 - **planning/** + **summaries/** docs when moving from brainstorm → implement → record
-- **Document API folder:** jam uses `actions/` (initial + reducers); Grooves uses **`state/`** for the same slot — see [`app-structure.md`](app-structure.md)
-- **`util/`:** pure helpers only in Grooves; live audio under `services/audio/` (jam pattern / WM schedule split)
+- **One-way loop:** `actions → state$ → ui → actions` — `actions.ns.fn()` and `dispatch(reducer)` are the same arrow ([iblokz folder-constraints](../../../org/iblokz/brainstorming/architecture/folder-constraints.md))
+- **Document API folder:** jam uses `actions/`; Grooves uses **`state/`** for the same slot — domain helpers/enums live in the slice; UI imports them — see [`app-structure.md`](app-structure.md)
+- **`util/`:** shared pure / API abstractions only; living audio under `services/audio/`; thin helpers colocate in state/ui unless shared
