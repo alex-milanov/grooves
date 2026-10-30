@@ -6,6 +6,7 @@ import {
   selectMeasure,
   armDeleteBar,
   clearDeleteArmedBar,
+  measuresList,
   MAX_BARS,
 } from '../../../state/sequencer-measures';
 
@@ -51,8 +52,7 @@ const endHold = () => {
 };
 
 const measureGrid = (state, barIndex, perBar, rows) => {
-  const start = barIndex * perBar;
-  const grid = state.sequencer.grid;
+  const measure = measuresList(state)[barIndex] ?? {};
   return div(
     '.measure-grid',
     list(rows).map((_, row) =>
@@ -60,7 +60,7 @@ const measureGrid = (state, barIndex, perBar, rows) => {
         '.measure-row',
         list(perBar).map((_, step) =>
           div('.measure-step', {
-            class: { active: !!grid?.[row]?.[start + step] },
+            class: { active: !!measure?.[row]?.[step] },
           }),
         ),
       ),

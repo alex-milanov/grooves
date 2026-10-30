@@ -1,33 +1,25 @@
 import { div, button } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
-import { patch } from '../../../state';
+import { measureStepOn, toggleMeasureStep } from '../../../state/sequencer-measures';
 
 const list = (length) => new Array(length).fill(0);
 
 const shorten = (name, max = 14) => (name.length > max ? `${name.slice(0, max - 1)}…` : name);
 
-const stepCell = (state, row, globalStep, playhead) =>
+const stepCell = (state, bar, row, step, playhead) =>
   div('.step', {
     class: {
-      active: state.sequencer.grid[row]?.[globalStep],
-      playhead: playhead === globalStep,
+      active: measureStepOn(state, bar, row, step),
+      playhead: playhead === step,
     },
-    props: {
-      title: `${row},${globalStep}`,
-    },
+    props: { title: `${row},${bar}:${step}` },
     on: {
-      click: () =>
-        dispatch(
-          patch(
-            ['sequencer', 'grid', row, globalStep],
-            !state.sequencer.grid[row]?.[globalStep],
-          ),
-        ),
+      click: () => dispatch(toggleMeasureStep(bar, row, step)),
     },
   });
 
-/** One bar of steps for the cued/view measure — never the full multi-bar row. */
-export default (state, { rows, visibleSteps, playhead, onRowClick, onRowDblClick }) =>
+/** One bar of local steps for the viewed measure. */
+export default (state, { rows, bar, stepsPerBar: perBar, playhead, onRowClick, onRowDblClick }) =>
   div(
     '.rows',
     list(rows).map((_, row) => {
@@ -59,7 +51,7 @@ export default (state, { rows, visibleSteps, playhead, onRowClick, onRowDblClick
             },
             rowLabel,
           ),
-          visibleSteps.map((globalStep) => stepCell(state, row, globalStep, playhead)),
+          list(perBar).map((_, step) => stepCell(state, bar, row, step, playhead)),
         ),
       );
     }),

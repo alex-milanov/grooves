@@ -54,9 +54,10 @@ export const initial = {
   },
   sequencer: {
     rows: ROW_COUNT,
-    steps: 16,
+    steps: 16, // steps per bar (one schedule cycle)
     bars: 1,
     focusedBar: 0,
+    playingBar: null,
     cuedBar: null,
     deleteArmedBar: null,
     measuresExpanded: false,
@@ -71,7 +72,8 @@ export const initial = {
       2: { kit: 'basic_drum_kit', sample: 'HCR-01.wav' },
     },
     rowParams: {},
-    grid: [],
+    // measures[bar][row][localStep] — events grouped by bar
+    measures: [{}],
   },
   library: {
     path: ['library', 'samples'],

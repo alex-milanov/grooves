@@ -15,8 +15,6 @@ import rowSettings from './row-settings';
 const defaultRowCount = 4;
 let rowClickTimer = null;
 
-const list = (length) => new Array(length).fill(0);
-
 const clearRowClickTimer = () => {
   if (rowClickTimer) {
     clearTimeout(rowClickTimer);
@@ -63,11 +61,12 @@ export default (state) => {
   const expanded = !!state.sequencer.measuresExpanded;
   const focusedBar = Math.min(bars - 1, Math.max(0, state.sequencer.focusedBar ?? 0));
   const playhead = state.transport?.playhead;
-  const playBar =
-    playhead != null && playhead >= 0 ? Math.floor(playhead / perBar) % bars : null;
-
   const drumsTrack = state.tracks?.find((t) => t.id === DRUMS_TRACK_ID);
   const trackPlaying = !!drumsTrack?.transport?.playing;
+  const playBar =
+    trackPlaying && state.sequencer.playingBar != null
+      ? Math.min(bars - 1, Math.max(0, state.sequencer.playingBar))
+      : null;
 
   const cuedBar =
     state.sequencer.cuedBar == null
@@ -78,14 +77,8 @@ export default (state) => {
   // (focusedBar) so the natural next bar never flashes before the jump.
   let viewBar = focusedBar;
   if (trackPlaying && playBar != null) {
-    if (cuedBar != null && playBar !== cuedBar) {
-      viewBar = focusedBar;
-    } else {
-      viewBar = playBar;
-    }
+    viewBar = cuedBar != null && playBar !== cuedBar ? focusedBar : playBar;
   }
-  const visibleSteps = list(perBar).map((_, i) => viewBar * perBar + i);
-  const activeBar = viewBar;
 
   return [
     div('.sequencer', [
@@ -193,15 +186,16 @@ export default (state) => {
             bars,
             perBar,
             rows,
-            activeBar,
+            activeBar: viewBar,
             cuedBar,
             playing: trackPlaying,
           })
         : null,
       rowsView(state, {
         rows,
-        visibleSteps,
-        playhead,
+        bar: viewBar,
+        stepsPerBar: perBar,
+        playhead: trackPlaying && playBar === viewBar ? playhead : null,
         onRowClick,
         onRowDblClick,
       }),

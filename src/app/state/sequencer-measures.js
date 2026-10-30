@@ -1,120 +1,123 @@
-/** Measure / multi-bar helpers for the drums sequencer. */
+/** Measure helpers — pattern events grouped per bar (`measures[bar][row][step]`). */
 
 export const MAX_BARS = 8;
 
-/** Steps in one bar from transport signature × resolution. */
 export const stepsPerBar = (state) => {
   const [num, den] = state.transport?.timeSignature ?? [4, 4];
   const resolution = state.transport?.resolution ?? 16;
   return Number((resolution * (num / den)).toFixed(0));
 };
 
-export const barCount = (state) => Math.max(1, state.sequencer?.bars ?? 1);
-
-export const totalSteps = (state) => stepsPerBar(state) * barCount(state);
-
-const copyLastBarGrid = (grid, rowCount, perBar, bars) => {
-  // Rows are sparse objects from obj.patch (not arrays).
-  const lastStart = (bars - 1) * perBar;
-  const next = { ...(grid ?? {}) };
-  for (let r = 0; r < rowCount; r++) {
-    const prev = grid?.[r] ?? {};
-    const row = { ...prev };
-    for (let i = 0; i < perBar; i++) {
-      row[lastStart + perBar + i] = !!prev[lastStart + i];
-    }
-    next[r] = row;
+/**
+ * `obj.patch` through numeric keys turns arrays into array-likes with length 0.
+ * Always coerce to a real Array before spread / length checks.
+ */
+export const measuresList = (state) => {
+  const raw = state.sequencer?.measures;
+  if (Array.isArray(raw) && raw.length > 0) return raw;
+  if (Array.isArray(raw) && raw.length === 0) {
+    // Patch-corrupted: indices present, length missing/0 — recover by keys.
+    const keys = Object.keys(raw)
+      .map(Number)
+      .filter((n) => Number.isFinite(n))
+      .sort((a, b) => a - b);
+    if (keys.length) return keys.map((k) => raw[k] ?? {});
   }
-  return next;
+  if (raw && typeof raw === 'object') {
+    const keys = Object.keys(raw)
+      .map(Number)
+      .filter((n) => Number.isFinite(n))
+      .sort((a, b) => a - b);
+    if (keys.length) return keys.map((k) => raw[k] ?? {});
+  }
+  const bars = Math.max(1, state.sequencer?.bars ?? 1);
+  return Array.from({ length: bars }, () => ({}));
 };
 
-const clampBar = (state, bar) => {
-  const bars = barCount(state);
-  return Math.max(0, Math.min(bars - 1, Number(bar) || 0));
-};
+export const barCount = (state) => Math.max(1, measuresList(state).length);
 
-/** Append a bar by copying the last bar’s pattern on every row. */
-export const addBar = (state) => {
-  const bars = barCount(state);
-  if (bars >= MAX_BARS) return state;
+/** One schedule cycle = one bar. */
+export const totalSteps = (state) => stepsPerBar(state);
 
-  const perBar = stepsPerBar(state);
-  const rowCount = state.sequencer.rows ?? 0;
-  const nextBars = bars + 1;
+export const measureStepOn = (state, bar, row, step) =>
+  !!measuresList(state)[bar]?.[row]?.[step];
 
+const clampBar = (state, bar) =>
+  Math.max(0, Math.min(barCount(state) - 1, Number(bar) || 0));
+
+const cloneMeasure = (m) =>
+  Object.fromEntries(Object.entries(m ?? {}).map(([r, steps]) => [r, { ...steps }]));
+
+/** Toggle a local step — do not use obj.patch on measures[] (breaks array length). */
+export const toggleMeasureStep = (bar, row, step) => (state) => {
+  const measures = measuresList(state).map(cloneMeasure);
+  const b = clampBar(state, bar);
+  const measure = measures[b] ?? {};
+  const rowSteps = { ...(measure[row] ?? {}) };
+  if (rowSteps[step]) delete rowSteps[step];
+  else rowSteps[step] = true;
+  measures[b] = { ...measure, [row]: rowSteps };
   return {
     ...state,
     sequencer: {
       ...state.sequencer,
-      bars: nextBars,
-      steps: perBar * nextBars,
-      focusedBar: bars,
-      cuedBar: null,
-      deleteArmedBar: null,
-      grid: copyLastBarGrid(state.sequencer.grid, rowCount, perBar, bars),
+      bars: measures.length,
+      measures,
     },
   };
 };
 
-const removeBarFromGrid = (grid, rowCount, perBar, barIndex) => {
-  const start = barIndex * perBar;
-  const end = start + perBar;
-  const next = { ...(grid ?? {}) };
-  for (let r = 0; r < rowCount; r++) {
-    const prev = grid?.[r] ?? {};
-    const row = {};
-    for (const key of Object.keys(prev)) {
-      const step = Number(key);
-      if (!Number.isFinite(step)) continue;
-      if (step >= start && step < end) continue;
-      row[step >= end ? step - perBar : step] = !!prev[step];
-    }
-    next[r] = row;
-  }
-  return next;
+/** Append a bar by copying the last measure. */
+export const addBar = (state) => {
+  const measures = measuresList(state).map(cloneMeasure);
+  if (measures.length >= MAX_BARS) return state;
+  measures.push(cloneMeasure(measures[measures.length - 1] ?? {}));
+  return {
+    ...state,
+    sequencer: {
+      ...state.sequencer,
+      bars: measures.length,
+      steps: stepsPerBar(state),
+      focusedBar: measures.length - 1,
+      cuedBar: null,
+      deleteArmedBar: null,
+      measures,
+    },
+  };
 };
 
-/** Remove one bar (keeps at least one). Shifts later bars down. */
+/** Remove one bar (keeps at least one). */
 export const removeBar = (barIndex) => (state) => {
-  const bars = barCount(state);
-  if (bars <= 1) return state;
-
+  const measures = measuresList(state).map(cloneMeasure);
+  if (measures.length <= 1) return state;
   const bar = clampBar(state, barIndex);
-  const perBar = stepsPerBar(state);
-  const rowCount = state.sequencer.rows ?? 0;
-  const nextBars = bars - 1;
+  measures.splice(bar, 1);
 
   let focusedBar = state.sequencer.focusedBar ?? 0;
-  if (focusedBar === bar) focusedBar = Math.min(bar, nextBars - 1);
+  if (focusedBar === bar) focusedBar = Math.min(bar, measures.length - 1);
   else if (focusedBar > bar) focusedBar -= 1;
 
   let cuedBar = state.sequencer.cuedBar;
-  if (cuedBar != null) {
-    if (cuedBar === bar) cuedBar = null;
-    else if (cuedBar > bar) cuedBar -= 1;
-  }
+  if (cuedBar === bar) cuedBar = null;
+  else if (cuedBar != null && cuedBar > bar) cuedBar -= 1;
 
   return {
     ...state,
     sequencer: {
       ...state.sequencer,
-      bars: nextBars,
-      steps: perBar * nextBars,
-      focusedBar: Math.max(0, Math.min(nextBars - 1, focusedBar)),
+      bars: measures.length,
+      steps: stepsPerBar(state),
+      focusedBar: Math.max(0, Math.min(measures.length - 1, focusedBar)),
       cuedBar,
       deleteArmedBar: null,
-      grid: removeBarFromGrid(state.sequencer.grid, rowCount, perBar, bar),
+      measures,
     },
   };
 };
 
-/** Stopped: jump edit focus to this bar. */
 export const setFocusedBar = (bar) => (state) => {
   const focusedBar = clampBar(state, bar);
-  if (
-    focusedBar === (state.sequencer.focusedBar ?? 0) &&
-    state.sequencer.cuedBar == null
-  ) {
+  if (focusedBar === (state.sequencer.focusedBar ?? 0) && state.sequencer.cuedBar == null) {
     return state;
   }
   return {
@@ -123,44 +126,27 @@ export const setFocusedBar = (bar) => (state) => {
   };
 };
 
-/** Playing: arm this bar as the next one after the current bar ends. */
 export const setCuedBar = (bar) => (state) => {
   const cuedBar = clampBar(state, bar);
   if (cuedBar === state.sequencer.cuedBar) {
-    return {
-      ...state,
-      sequencer: { ...state.sequencer, cuedBar: null },
-    };
+    return { ...state, sequencer: { ...state.sequencer, cuedBar: null } };
   }
-  return {
-    ...state,
-    sequencer: { ...state.sequencer, cuedBar },
-  };
+  return { ...state, sequencer: { ...state.sequencer, cuedBar } };
 };
 
-export const clearCuedBar = (state) => {
-  if (state.sequencer.cuedBar == null) return state;
-  return {
-    ...state,
-    sequencer: { ...state.sequencer, cuedBar: null },
-  };
-};
+export const clearCuedBar = (state) =>
+  state.sequencer.cuedBar == null
+    ? state
+    : { ...state, sequencer: { ...state.sequencer, cuedBar: null } };
 
-/**
- * Strip click: direct switch when stopped; cue-next when playing.
- * `currentBar` is the bar currently shown/playing — kept as focusedBar so the
- * UI can stay on it until the cue lands (no flash of the natural next bar).
- */
+/** Strip click: focus when stopped; cue-next when playing. */
 export const selectMeasure = (bar, playing, currentBar = 0) => (state) => {
   if (!playing) {
     const next = setFocusedBar(bar)(state);
-    if (next.sequencer.deleteArmedBar == null) return next;
-    return {
-      ...next,
-      sequencer: { ...next.sequencer, deleteArmedBar: null },
-    };
+    return next.sequencer.deleteArmedBar == null
+      ? next
+      : { ...next, sequencer: { ...next.sequencer, deleteArmedBar: null } };
   }
-
   const cuedBar = clampBar(state, bar);
   if (cuedBar === state.sequencer.cuedBar) {
     return {
@@ -188,20 +174,40 @@ export const toggleMeasuresExpanded = (state) => ({
 });
 
 export const armDeleteBar = (bar) => (state) => {
-  const bars = barCount(state);
-  if (bars <= 1) return state;
+  if (barCount(state) <= 1) return state;
   const deleteArmedBar = clampBar(state, bar);
   if (deleteArmedBar === state.sequencer.deleteArmedBar) return state;
-  return {
-    ...state,
-    sequencer: { ...state.sequencer, deleteArmedBar },
-  };
+  return { ...state, sequencer: { ...state.sequencer, deleteArmedBar } };
 };
 
-export const clearDeleteArmedBar = (state) => {
-  if (state.sequencer.deleteArmedBar == null) return state;
-  return {
-    ...state,
-    sequencer: { ...state.sequencer, deleteArmedBar: null },
-  };
+export const clearDeleteArmedBar = (state) =>
+  state.sequencer.deleteArmedBar == null
+    ? state
+    : { ...state, sequencer: { ...state.sequencer, deleteArmedBar: null } };
+
+/** Legacy flat `grid[row][absStep]` → `measures[bar][row][localStep]`. */
+export const migrateFlatGridToMeasures = (sequencer, transport) => {
+  if (!sequencer || (Array.isArray(sequencer.measures) && sequencer.measures.length)) {
+    return sequencer?.measures
+      ? { ...sequencer, bars: sequencer.measures.length }
+      : sequencer;
+  }
+  const [num, den] = transport?.timeSignature ?? [4, 4];
+  const perBar = Number((((transport?.resolution ?? 16) * num) / den).toFixed(0));
+  const bars = Math.max(1, sequencer.bars ?? 1);
+  const rows = sequencer.rows ?? sequencer.tracks ?? 4;
+  const grid = sequencer.grid ?? {};
+  const measures = Array.from({ length: bars }, () => ({}));
+  for (let row = 0; row < rows; row++) {
+    for (const [key, on] of Object.entries(grid[row] ?? {})) {
+      if (!on) continue;
+      const abs = Number(key);
+      if (!Number.isFinite(abs)) continue;
+      const bar = Math.floor(abs / perBar);
+      if (bar < 0 || bar >= bars) continue;
+      (measures[bar][row] ??= {})[abs % perBar] = true;
+    }
+  }
+  const { grid: _g, ...rest } = sequencer;
+  return { ...rest, bars, steps: perBar, measures };
 };

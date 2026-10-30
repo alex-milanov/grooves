@@ -1,4 +1,5 @@
 import { buildDefaultRouting } from './routing';
+import { migrateFlatGridToMeasures } from '../state/sequencer-measures';
 
 const renameTrackId = (id) =>
   typeof id === 'string' ? id.replace(/^track-(\d+)/, 'row-$1') : id;
@@ -20,6 +21,11 @@ export const migrateState = (state) => {
     if (Object.keys(patch).length) {
       const { tracks: _tracks, selectedTrack: _st, trackParams: _tp, ...rest } = seq;
       next = { ...next, sequencer: { ...rest, ...patch } };
+    }
+
+    const migrated = migrateFlatGridToMeasures(next.sequencer, next.transport);
+    if (migrated !== next.sequencer) {
+      next = { ...next, sequencer: migrated };
     }
   }
 
