@@ -9,7 +9,7 @@ export const start = ({ state$ }) => {
   const subs = [];
 
   const sync = (state) => {
-    applyRouting(state.routing, state.sequencer.trackParams, state.mixer, state.partMixer, {
+    applyRouting(state.routing, state.sequencer.rowParams, state.mixer, state.partMixer, {
       loopsTrack: getLoopsTrack(state),
     });
   };
@@ -21,7 +21,7 @@ export const start = ({ state$ }) => {
       .pipe(
         map((s) => ({
           routing: s.routing,
-          trackParams: s.sequencer.trackParams,
+          rowParams: s.sequencer.rowParams,
           mixer: s.mixer,
           partMixer: s.partMixer,
           loopsTrack: getLoopsTrack(s),
@@ -29,14 +29,14 @@ export const start = ({ state$ }) => {
         distinctUntilChanged(
           (a, b) =>
             JSON.stringify(a.routing) === JSON.stringify(b.routing) &&
-            JSON.stringify(a.trackParams) === JSON.stringify(b.trackParams) &&
+            JSON.stringify(a.rowParams) === JSON.stringify(b.rowParams) &&
             JSON.stringify(a.mixer) === JSON.stringify(b.mixer) &&
             JSON.stringify(a.partMixer) === JSON.stringify(b.partMixer) &&
             JSON.stringify(a.loopsTrack) === JSON.stringify(b.loopsTrack),
         ),
       )
-      .subscribe(({ routing, trackParams, mixer, partMixer, loopsTrack }) => {
-        applyRouting(routing, trackParams, mixer, partMixer, { loopsTrack });
+      .subscribe(({ routing, rowParams, mixer, partMixer, loopsTrack }) => {
+        applyRouting(routing, rowParams, mixer, partMixer, { loopsTrack });
       }),
   );
 

@@ -18,6 +18,8 @@ import {
 } from './audio/clock';
 import { stepTime, transportStartFromLoopPhase } from '../util/transport-clock';
 import { DRUMS_TRACK_ID, isTrackScheduling } from '../state/transport';
+import { totalSteps } from '../state/sequencer';
+import { stepsPerBar, barCount, clearCuedBar } from '../state/sequencer-measures';
 import { getActiveLoopCycle } from '../state/loops';
 
 const SCHEDULE_INTERVAL_MS = 25;
@@ -27,12 +29,14 @@ let intervalId = 0;
 let rafId = 0;
 let latestCycle = -1;
 let lastPlayhead = -1;
+/** Armed cue: jump at this audio time (set when cue is clicked). */
+let cueBoundaryAt = null;
+let cueFromBar = null;
+let cueTargetBar = null;
+/** After a jump, don't let UI playhead slip onto the prior bar. */
+let cueUiHoldStep = null;
 
-const timeSignatureToSteps = (timeSignature, resolution) =>
-  Number((resolution * (timeSignature[0] / timeSignature[1])).toFixed(0));
-
-const stepCount = (state) =>
-  timeSignatureToSteps(state.transport.timeSignature, state.transport.resolution);
+const stepCount = (state) => totalSteps(state);
 
 const cycleDuration = (state) => {
   const steps = stepCount(state);
@@ -74,38 +78,63 @@ const uiPlayhead = (state) => {
   return Math.floor(progress * steps);
 };
 
-const gridCellChanges = (prevGrid, nextGrid, tracks, steps) => {
+const gridCellChanges = (prevGrid, nextGrid, rows, steps) => {
   const changed = [];
-  for (let track = 0; track < tracks; track++) {
+  for (let row = 0; row < rows; row++) {
     for (let step = 0; step < steps; step++) {
-      const was = !!prevGrid?.[track]?.[step];
-      const now = !!nextGrid?.[track]?.[step];
-      if (was !== now) changed.push({ track, step });
+      const was = !!prevGrid?.[row]?.[step];
+      const now = !!nextGrid?.[row]?.[step];
+      if (was !== now) changed.push({ row, step });
     }
   }
   return changed;
 };
 
+const playStepAt = (state, step, when) => {
+  const { sequencer } = state;
+  const rowCount = sequencer.rows ?? sequencer.tracks ?? 0;
+  for (let row = 0; row < rowCount; row++) {
+    if (!sequencer.grid[row]?.[step]) continue;
+    const assignment = sequencer.assignments?.[row];
+    if (!assignment) continue;
+    const buffer = samples.get(samples.key(assignment.kit, assignment.sample));
+    if (!buffer) {
+      console.warn('sequencer: missing buffer', assignment.kit, assignment.sample);
+      continue;
+    }
+    play(buffer, when, row);
+  }
+};
+
+/** End step index (exclusive) of the audio playhead's current bar. */
+const currentBarEndStep = (state, playhead) => {
+  const perBar = stepsPerBar(state);
+  const playBar = Math.floor(Math.max(0, playhead) / perBar);
+  return (playBar + 1) * perBar;
+};
+
+/**
+ * Schedule hits for one cycle.
+ * If a cue is pending, stop at the current bar line — never queue the natural next bar.
+ */
 const scheduleCycle = (state, cycle, fromStep = 0) => {
   if (!isTrackScheduling(state, DRUMS_TRACK_ID)) return;
 
-  const { sequencer } = state;
-  const rowCount = sequencer.tracks;
   const steps = stepCount(state);
   const dt = stepTime(state.transport.bpm);
   const base = getTransportStartTime() + cycle * cycleDuration(state);
   const now = context.currentTime;
+  let untilStep = steps;
 
-  for (let step = fromStep; step < steps; step++) {
+  if (state.sequencer?.cuedBar != null) {
+    const playhead = Math.max(0, Math.floor((now - base) / dt));
+    untilStep = Math.min(steps, currentBarEndStep(state, Math.min(playhead, steps - 1)));
+  }
+
+  for (let step = fromStep; step < untilStep; step++) {
     const when = base + step * dt;
     if (when <= now) continue;
-    for (let track = 0; track < rowCount; track++) {
-      if (!sequencer.grid[track]?.[step]) continue;
-      const assignment = sequencer.assignments?.[track];
-      if (!assignment) continue;
-      const buffer = samples.get(samples.key(assignment.kit, assignment.sample));
-      if (buffer) play(buffer, when, track);
-    }
+    playStepAt(state, step, when);
   }
 };
 
@@ -123,13 +152,19 @@ const runScheduling = (state) => {
 
   if (cycle > latestCycle) {
     scheduleCycle(state, cycle);
-    scheduleCycle(state, cycle + 1);
-    latestCycle = cycle + 1;
+    if (state.sequencer?.cuedBar == null) {
+      scheduleCycle(state, cycle + 1);
+      latestCycle = cycle + 1;
+    } else {
+      latestCycle = cycle;
+    }
     return;
   }
 
   if (cycle === latestCycle) {
     const progress = (context.currentTime - getTransportStartTime() - cycle * duration) / duration;
+    // With a cue pending, don't lookahead into the next cycle/bar.
+    if (state.sequencer?.cuedBar != null) return;
     if (progress > 0.7) {
       scheduleCycle(state, cycle + 1);
       latestCycle = cycle + 1;
@@ -137,9 +172,106 @@ const runScheduling = (state) => {
   }
 };
 
+const clearCueArm = () => {
+  cueBoundaryAt = null;
+  cueFromBar = null;
+  cueTargetBar = null;
+};
+
+/**
+ * Jump to `bar` once. Single schedule pass — no pre-parked absolute hits
+ * (those caused a duplicated downbeat). Clock lands on the cued downbeat so
+ * UI doesn't flash the previous bar.
+ */
+const jumpToBarAt = (state, bar) => {
+  const perBar = stepsPerBar(state);
+  const dt = stepTime(state.transport.bpm);
+  const targetStep = bar * perBar;
+  const now = context.currentTime;
+  const lookahead = 0.005;
+  const downbeatAt = now + lookahead;
+
+  // now maps just before downbeat; force UI hold on cued step immediately.
+  setTransportStartTime(downbeatAt - targetStep * dt);
+  cancelScheduledAfter(now);
+
+  const cleared = {
+    ...state,
+    sequencer: { ...state.sequencer, cuedBar: null },
+  };
+  latestCycle = -1;
+  // One schedule of the cued bar from its downbeat (and the rest of the cycle).
+  scheduleCycle(cleared, 0, targetStep);
+  latestCycle = 0;
+  clearCueArm();
+  cueUiHoldStep = targetStep;
+  lastPlayhead = targetStep;
+
+  dispatch((s) => ({
+    ...s,
+    transport: { ...s.transport, playhead: targetStep },
+    sequencer: { ...s.sequencer, cuedBar: null, focusedBar: bar },
+  }));
+};
+
+/**
+ * Fire the armed cue once we reach (or pass) the bar line we armed against.
+ * Do not recompute the boundary from the current playBar — that delays a full bar.
+ */
+const honorCue = (state) => {
+  if (state.sequencer?.cuedBar == null || cueBoundaryAt == null || cueTargetBar == null) {
+    if (state.sequencer?.cuedBar == null) clearCueArm();
+    return;
+  }
+
+  const now = context.currentTime;
+  if (now + 0.001 < cueBoundaryAt) return;
+
+  jumpToBarAt(state, cueTargetBar);
+};
+
+/**
+ * When user arms a cue: drop already-queued hits from the next step onward,
+ * then reseat only this bar's remainder. (Cancelling only past the bar line
+ * left the remainder in place and double-scheduled it → louder overlaps.)
+ * The cued bar itself is scheduled once at jump time.
+ */
+const armCue = (state) => {
+  const cued = state.sequencer?.cuedBar;
+  if (cued == null) return;
+
+  const timing = audioCycleTiming(state);
+  const { playhead, dt, cycleBase, cycle, cutoffTime, rescheduleFrom, steps } = timing;
+  if (playhead < 0) return;
+
+  const perBar = stepsPerBar(state);
+  const bars = barCount(state);
+  const playBar = Math.floor(playhead / perBar) % Math.max(1, bars);
+  const boundaryAt = cycleBase + (playBar + 1) * perBar * dt;
+
+  // Next-in-line is a valid cue — same arm/jump path as any other bar.
+  cueBoundaryAt = boundaryAt;
+  cueFromBar = playBar;
+  cueTargetBar = cued;
+
+  cancelScheduledAfter(cutoffTime);
+  latestCycle = cycle;
+  if (rescheduleFrom < steps) {
+    scheduleCycle(state, cycle, rescheduleFrom);
+  }
+};
+
 const updatePlayhead = (state) => {
-  const playhead = uiPlayhead(state);
-  if (playhead >= 0 && playhead !== lastPlayhead) {
+  let playhead = uiPlayhead(state);
+  if (playhead < 0) return;
+
+  // Keep UI on the cued bar until the latency-compensated playhead catches up.
+  if (cueUiHoldStep != null) {
+    if (playhead < cueUiHoldStep) playhead = cueUiHoldStep;
+    else cueUiHoldStep = null;
+  }
+
+  if (playhead !== lastPlayhead) {
     lastPlayhead = playhead;
     dispatch(patch(['transport', 'playhead'], playhead));
   }
@@ -149,8 +281,9 @@ const transportTick = (state$, { updateUi = false } = {}) => {
   const state = state$.getValue();
   if (!isTrackScheduling(state, DRUMS_TRACK_ID)) return;
 
-  runScheduling(state);
-  if (updateUi) updatePlayhead(state);
+  honorCue(state);
+  runScheduling(state$Ref?.getValue() ?? state);
+  if (updateUi) updatePlayhead(state$Ref?.getValue() ?? state);
 };
 
 const stopRaf = () => {
@@ -218,7 +351,8 @@ const transportChanged = (a, b) =>
   a.transport?.bpm === b.transport?.bpm &&
   a.transport?.timeSignature?.[0] === b.transport?.timeSignature?.[0] &&
   a.transport?.timeSignature?.[1] === b.transport?.timeSignature?.[1] &&
-  a.transport?.resolution === b.transport?.resolution;
+  a.transport?.resolution === b.transport?.resolution &&
+  (a.sequencer?.bars ?? 1) === (b.sequencer?.bars ?? 1);
 
 const rescheduleRemainder = (state) => {
   const { cycle, cutoffTime, rescheduleFrom, steps } = audioCycleTiming(state);
@@ -234,7 +368,12 @@ const pauseGracefully = (state) => {
   cancelScheduledAfter(audioCycleTiming(state).cutoffTime);
   latestCycle = -1;
   lastPlayhead = -1;
-  dispatch(patch(['transport', 'playhead'], null));
+  clearCueArm();
+  cueUiHoldStep = null;
+  dispatch((s) => ({
+    ...clearCuedBar(s),
+    transport: { ...s.transport, playhead: null },
+  }));
 };
 
 const stopImmediately = () => {
@@ -243,7 +382,12 @@ const stopImmediately = () => {
   resetTransportStartTime();
   latestCycle = -1;
   lastPlayhead = -1;
-  dispatch(patch(['transport', 'playhead'], null));
+  clearCueArm();
+  cueUiHoldStep = null;
+  dispatch((s) => ({
+    ...clearCuedBar(s),
+    transport: { ...s.transport, playhead: null },
+  }));
 };
 
 const reset = () => {
@@ -252,7 +396,12 @@ const reset = () => {
   resetTransportStartTime();
   latestCycle = -1;
   lastPlayhead = -1;
-  dispatch(patch(['transport', 'playhead'], null));
+  clearCueArm();
+  cueUiHoldStep = null;
+  dispatch((s) => ({
+    ...clearCuedBar(s),
+    transport: { ...s.transport, playhead: null },
+  }));
 };
 
 const anchorTransportStart = (state) => {
@@ -271,12 +420,43 @@ const anchorTransportStart = (state) => {
   setTransportStartTime(nextTransportStart(now));
 };
 
-const resetTransport = () => {
-  cancelScheduledAfter(context.currentTime);
-  if (state$Ref) anchorTransportStart(state$Ref.getValue());
-  else setTransportStartTime(nextTransportStart());
+/**
+ * Bars/BPM/signature changed while playing — keep the current step continuous
+ * instead of snapping to a fresh transport start (that audible stutter).
+ */
+const remountCyclePreservingPlayhead = (prev, next) => {
+  const now = context.currentTime;
+  const oldStart = getTransportStartTime();
+  const oldDuration = cycleDuration(prev);
+  const oldDt = stepTime(prev.transport.bpm);
+  const oldSteps = Math.max(1, stepCount(prev));
+
+  let elapsed = 0;
+  if (oldStart && oldDuration > 0) {
+    elapsed = (((now - oldStart) % oldDuration) + oldDuration) % oldDuration;
+  }
+  const oldStepFloat = elapsed / oldDt;
+  const oldStep = Math.min(oldSteps - 1, Math.max(0, Math.floor(oldStepFloat)));
+  const frac = oldStepFloat - oldStep;
+
+  const newSteps = Math.max(1, stepCount(next));
+  const newDt = stepTime(next.transport.bpm);
+  const mappedStep = Math.min(oldStep, newSteps - 1);
+  const newElapsed = (mappedStep + frac) * newDt;
+
+  cancelScheduledAfter(now);
+  setTransportStartTime(now - newElapsed);
   latestCycle = -1;
-  lastPlayhead = -1;
+  lastPlayhead = mappedStep;
+  clearCueArm();
+  cueUiHoldStep = null;
+
+  // Drop any pending cue — bar indices / cycle length may no longer match.
+  if (next.sequencer?.cuedBar != null) {
+    dispatch(clearCuedBar);
+  }
+
+  transportTick(state$Ref, { updateUi: true });
 };
 
 const getDrumsTrack = (state) => state.tracks?.find((t) => t.id === DRUMS_TRACK_ID);
@@ -335,9 +515,32 @@ export const start = ({ state$ }) => {
     state$
       .pipe(
         filter((s) => isTrackScheduling(s, DRUMS_TRACK_ID)),
-        distinctUntilChanged(transportChanged),
+        pairwise(),
+        filter(([prev, next]) => !transportChanged(prev, next)),
       )
-      .subscribe(() => resetTransport()),
+      .subscribe(([prev, next]) => {
+        remountCyclePreservingPlayhead(prev, next);
+      }),
+  );
+
+  // As soon as a cue is armed, drop natural-next schedules.
+  // pairwise avoids treating the initial null cue as a "cancel → reschedule".
+  subs.push(
+    state$
+      .pipe(
+        filter((s) => isTrackScheduling(s, DRUMS_TRACK_ID)),
+        pairwise(),
+        filter(([prev, next]) => prev.sequencer?.cuedBar !== next.sequencer?.cuedBar),
+      )
+      .subscribe(([prev, next]) => {
+        if (next.sequencer?.cuedBar == null) {
+          clearCueArm();
+          // User cancelled (or jump cleared) — restore lookahead without doubles.
+          rescheduleRemainder(next);
+          return;
+        }
+        armCue(next);
+      }),
   );
 
   subs.push(
@@ -348,7 +551,7 @@ export const start = ({ state$ }) => {
         filter(([prev, next]) => prev.sequencer.grid !== next.sequencer.grid),
       )
       .subscribe(([prev, next]) => {
-        const rowCount = next.sequencer.tracks;
+        const rowCount = next.sequencer.rows;
         const steps = stepCount(next);
         const changes = gridCellChanges(prev.sequencer.grid, next.sequencer.grid, rowCount, steps);
         const { playhead } = audioCycleTiming(next);

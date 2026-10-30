@@ -59,7 +59,7 @@ const observeWorkspace = () => {
 
   resizeObserver.observe(content);
   content
-    .querySelectorAll('.sequencer, .library, .track-settings, .mixer-console')
+    .querySelectorAll('.sequencer, .library, .part-settings, .mixer-console')
     .forEach((el) => resizeObserver.observe(el));
 };
 
@@ -134,10 +134,10 @@ export const start = ({ state$ }) => {
     state$
       .pipe(
         map((s) => ({
-          track: s.sequencer?.selectedTrack,
+          selectedRow: s.sequencer?.selectedRow,
           library: s.sequencer?.panels?.library,
           settings: s.sequencer?.panels?.settings,
-          tracks: s.sequencer?.tracks,
+          rows: s.sequencer?.rows,
           steps:
             s.transport?.timeSignature && s.transport?.resolution
               ? Number(
@@ -153,10 +153,10 @@ export const start = ({ state$ }) => {
         })),
         distinctUntilChanged(
           (a, b) =>
-            a.track === b.track &&
+            a.selectedRow === b.selectedRow &&
             a.library === b.library &&
             a.settings === b.settings &&
-            a.tracks === b.tracks &&
+            a.rows === b.rows &&
             a.steps === b.steps &&
             a.width === b.width &&
             a.activeWorkspace === b.activeWorkspace &&

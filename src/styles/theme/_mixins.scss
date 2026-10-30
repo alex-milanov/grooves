@@ -175,6 +175,46 @@
   }
 }
 
+// Thin scrollbars (iblokz/ide). Prefer a concrete color — CSS vars are flaky on ::-webkit-scrollbar.
+// Thumb stays dim until the scroll container is hovered or focus-within.
+@mixin thin-scrollbar($width: 6px, $color: #888) {
+  scrollbar-width: thin;
+  scrollbar-color: rgba($color, 0.12) transparent;
+
+  &::-webkit-scrollbar {
+    width: $width;
+    height: $width;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: rgba($color, 0.12);
+    border-radius: $width;
+    border: 1px solid transparent;
+    background-clip: padding-box;
+  }
+
+  &:hover,
+  &:focus-within {
+    scrollbar-color: rgba($color, 0.35) transparent;
+
+    &::-webkit-scrollbar-thumb {
+      background-color: rgba($color, 0.35);
+    }
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: rgba($color, 0.45);
+  }
+
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
 @mixin masked-icon-fill-shadow($url, $fill: var(--app-arrow-fill), $shadow: var(--app-arrow-shadow), $shadow-offset: 4px) {
   &::before,
   &::after {

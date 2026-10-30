@@ -551,7 +551,7 @@ export const start = ({ state$ }) => {
   ensureNodes(state$.getValue().routing, state$.getValue().mixer);
   applyRouting(
     state$.getValue().routing,
-    state$.getValue().sequencer?.trackParams,
+    state$.getValue().sequencer?.rowParams,
     state$.getValue().mixer,
     state$.getValue().partMixer,
     { reconnect: true, loopsTrack: getLoopsTrack(state$.getValue()) },
@@ -595,7 +595,7 @@ export const start = ({ state$ }) => {
       .subscribe((state) => {
         const loopsTrack = getLoopsTrack(state);
         syncPartLoopsMixer(loopsTrack?.mixer);
-        applyRouting(state.routing, state.sequencer?.trackParams, state.mixer, state.partMixer, {
+        applyRouting(state.routing, state.sequencer?.rowParams, state.mixer, state.partMixer, {
           loopsTrack,
         });
       }),
@@ -612,6 +612,30 @@ export const start = ({ state$ }) => {
         .subscribe(([prev, next]) => {
           if (prev === next) return;
           handleProcessChange(state$Ref.getValue(), slotIndex, next);
+        }),
+    );
+    // Hot-swap library assign while already playing (process stays `play`).
+    // bufferKeys[0] is stable per slot (`…/L0`), so watch kit/sample too —
+    // samples.set() replaces the AudioBuffer behind the same key.
+    subs.push(
+      state$
+        .pipe(
+          map((s) => {
+            const slot = getLoopSlot(s, slotIndex);
+            if (!slot?.bufferKeys?.[0]) return null;
+            return `${slot.bufferKeys[0]}|${slot.kit ?? ''}|${slot.sample ?? ''}`;
+          }),
+          distinctUntilChanged(),
+          pairwise(),
+        )
+        .subscribe(([prevId, nextId]) => {
+          if (!nextId || prevId === nextId) return;
+          const s = state$Ref?.getValue();
+          if (!s) return;
+          const slot = getLoopSlot(s, slotIndex);
+          if (slot?.process === 'play' && slotHasContent(slot)) {
+            beginPlay(s, slotIndex);
+          }
         }),
     );
   }

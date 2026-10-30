@@ -28,7 +28,7 @@
     gap: 0.75em;
     line-height: 2.3em;
     height: 2.3em;
-    white-space: nowrap;
+    min-width: 0;
 
     h2 {
       margin: 0;
@@ -43,6 +43,10 @@
       font-size: 0.5em;
       color: var(--app-text-muted);
       @include text-shadow-label;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
   }
 
@@ -53,7 +57,9 @@
     padding: 0;
     list-style: none;
     line-height: 1.4;
-    overflow-y: scroll;
+    overflow-x: hidden;
+    overflow-y: auto;
+    @include thin-scrollbar(6px, #888);
 
     .item {
       padding: 0.35em 0.5em;
@@ -62,6 +68,7 @@
       color: var(--app-text-muted);
       @include text-shadow-label;
       cursor: pointer;
+      overflow-wrap: anywhere;
       transition:
         background 0.15s ease,
         color 0.15s ease;
@@ -96,5 +103,12 @@
         color: var(--app-btn-primary-text);
       }
     }
+  }
+}
+
+[class*='-dark'] {
+  .sequencer .measures-strip,
+  .library .list {
+    @include thin-scrollbar(6px, #f0f2f5);
   }
 }

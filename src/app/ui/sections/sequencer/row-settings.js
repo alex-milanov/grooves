@@ -1,38 +1,44 @@
 import { div, header, span, button, label, input, i } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
-import knob from '../components/knob';
-import { previewLoopSlot } from '../../services/waveform';
-import { getLoopSlot, getSlotParams, patchSlotParam, slotHasContent } from '../../state/loops';
+import { patch } from '../../../state';
+import { previewCurrent } from '../../../services/waveform';
+import { getRowParams } from '../../../util/row-params';
+import knob from '../../components/knob';
 
 export default (state) => {
-  const selectedSlot = state.ui?.loops?.selectedSlot;
-  const panels = state.ui?.loops?.panels ?? {};
-  const settingsOpen = selectedSlot != null && !!panels.settings;
-  const slot = selectedSlot != null ? getLoopSlot(state, selectedSlot) : null;
-  const params = getSlotParams(slot);
-  const hasContent = slotHasContent(slot);
-  const labelText = selectedSlot != null ? `Slot ${selectedSlot + 1}` : 'No slot selected';
+  const { selectedRow, panels } = state.sequencer;
+  const assignment = selectedRow != null ? state.sequencer.assignments?.[selectedRow] : null;
+  const settingsOpen = selectedRow != null && !!panels?.settings;
+  const params =
+    selectedRow != null
+      ? getRowParams(state.sequencer.rowParams, selectedRow)
+      : getRowParams({}, 0);
+  const hasSample = !!assignment;
+
+  const sampleLabel = assignment?.sample ?? 'No sample assigned';
 
   const patchParam = (path, value) => {
-    if (selectedSlot == null) return;
-    dispatch(patchSlotParam(selectedSlot, path, value));
+    if (selectedRow == null) return;
+    dispatch(patch(['sequencer', 'rowParams', selectedRow, ...path], value));
   };
 
   return div(
-    '.track-settings.loop-slot-settings',
+    '.part-settings',
     {
       class: {
         visible: settingsOpen,
         muted: params.muted,
-        empty: !hasContent,
+        empty: !hasSample,
       },
-      props: { 'aria-hidden': settingsOpen ? 'false' : 'true' },
+      props: {
+        'aria-hidden': settingsOpen ? 'false' : 'true',
+      },
     },
     [
-      header([span('.path', labelText)]),
+      header([span('.path', sampleLabel)]),
       div('.waveform-wrap', [
         div('.waveform'),
-        !hasContent ? span('.waveform-empty', 'Record or assign a loop') : null,
+        !hasSample ? span('.waveform-empty', 'Assign a sample from the library') : null,
       ]),
       div('.controls', [
         button(
@@ -40,11 +46,13 @@ export default (state) => {
           {
             props: {
               type: 'button',
-              title: 'Preview loop',
-              disabled: !hasContent,
-              'aria-label': 'Preview loop',
+              title: 'Preview sample',
+              disabled: !hasSample,
+              'aria-label': 'Preview sample',
             },
-            on: { click: () => previewLoopSlot() },
+            on: {
+              click: () => previewCurrent(),
+            },
           },
           [i('.fa.fa-play')],
         ),
@@ -54,11 +62,14 @@ export default (state) => {
             class: { active: params.muted },
             props: {
               type: 'button',
-              title: params.muted ? 'Unmute slot' : 'Mute slot',
-              disabled: !hasContent,
+              title: params.muted ? 'Unmute row' : 'Mute row',
+              disabled: !hasSample,
+              'aria-label': params.muted ? 'Unmute row' : 'Mute row',
               'aria-pressed': String(params.muted),
             },
-            on: { click: () => patchParam(['muted'], !params.muted) },
+            on: {
+              click: () => patchParam(['muted'], !params.muted),
+            },
           },
           [i(params.muted ? '.fa.fa-volume-off' : '.fa.fa-volume-up')],
         ),
@@ -71,9 +82,11 @@ export default (state) => {
               max: 1,
               step: 0.01,
               value: params.volume,
-              disabled: !hasContent,
+              disabled: !hasSample,
             },
-            on: { input: (ev) => patchParam(['volume'], Number(ev.target.value)) },
+            on: {
+              input: (ev) => patchParam(['volume'], Number(ev.target.value)),
+            },
           }),
         ]),
       ]),
@@ -82,28 +95,28 @@ export default (state) => {
           label: 'Cutoff',
           value: params.vcf.cutoff,
           defaultValue: 0.64,
-          disabled: !hasContent,
+          disabled: !hasSample,
           onChange: (v) => patchParam(['vcf', 'cutoff'], v),
         }),
         knob({
           label: 'Res',
           value: params.vcf.resonance,
           defaultValue: 0,
-          disabled: !hasContent,
+          disabled: !hasSample,
           onChange: (v) => patchParam(['vcf', 'resonance'], v),
         }),
         knob({
           label: 'Rev',
           value: params.sends.reverb,
           defaultValue: 0,
-          disabled: !hasContent,
+          disabled: !hasSample,
           onChange: (v) => patchParam(['sends', 'reverb'], v),
         }),
         knob({
           label: 'Dly',
           value: params.sends.delay,
           defaultValue: 0,
-          disabled: !hasContent,
+          disabled: !hasSample,
           onChange: (v) => patchParam(['sends', 'delay'], v),
         }),
       ]),

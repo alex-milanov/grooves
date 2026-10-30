@@ -6,7 +6,7 @@ import {
   vcf as createVcf,
 } from 'iblokz-audio';
 import { resolveEdgeGain } from '../../util/routing';
-import { getTrackParams } from '../../util/track-params';
+import { getRowParams } from '../../util/row-params';
 import { getSlotParams } from '../../state/loops';
 
 export { context };
@@ -42,6 +42,7 @@ const ensureNode = (def, mixer) => {
 
   let entry;
   switch (def.kind) {
+    case 'row-in':
     case 'track-in': {
       const gain = context.createGain();
       gain.gain.value = 1;
@@ -56,7 +57,7 @@ const ensureNode = (def, mixer) => {
     case 'fader': {
       const gain = context.createGain();
       gain.gain.value = 0.85;
-      entry = { def, input: gain, output: gain, track: def.track };
+      entry = { def, input: gain, output: gain, row: def.row };
       break;
     }
     case 'part-fader': {
@@ -127,11 +128,11 @@ const wireEdges = (routing) => {
   wired = true;
 };
 
-const updateEdgeGains = (routing, trackParams, partMixer, loopSlots) => {
+const updateEdgeGains = (routing, rowParams, partMixer, loopSlots) => {
   routing.edges.forEach((edge) => {
     const gain = getEdgeGain(edge.id);
     const enabled = edge.enabled !== false;
-    gain.gain.value = enabled ? resolveEdgeGain(edge, trackParams, partMixer, loopSlots) : 0;
+    gain.gain.value = enabled ? resolveEdgeGain(edge, rowParams, partMixer, loopSlots) : 0;
   });
 };
 
@@ -159,14 +160,16 @@ const syncBusParams = (mixer) => {
   }
 };
 
-export const syncTrackMixer = (trackParams, tracks) => {
-  for (let track = 0; track < tracks; track++) {
-    const params = getTrackParams(trackParams, track);
-    const fader = nodeRegistry.get(`track-${track}-fader`);
+export const syncRowMixer = (rowParams, rows) => {
+  for (let row = 0; row < rows; row++) {
+    const params = getRowParams(rowParams, row);
+    const fader =
+      nodeRegistry.get(`row-${row}-fader`) ?? nodeRegistry.get(`track-${row}-fader`);
     if (fader?.output) {
       fader.output.gain.value = params.muted ? 0 : params.volume;
     }
-    const vcfNode = nodeRegistry.get(`track-${track}-vcf`);
+    const vcfNode =
+      nodeRegistry.get(`row-${row}-vcf`) ?? nodeRegistry.get(`track-${row}-vcf`);
     if (vcfNode?.iblokz) {
       updateAudio(vcfNode.iblokz, {
         type: 'lowpass',
@@ -198,7 +201,7 @@ export const syncLoopSlotMixer = (slots) => {
 
 export const applyRouting = (
   routing,
-  trackParams,
+  rowParams,
   mixer,
   partMixer,
   { reconnect = false, loopsTrack = null } = {},
@@ -208,16 +211,19 @@ export const applyRouting = (
     wireEdges(routing);
   }
   const loopSlots = loopsTrack?.loop?.slots;
-  updateEdgeGains(routing, trackParams, partMixer, loopSlots);
-  const trackCount = routing.nodes.filter((n) => n.kind === 'fader' && n.track != null).length;
-  syncTrackMixer(trackParams, trackCount);
+  updateEdgeGains(routing, rowParams, partMixer, loopSlots);
+  const rowCount = routing.nodes.filter(
+    (n) => n.kind === 'fader' && (n.row != null || n.track != null),
+  ).length;
+  syncRowMixer(rowParams, rowCount);
   syncLoopSlotMixer(loopSlots);
   syncMasterVolume(mixer);
   syncBusParams(mixer);
 };
 
-export const getTrackInput = (track) => {
-  const node = nodeRegistry.get(`track-${track}-in`);
+export const getRowInput = (row) => {
+  const node =
+    nodeRegistry.get(`row-${row}-in`) ?? nodeRegistry.get(`track-${row}-in`);
   return node?.output ?? null;
 };
 
@@ -240,8 +246,8 @@ export const syncPartLoopsMixer = (mixer) => {
 
 export const resume = () => (context.state === 'suspended' ? context.resume() : Promise.resolve());
 
-export const play = (buffer, when = context.currentTime, track = 0, meta = {}) => {
-  const input = getTrackInput(track);
+export const play = (buffer, when = context.currentTime, row = 0, meta = {}) => {
+  const input = getRowInput(row);
   if (!input) return;
 
   const source = context.createBufferSource();
@@ -256,7 +262,7 @@ export const play = (buffer, when = context.currentTime, track = 0, meta = {}) =
   sampleTriggered$.next({
     when,
     duration: buffer.duration,
-    track,
+    row,
     ...meta,
   });
 };
@@ -299,4 +305,4 @@ export const getOutputLatency = (ctx = context) =>
  */
 export const getRecordLatencyCompensation = (ctx = context) => getOutputLatency(ctx);
 
-export { trackGain } from '../../util/track-params';
+export { rowGain } from '../../util/row-params';

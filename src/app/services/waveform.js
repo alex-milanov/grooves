@@ -5,7 +5,7 @@ import {
   play,
   resume,
   sampleTriggered$,
-  trackGain,
+  rowGain,
   getLoopSlotInput,
   getOutputLatency,
   samples,
@@ -22,7 +22,7 @@ let loopAnimRaf = 0;
 let latestState = null;
 let loadedKey = null;
 let loopLoadedKey = null;
-let activeTrack = null;
+let activeRow = null;
 let activeLoopSlot = null;
 /** @type {{ when: number, end: number }[]} */
 let pendingTriggers = [];
@@ -160,8 +160,8 @@ const ensureLoopCursorLoop = () => {
   if (!loopAnimRaf) loopAnimRaf = requestAnimationFrame(loopCursorLoop);
 };
 
-const addTrigger = (when, duration, track) => {
-  if (track !== activeTrack || !ws) return;
+const addTrigger = (when, duration, row) => {
+  if (row !== activeRow || !ws) return;
   pendingTriggers.push({ when, end: when + duration });
   ensureCursorLoop();
 };
@@ -172,9 +172,9 @@ const addLoopTrigger = (when, duration, slot) => {
   ensureLoopCursorLoop();
 };
 
-const assignmentFor = (state, track) => {
-  if (track == null) return null;
-  return state.sequencer.assignments?.[track] ?? null;
+const assignmentFor = (state, row) => {
+  if (row == null) return null;
+  return state.sequencer.assignments?.[row] ?? null;
 };
 
 const loopBufferKeyFor = (state, slotIndex) => {
@@ -183,7 +183,7 @@ const loopBufferKeyFor = (state, slotIndex) => {
 };
 
 const loadAssignment = async (assignment) => {
-  const container = document.querySelector('.track-settings:not(.loop-slot-settings) .waveform');
+  const container = document.querySelector('.part-settings:not(.loop-slot-settings) .waveform');
   if (!container || !assignment) return;
 
   const key = samples.key(assignment.kit, assignment.sample);
@@ -231,20 +231,20 @@ const applyTheme = () => {
 
 const syncWaveform = (state) => {
   latestState = state;
-  const track = state.sequencer.selectedTrack;
-  activeTrack = track;
+  const row = state.sequencer.selectedRow;
+  activeRow = row;
 
   queueMicrotask(() => {
     if (isLoopsWorkspace(state)) {
       destroyWaveform();
       return;
     }
-    if (track == null) {
+    if (row == null) {
       destroyWaveform();
       return;
     }
 
-    const assignment = assignmentFor(state, track);
+    const assignment = assignmentFor(state, row);
     if (!assignment) {
       destroyWaveform();
       return;
@@ -295,18 +295,22 @@ export const previewCurrent = () => {
   const state = latestState;
   if (!state) return;
 
-  const track = state.sequencer.selectedTrack;
-  const assignment = assignmentFor(state, track);
+  const row = state.sequencer.selectedRow;
+  const assignment = assignmentFor(state, row);
   if (!assignment) return;
 
   const buffer = samples.get(samples.key(assignment.kit, assignment.sample));
-  if (!buffer) return;
+  if (!buffer) {
+    console.warn('preview: missing buffer', assignment.kit, assignment.sample);
+    return;
+  }
 
   resume().then(() => {
-    if (trackGain(state.sequencer.trackParams, track) === 0) return;
+    const params = state.sequencer.rowParams ?? state.sequencer.trackParams;
+    if (rowGain(params, row) === 0) return;
     const when = context.currentTime;
-    play(buffer, when, track, { preview: true });
-    addTrigger(when, buffer.duration, track);
+    play(buffer, when, row, { preview: true });
+    addTrigger(when, buffer.duration, row);
   });
 };
 
@@ -347,14 +351,14 @@ export const start = ({ state$ }) => {
       .pipe(
         map((state) => ({
           workspace: state.ui?.activeWorkspace,
-          track: state.sequencer.selectedTrack,
-          assignment: assignmentFor(state, state.sequencer.selectedTrack),
+          row: state.sequencer.selectedRow,
+          assignment: assignmentFor(state, state.sequencer.selectedRow),
           theme: `${state.themeFamily}-${state.themeMode}`,
         })),
         distinctUntilChanged(
           (a, b) =>
             a.workspace === b.workspace &&
-            a.track === b.track &&
+            a.row === b.row &&
             a.assignment?.kit === b.assignment?.kit &&
             a.assignment?.sample === b.assignment?.sample &&
             a.theme === b.theme,
@@ -393,8 +397,8 @@ export const start = ({ state$ }) => {
   );
 
   subs.push(
-    sampleTriggered$.subscribe(({ when, duration, track }) => {
-      addTrigger(when, duration, track);
+    sampleTriggered$.subscribe(({ when, duration, row }) => {
+      addTrigger(when, duration, row);
     }),
   );
 

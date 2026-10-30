@@ -5,7 +5,7 @@ import { WORKSPACE_DRUMS, defaultWorkspacesStripOpen } from '../util/workspaces'
 import { DRUMS_TRACK_ID } from './transport';
 import { createLoopsTrack, LOOPS_SLOT_COUNT } from './loops';
 
-const TRACK_COUNT = 4;
+const ROW_COUNT = 4;
 
 export const initial = {
   ui: {
@@ -44,7 +44,7 @@ export const initial = {
     muted: false,
     solo: false,
   },
-  routing: buildDefaultRouting(TRACK_COUNT, LOOPS_SLOT_COUNT),
+  routing: buildDefaultRouting(ROW_COUNT, LOOPS_SLOT_COUNT),
   mixer: {
     master: { volume: 1 },
     buses: {
@@ -53,9 +53,14 @@ export const initial = {
     },
   },
   sequencer: {
-    tracks: TRACK_COUNT,
+    rows: ROW_COUNT,
     steps: 16,
-    selectedTrack: null,
+    bars: 1,
+    focusedBar: 0,
+    cuedBar: null,
+    deleteArmedBar: null,
+    measuresExpanded: false,
+    selectedRow: null,
     panels: {
       library: false,
       settings: false,
@@ -65,16 +70,11 @@ export const initial = {
       1: { kit: 'basic_drum_kit', sample: 'Rpeople_Snare3.wav' },
       2: { kit: 'basic_drum_kit', sample: 'HCR-01.wav' },
     },
-    trackParams: {},
+    rowParams: {},
     grid: [],
   },
   library: {
-    path: ['library'],
-    kits: null,
-    selectedSample: null,
-  },
-  loopsLibrary: {
-    path: ['loops'],
+    path: ['library', 'samples'],
     kits: null,
     selectedSample: null,
   },

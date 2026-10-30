@@ -1,10 +1,10 @@
 import { div, header, button, h2, i } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
-import { context } from '../../services/audio';
-import { barSeconds, phaseAt } from '../../util/transport-clock';
-import { growingRecordProgress } from '../../util/loop-quantize';
-import { slotTempoPulseEnabled } from '../../util/loop-pulse';
-import { anyLoopSlotActive } from '../../state/transport';
+import { context } from '../../../services/audio';
+import { barSeconds, phaseAt } from '../../../util/transport-clock';
+import { growingRecordProgress } from '../../../util/loop-quantize';
+import { slotTempoPulseEnabled } from '../../../util/loop-pulse';
+import { anyLoopSlotActive } from '../../../state/transport';
 import {
   deselectLoopSlot,
   getLoopSlot,
@@ -20,11 +20,13 @@ import {
   slotStop,
   slotTogglePlayRec,
   toggleLoopsClick,
-} from '../../state/loops';
-import dropdown, { caret } from '../components/dropdown';
+} from '../../../state/loops';
+import dropdown, { caret } from '../../components/dropdown';
 
 const SLOT_COUNT = 4;
 let slotClickTimer = null;
+
+const shorten = (name, max = 14) => (name.length > max ? `${name.slice(0, max - 1)}…` : name);
 
 const clearSlotClickTimer = () => {
   if (slotClickTimer) {
@@ -107,6 +109,7 @@ const slotStrip = (state, index) => {
   }
 
   const tempoPulse = slotTempoPulseEnabled(state, slot, index);
+  const slotLabel = slot?.sample ? shorten(slot.sample) : `Slot ${index + 1}`;
 
   return div(`.loop-slot[data-slot="${index}"]`, [
     button(
@@ -120,16 +123,18 @@ const slotStrip = (state, index) => {
         },
         props: {
           type: 'button',
-          title: isSelected
-            ? 'Click: deselect · Double-click: toggle library'
-            : 'Click: select · Double-click: library',
+          title: slot?.sample
+            ? slot.sample
+            : isSelected
+              ? 'Click: deselect · Double-click: toggle library'
+              : 'Click: select · Double-click: library',
         },
         on: {
           click: (ev) => onSlotClick(index, ev),
           dblclick: (ev) => onSlotDblClick(index, ev),
         },
       },
-      `Slot ${index + 1}`,
+      slotLabel,
     ),
     button(
       '.play-rec',

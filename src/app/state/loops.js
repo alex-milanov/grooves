@@ -1,4 +1,5 @@
 import { defaultPanels, isMobile } from '../util/panels';
+import { ensureLibrarySection, libraryForAssignment, LOOPS_SECTION } from '../util/library';
 import { DEFAULT_LOOP_SOURCE_BPM, loopPlaybackDuration } from '../util/loop-tempo';
 import { emptySlotRecordSchedule, slotPlaySchedule } from '../util/loop-record-schedule';
 import { nextSlotCycleTime } from '../util/transport-clock';
@@ -113,20 +114,14 @@ export const panelsForSlotSelection = (state, slotIndex) => {
   return { library: true, settings: false };
 };
 
-const libraryForSlot = (state, slotIndex) => {
+/** Jump library to this slot's assigned kit/sample (sticky if unassigned). */
+const librarySelectionForSlot = (state, slotIndex) => {
   const slot = getLoopSlot(state, slotIndex);
-  if (!slot?.kit) {
-    return {
-      ...state.loopsLibrary,
-      path: ['loops'],
-      selectedSample: null,
-    };
-  }
-  return {
-    ...state.loopsLibrary,
-    path: ['loops', slot.kit],
-    selectedSample: slot.sample ?? null,
-  };
+  return libraryForAssignment(
+    state.library,
+    LOOPS_SECTION,
+    slot?.kit ? { kit: slot.kit, sample: slot.sample } : null,
+  );
 };
 
 export const selectLoopSlot = (slotIndex) => (state) => ({
@@ -139,7 +134,7 @@ export const selectLoopSlot = (slotIndex) => (state) => ({
       panels: panelsForSlotSelection(state, slotIndex),
     },
   },
-  loopsLibrary: libraryForSlot(state, slotIndex),
+  library: librarySelectionForSlot(state, slotIndex),
 });
 
 export const deselectLoopSlot = (state) => ({
@@ -173,9 +168,13 @@ export const openLoopLibraryPanel = (slotIndex) => (state) => {
           },
         },
       },
-      loopsLibrary: libraryForSlot(state, slotIndex),
+      library: ensureLibrarySection(librarySelectionForSlot(state, slotIndex), LOOPS_SECTION),
     };
   }
+
+  const nextLibrary = panels.library
+    ? state.library
+    : ensureLibrarySection(librarySelectionForSlot(state, slotIndex), LOOPS_SECTION);
 
   return {
     ...state,
@@ -186,6 +185,7 @@ export const openLoopLibraryPanel = (slotIndex) => (state) => {
         panels: { ...panels, library: !panels.library },
       },
     },
+    library: nextLibrary,
   };
 };
 
@@ -338,33 +338,47 @@ export const loopsClearAll = (state) =>
 /**
  * Apply a prepared library sample to a slot.
  * Buffer load / quantize / samples.set happen at the call site (UI) before dispatch.
+ * Keeps playing slots in `play` (hot-swap) instead of forcing idle/stop.
  */
 export const assignLoopSample =
   (slotIndex, { bufferKey, sourceBpm, duration, kit, sample }) =>
-  (state) => ({
-    ...patchLoopSlot(state, slotIndex, {
-      bufferKeys: [bufferKey],
-      sourceBpm,
-      sourceBpms: [sourceBpm],
-      duration,
-      layers: 1,
-      process: 'idle',
-      kit,
-      sample,
-    }),
-    ui: {
-      ...state.ui,
-      loops: {
-        ...state.ui.loops,
-        selectedSlot: slotIndex,
-        panels: panelsAfterLoopAssign(state),
+  (state) => {
+    const slot = getLoopSlot(state, slotIndex);
+    const keepPlaying = slot?.process === 'play' || slot?.process === 'overdub';
+    return {
+      ...patchLoopSlot(state, slotIndex, {
+        bufferKeys: [bufferKey],
+        sourceBpm,
+        sourceBpms: [sourceBpm],
+        duration,
+        layers: 1,
+        process: keepPlaying ? 'play' : 'idle',
+        ...(keepPlaying
+          ? slotPlaySchedule(state, slotIndex)
+          : {
+              startedAt: null,
+              countInAt: null,
+              countInSilent: false,
+              partialPlay: false,
+              leadPadSeconds: 0,
+            }),
+        kit,
+        sample,
+      }),
+      ui: {
+        ...state.ui,
+        loops: {
+          ...state.ui.loops,
+          selectedSlot: slotIndex,
+          panels: panelsAfterLoopAssign(state),
+        },
       },
-    },
-    loopsLibrary: {
-      ...state.loopsLibrary,
-      selectedSample: sample,
-    },
-  });
+      library: {
+        ...state.library,
+        selectedSample: sample,
+      },
+    };
+  };
 
 export const patchSlotParam = (slotIndex, path, value) => (state) => {
   const slot = getLoopSlot(state, slotIndex);

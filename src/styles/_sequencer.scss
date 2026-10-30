@@ -33,6 +33,15 @@
 }
 
 .sequencer {
+  // Shared step-pill metrics (main grid + measures strip mini cells).
+  --seq-step-font: calc(var(--app-font-size-base) * 0.85);
+  --seq-step-h: 3em;
+  --seq-step-pad-y: 6px;
+  --seq-step-pad-x: 10px;
+  --seq-step-min-w: 12px;
+  --seq-step-gap: 0.75em;
+  --measure-scale: 0.3;
+
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
@@ -78,6 +87,10 @@
       }
     }
 
+    button.measures-expand {
+      margin-left: auto;
+    }
+
     h2 {
       font-size: 1em;
       font-weight: inherit;
@@ -107,16 +120,16 @@
     }
   }
 
-  .tracks {
+  .rows {
     display: flex;
     flex-direction: column;
     gap: 0.75em;
 
-    .track {
+    .row {
       display: flex;
       flex-direction: row;
       flex-wrap: nowrap;
-      gap: 0.75em;
+      gap: var(--seq-step-gap);
       > button {
         @include btn-toggle;
         white-space: nowrap;
@@ -146,14 +159,27 @@
         }
       }
 
+      .bar-group {
+        display: flex;
+        flex-flow: row nowrap;
+        gap: var(--seq-step-gap);
+        flex: 0 0 auto;
+
+        & + .bar-group {
+          margin-left: 0.35em;
+          padding-left: var(--seq-step-gap);
+          border-left: 1px solid color-mix(in srgb, var(--app-text) 22%, transparent);
+        }
+      }
+
       .step {
         @include btn-toggle;
         flex: 0 0 auto;
-        line-height: 3em;
-        height: 3em;
-        font-size: calc(var(--app-font-size-base) * 0.85);
-        padding: 6px 10px;
-        min-width: 12px;
+        line-height: var(--seq-step-h);
+        height: var(--seq-step-h);
+        font-size: var(--seq-step-font);
+        padding: var(--seq-step-pad-y) var(--seq-step-pad-x);
+        min-width: var(--seq-step-min-w);
         transition:
           box-shadow 0.08s ease,
           background 0.1s,

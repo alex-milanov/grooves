@@ -2,10 +2,10 @@ export {
   context,
   sampleTriggered$,
   ensureNodes,
-  syncTrackMixer,
+  syncRowMixer,
   syncLoopSlotMixer,
   applyRouting,
-  getTrackInput,
+  getRowInput,
   getLoopSlotInput,
   getPartLoopsInput,
   syncPartLoopsMixer,
@@ -16,7 +16,7 @@ export {
   stepTime,
   getOutputLatency,
   getRecordLatencyCompensation,
-  trackGain,
+  rowGain,
 } from './graph';
 
 export * as samples from './samples';

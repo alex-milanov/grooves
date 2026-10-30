@@ -1,50 +1,55 @@
 import { defaultPanels, isMobile } from '../util/panels';
+import { ensureLibrarySection, libraryForAssignment, SAMPLES_SECTION } from '../util/library';
 
-export const hasAssignment = (assignments, track) => {
-  const a = assignments?.[track];
+export {
+  MAX_BARS,
+  stepsPerBar,
+  barCount,
+  totalSteps,
+  addBar,
+  removeBar,
+  setFocusedBar,
+  setCuedBar,
+  clearCuedBar,
+  selectMeasure,
+  toggleMeasuresExpanded,
+  armDeleteBar,
+  clearDeleteArmedBar,
+} from './sequencer-measures';
+
+export const hasAssignment = (assignments, row) => {
+  const a = assignments?.[row];
   return !!(a?.kit && a?.sample);
 };
 
 /** Single-click select: keep library open; open settings when assigned. */
-export const panelsForSelection = (state, track) => {
+export const panelsForSelection = (state, row) => {
   const panels = state.sequencer.panels ?? defaultPanels();
-  if (hasAssignment(state.sequencer.assignments, track)) {
+  if (hasAssignment(state.sequencer.assignments, row)) {
     return { library: panels.library, settings: true };
   }
   return { library: true, settings: false };
 };
 
-const libraryForTrack = (state, track) => {
-  if (!hasAssignment(state.sequencer.assignments, track)) {
-    return {
-      ...state.library,
-      path: ['library'],
-      selectedSample: null,
-    };
-  }
-  const { kit, sample } = state.sequencer.assignments[track];
-  return {
-    ...state.library,
-    path: ['library', kit],
-    selectedSample: sample,
-  };
-};
+/** Jump library to this row's assigned kit/sample (sticky if unassigned). */
+const librarySelectionForRow = (state, row) =>
+  libraryForAssignment(state.library, SAMPLES_SECTION, state.sequencer.assignments?.[row]);
 
-export const selectTrack = (track) => (state) => ({
+export const selectRow = (row) => (state) => ({
   ...state,
   sequencer: {
     ...state.sequencer,
-    selectedTrack: track,
-    panels: panelsForSelection(state, track),
+    selectedRow: row,
+    panels: panelsForSelection(state, row),
   },
-  library: libraryForTrack(state, track),
+  library: librarySelectionForRow(state, row),
 });
 
-export const deselectTrack = (state) => ({
+export const deselectRow = (state) => ({
   ...state,
   sequencer: {
     ...state.sequencer,
-    selectedTrack: null,
+    selectedRow: null,
     panels: defaultPanels(),
   },
 });
@@ -69,25 +74,29 @@ export const togglePanel = (panel) => (state) => {
   };
 };
 
-export const openLibraryPanel = (track) => (state) => {
-  const wasSelected = state.sequencer.selectedTrack === track;
+export const openLibraryPanel = (row) => (state) => {
+  const wasSelected = state.sequencer.selectedRow === row;
   const panels = state.sequencer.panels ?? defaultPanels();
 
   if (!wasSelected) {
-    const assigned = hasAssignment(state.sequencer.assignments, track);
+    const assigned = hasAssignment(state.sequencer.assignments, row);
     return {
       ...state,
       sequencer: {
         ...state.sequencer,
-        selectedTrack: track,
+        selectedRow: row,
         panels: {
           library: true,
           settings: assigned,
         },
       },
-      library: libraryForTrack(state, track),
+      library: ensureLibrarySection(librarySelectionForRow(state, row), SAMPLES_SECTION),
     };
   }
+
+  const nextLibrary = panels.library
+    ? state.library
+    : ensureLibrarySection(librarySelectionForRow(state, row), SAMPLES_SECTION);
 
   return {
     ...state,
@@ -95,6 +104,7 @@ export const openLibraryPanel = (track) => (state) => {
       ...state.sequencer,
       panels: { ...panels, library: !panels.library },
     },
+    library: nextLibrary,
   };
 };
 
@@ -107,13 +117,13 @@ export const panelsAfterAssign = (state) => {
 };
 
 /** Assign a kit sample to a drum row — stores a reference; playback reads the library buffer. */
-export const assignTrackSample = (track, kit, sample) => (state) => ({
+export const assignRowSample = (row, kit, sample) => (state) => ({
   ...state,
   sequencer: {
     ...state.sequencer,
     assignments: {
       ...state.sequencer.assignments,
-      [track]: { kit, sample },
+      [row]: { kit, sample },
     },
     panels: panelsAfterAssign(state),
   },
