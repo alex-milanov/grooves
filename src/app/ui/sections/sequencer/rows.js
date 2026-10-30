@@ -1,10 +1,13 @@
 import { div, button } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { measureStepOn, toggleMeasureStep } from '../../../state/sequencer-measures';
+import { getDrumsRows, rowSample } from '../../../state/drums';
 
 const list = (length) => new Array(length).fill(0);
 
 const shorten = (name, max = 14) => (name.length > max ? `${name.slice(0, max - 1)}…` : name);
+
+const drumsUi = (state) => state.ui?.drums ?? {};
 
 const stepCell = (state, bar, row, step, playhead) =>
   div('.step', {
@@ -19,14 +22,19 @@ const stepCell = (state, bar, row, step, playhead) =>
   });
 
 /** One bar of local steps for the viewed measure. */
-export default (state, { rows, bar, stepsPerBar: perBar, playhead, onRowClick, onRowDblClick }) =>
-  div(
+export default (state, { rows, bar, stepsPerBar: perBar, playhead, onRowClick, onRowDblClick }) => {
+  const drumRows = getDrumsRows(state);
+  const ui = drumsUi(state);
+  const panels = ui.panels ?? {};
+
+  return div(
     '.rows',
     list(rows).map((_, row) => {
-      const sample = state.sequencer.assignments?.[row]?.sample;
-      const rowLabel = sample ? shorten(sample) : `Row ${row}`;
-      const panels = state.sequencer.panels ?? {};
-      const isSelected = state.sequencer.selectedRow === row;
+      const assignment = rowSample(drumRows[row]);
+      const rowLabel = assignment?.sample
+        ? shorten(assignment.sample)
+        : drumRows[row]?.name ?? `Row ${row}`;
+      const isSelected = ui.selectedRow === row;
 
       return div(
         '.row',
@@ -35,7 +43,7 @@ export default (state, { rows, bar, stepsPerBar: perBar, playhead, onRowClick, o
             {
               class: {
                 active: isSelected,
-                assigned: !!state.sequencer.assignments?.[row],
+                assigned: !!assignment,
                 'panel-library': isSelected && panels.library,
                 'panel-settings': isSelected && panels.settings,
               },
@@ -56,3 +64,4 @@ export default (state, { rows, bar, stepsPerBar: perBar, playhead, onRowClick, o
       );
     }),
   );
+};

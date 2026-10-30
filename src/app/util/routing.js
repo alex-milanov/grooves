@@ -17,7 +17,7 @@ export const buildDefaultRouting = (rows, loopSlots = 4) => {
     { id: 'e-master-out', from: 'master', to: 'dest', gain: 1 },
     { id: 'e-bus-reverb-out', from: 'bus-reverb', to: 'master', gain: 1 },
     { id: 'e-bus-delay-out', from: 'bus-delay', to: 'master', gain: 1 },
-    { id: 'e-part-master', from: 'part-drums', to: 'master', gainParam: ['partMixer', 'volume'] },
+    { id: 'e-part-master', from: 'part-drums', to: 'master', gainParam: ['drumsChannel', 'volume'] },
     { id: 'e-part-loops-master', from: 'part-loops', to: 'master', gain: 1 },
   ];
 
@@ -35,13 +35,13 @@ export const buildDefaultRouting = (rows, loopSlots = 4) => {
         id: `e-t${t}-rev`,
         from: `row-${t}-fader`,
         to: 'bus-reverb',
-        gainParam: ['sequencer', 'rowParams', t, 'sends', 'reverb'],
+        gainParam: ['drumsRows', t, 'sends', 'reverb'],
       },
       {
         id: `e-t${t}-dly`,
         from: `row-${t}-fader`,
         to: 'bus-delay',
-        gainParam: ['sequencer', 'rowParams', t, 'sends', 'delay'],
+        gainParam: ['drumsRows', t, 'sends', 'delay'],
       },
     );
   }
@@ -74,16 +74,16 @@ export const buildDefaultRouting = (rows, loopSlots = 4) => {
   return { nodes, edges };
 };
 
-export const resolveEdgeGain = (edge, rowParams, partMixer = null, loopSlots = null) => {
+export const resolveEdgeGain = (edge, rowParams, drumsChannel = null, loopSlots = null) => {
   if (edge.gainParam) {
     const [root, ...rest] = edge.gainParam;
-    if (root === 'partMixer' && rest[0] === 'volume') {
-      if (partMixer?.muted) return 0;
-      return partMixer?.volume ?? 1;
+    if (root === 'drumsChannel' && rest[0] === 'volume') {
+      if (drumsChannel?.muted) return 0;
+      return drumsChannel?.volume ?? 1;
     }
-    if (root === 'sequencer' && (rest[0] === 'rowParams' || rest[0] === 'trackParams')) {
-      const row = rest[1];
-      const key = rest[3];
+    if (root === 'drumsRows') {
+      const row = rest[0];
+      const key = rest[2];
       return rowParams?.[row]?.sends?.[key] ?? 0;
     }
     if (root === 'loopSlots') {

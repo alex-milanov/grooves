@@ -35,13 +35,15 @@ export const createLoopsTrack = () => ({
   type: 'loop',
   name: 'Loops',
   transport: { armed: true, playing: false, stopPending: false },
-  mixer: { volume: 1, muted: false, solo: false },
+  channel: { volume: 1, muted: false, solo: false, pan: 0.5, sends: { reverb: 0, delay: 0 } },
   loop: {
     inputId: 'default',
     clickEnabled: true,
     slots: Array.from({ length: LOOPS_SLOT_COUNT }, (_, i) => createEmptySlot(i)),
   },
 });
+
+export const loopsChannel = (track) => track?.channel ?? {};
 
 export const getLoopsTrack = (state) => state.tracks?.find((t) => t.id === LOOPS_TRACK_ID);
 
@@ -98,7 +100,9 @@ export const patchLoopsTrack = (state, patch) => ({
 export const patchLoopsMixer = (state, patch) => ({
   ...state,
   tracks: state.tracks.map((t) =>
-    t.id === LOOPS_TRACK_ID ? { ...t, mixer: { ...t.mixer, ...patch } } : t,
+    t.id === LOOPS_TRACK_ID
+      ? { ...t, channel: { ...loopsChannel(t), ...patch } }
+      : t,
   ),
 });
 

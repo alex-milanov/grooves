@@ -1,55 +1,46 @@
-# Grooves project shape — DAWproject-aligned target (Structure + Scenes)
+# Grooves project shape — DAWproject-aligned target (tracks + Scenes)
 #
-# current-shape.yaml = today’s dual-home runtime snapshot (same session example).
-# This file          = target native document (v2). Not loaded by the app yet.
+# current-shape.yaml (v1.5) → this (v2). Not loaded by the app yet.
+#
+# Naming: keep tracks[] — DAWproject’s <Structure> is only the container for
+# <Track> elements. Native docs name the entities; export wraps them.
+#
+# Measures: drum patterns stay bar-split (measures[bar] → row → local steps).
+# One schedule cycle = one measure. Never flatten to absolute step indices.
 
 # =============================================================================
-# Structure drift (today → DAWproject)
+# Drift (today → target)
 # =============================================================================
 #
 # Dual-home tracks
-#   Today: loops live on tracks[]; drums are a stub on tracks[] plus the real
-#          data in top-level sequencer.* and partMixer.
-#   DAW:   one Structure list — every track owns Channel (+ row/slot defs).
+#   Today: loops on tracks[]; drums stub + top-level sequencer.* / partMixer.
+#   Target: every part is a full tracks[] entry (channel + row/slot defs).
 #
-# Structure + Scenes (not Arrangement)
-#   Grooves is session/launcher-shaped: workspaces strip = Structure track axis.
-#   Today = one live “column”; strip → session grid when Scenes grow sideways.
-#   DAWproject: Structure = tracks/channels; Scenes = clip launcher; Arrangement
-#   = linear timeline (out of native scope — Bitwig does not need it from us).
+# Tracks + Scenes (not Arrangement)
+#   Strip / mixer = tracks[] axis. Scenes[] = session-grid columns (clip cells).
+#   Today length-1 scene; strip grows sideways later. No Arrangement in native.
 #
-# Mixer split
-#   Today: partMixer (drums only), track.mixer (loops), mixer.master/buses.
-#   DAW:   Channel on each Structure track; master/aux as Structure tracks;
-#          sends as Channel → destination Channel links.
+# Layout vs project
+#   ui.* (panels, selection, currentBar, strip open, library browse path) is
+#   layout — save optionally, not DAW Structure. Ephemeral (playhead, buffers,
+#   routing graph, library.kits) never in the project file.
 #
-# Identity
-#   Today: numeric row indices (assignments[0], grid[0], rowParams[0]).
-#   Target: stable ids on structure tracks + rows/slots; scene clips ref those ids.
-#
-# Sample refs (not “kits”)
-#   Today state stores { kit, sample } — leftover from zip/buffer keys.
-#   A kit is only a folder under library (path[2]); durable ref is a library path,
-#   e.g. [library, samples, basic_drum_kit, PD-KICK-03.wav].
-#
-# Out of native scope (ephemeral / UI)
-#   playhead, viewport, audio buffers, routing graph nodes, library.kits tree,
-#   panel open flags, selectedRow / focusedBar — stay in app state, not project.
-#   Arrangement / timeline lanes — not part of native schema.
+# Sample refs
+#   Prefer library paths over { kit, sample }; kit is just a folder under library.
 
 # =============================================================================
-# Target document (grooves-project v2) — Structure + Scenes
+# Target document (grooves-project v2)
 # =============================================================================
 #
-# Session grid: structure[] = rows (strip / mixer); scenes[] = columns.
-#   cell (track, scene) → clip in that scene for that track.
+# Session grid: tracks[] = rows; scenes[] = columns.
+#   cell (track, scene) → clip for that track in that scene.
 #
-# Maps roughly to DAWproject:
-#   transport          → Transport
-#   structure[]        → Structure (Track + Channel)
-#   structure[].rows|slots → sub-part identity (export may flatten to notes/audio)
-#   scenes[]           → Scenes (clip launcher); today length 1
-#   mixer.buses/master → aux / master Structure tracks + send destinations
+# DAWproject map:
+#   transport     → Transport
+#   tracks[]      → Structure / Track + Channel
+#   tracks[].rows|slots → sub-part identity
+#   scenes[]      → Scenes (clip launcher)
+#   mixer.*       → master / aux tracks + sends
 
 format: grooves-project
 version: 2
@@ -61,22 +52,21 @@ transport:
   timeSignature: [4, 4]
   resolution: 16
 
-# Which scene column is live (today always the sole scene).
 activeScene: scene-a
 
 # -----------------------------------------------------------------------------
-# Structure — session strip / mixer track axis
+# tracks — session strip / mixer axis (= DAWproject Structure children)
 # -----------------------------------------------------------------------------
-# Track owns channel + sub-part *defs* (sample, midi, inserts). Playable pattern
-# / slot buffers live in scenes[].clips (the session-grid cells).
+# Channel + sub-part defs on the track. Playable pattern / loop payloads live
+# in scenes[].clips (except interim may keep payloads on-track — see notes).
 
-structure:
+tracks:
   - id: drums
-    type: sample-seq          # grooves editor; DAW contentType ≈ notes
+    type: sample-seq
     name: Drums
     midi:
       channel: 10
-    channel:                  # → DAWproject Channel (group strip)
+    channel:
       volume: 1
       muted: false
       solo: false
@@ -84,7 +74,7 @@ structure:
       sends:
         reverb: 0
         delay: 0
-    # Row defs — drum-rack lines; step hits are in the scene clip.
+    # Row defs — sample / midi / inserts; hits are in the scene clip measures.
     rows:
       - id: kick
         name: Kick
@@ -115,7 +105,7 @@ structure:
         sends: { reverb: 0, delay: 0 }
 
   - id: trk-loops
-    type: loop                # grooves editor; DAW contentType ≈ audio
+    type: loop
     name: Loops
     channel:
       volume: 1
@@ -128,7 +118,6 @@ structure:
     loop:
       inputId: default
       clickEnabled: true
-    # Slot defs — fixed launcher cells on this track; clip payload in scenes.
     slots:
       - id: slot-0
         name: Slot 1
@@ -159,20 +148,17 @@ structure:
         muted: false
 
 # -----------------------------------------------------------------------------
-# Scenes — session-grid columns (DAWproject Scenes / clip launcher)
+# Scenes — session-grid columns (clip launcher)
 # -----------------------------------------------------------------------------
-# One scene today (= current live strip state). More scenes = more columns;
-# strip UI can grow into a full track × scene grid later.
+# Drum clips keep measures[] (bar buckets, local steps). Scheduler: one measure
+# = one cycle. Loops stay duration-based (may span multiple bars).
 
-# Example session: 4-bar drum pattern; slot-0 = library loop (1 bar);
-# slot-1 = recorded loop (2 bars, different length); slots 2–3 empty.
 scenes:
   - id: scene-a
     name: A
     clips:
-      # cell (drums, scene-a) — events grouped per measure (one cycle each).
       - track: drums
-        steps: 16
+        steps: 16                 # steps per measure
         measures:
           - kick: [0, 4, 8, 12]
             snare: [4, 12]
@@ -191,25 +177,21 @@ scenes:
             hat: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14]
             row-3: []
 
-      # cell (trk-loops, scene-a)
       - track: trk-loops
         slots:
-          # Picked from library — 1 bar @ 120 BPM → duration 2.0s
           slot-0:
             process: idle
             sample: [library, loops, basic_loops, loop-a.wav]
             sourceBpm: 120
             layers: 1
-            duration: 2.0
-          # Live-recorded — 2 bars @ session 120 BPM → duration 4.0s
-          # (no library sample; media lives in project zip / buffer key)
+            duration: 2.0           # 1 bar @ 120
           slot-1:
             process: idle
             sample: null
             media: media/loops/scene-a-slot-1.wav
             sourceBpm: 120
             layers: 1
-            duration: 4.0
+            duration: 4.0           # 2 bars @ 120
           slot-2:
             process: empty
             sample: null
@@ -223,7 +205,6 @@ scenes:
             layers: 0
             duration: 0
 
-# Shared FX returns + master — DAW: aux/master Structure tracks.
 mixer:
   master:
     volume: 1
@@ -235,20 +216,25 @@ mixer:
       time: 0.375
       feedback: 0.35
 
-# Browse cursor only in project; folder trees / WAVs are runtime or zip media.
-library:
-  path: [library, loops, basic_loops]
+# Layout (optional in project file; not DAW Structure)
+ui:
+  activeWorkspace: drums
+  workspacesStripOpen: true
+  library:
+    path: [library, loops, basic_loops]
+  drums:
+    selectedRow: null
+    currentBar: 0
+    measuresExpanded: true
+    panels: { library: false, settings: false }
+  loops:
+    selectedSlot: null
+    panels: { library: false, settings: false }
 
 # -----------------------------------------------------------------------------
-# v1 → v2 migration sketch (from current-shape.yaml / runtime)
+# Migration sketch
 # -----------------------------------------------------------------------------
-# tracks[drums stub] + partMixer + sequencer.*
-#   → structure[id=drums] channel ← partMixer; rows ← assignments / rowParams
-#     (stable ids; default midi.note map).
-#   → scenes[0].clips[track=drums] ← sequencer.grid / steps / bars.
-# tracks[type=loop]
-#   → structure[id=trk-loops] channel ← track.mixer; slots ← slot defs/params.
-#   → scenes[0].clips[track=trk-loops].slots ← process / sample / buffers meta.
-# activeScene ← sole scene id.
-# sequencer / partMixer top-level keys → removed from project document.
-# ui.*, playhead, routing, buffers, Arrangement → not in project file.
+# current → interim: nest sequencer/partMixer under tracks[drums]; peel ui.*;
+#   keep measures[bar][row][step] (already bar-split). Single implicit scene.
+# interim → v2: lift pattern/loop clip payloads into scenes[0].clips; tracks[]
+#   keep channel + row/slot defs only. Export wraps tracks as DAW Structure.

@@ -7,7 +7,6 @@ import { map, distinctUntilChanged } from 'rxjs';
 // state
 import { initial } from './state';
 import { serializeTheme } from './util/theme';
-import { migrateState } from './util/migrate-state';
 // services
 import viewport from './services/viewport';
 import library from './services/library';
@@ -20,9 +19,10 @@ import mediaSession from './services/media-session';
 import ui from './ui';
 
 let state$ = init(initial);
-dispatch(migrateState);
 
-state$.pipe(distinctUntilChanged((s) => s.sequencer)).subscribe((s) => console.log('state', s));
+state$
+  .pipe(distinctUntilChanged((a, b) => a.tracks === b.tracks && a.ui === b.ui))
+  .subscribe((s) => console.log('state', s));
 
 // services
 viewport.start({ state$ });
@@ -61,6 +61,7 @@ if (module.hot) {
     // document.body.innerHTML = document.body.innerHTML;
   });
   module.hot.accept(function () {
-    dispatch(() => migrateState(module.hot.data.state));
+    // Shape changes need a full reload; Parcel often forces one anyway.
+    if (module.hot.data?.state) dispatch(() => module.hot.data.state);
   });
 }

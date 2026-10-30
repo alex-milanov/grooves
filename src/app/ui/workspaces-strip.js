@@ -37,7 +37,8 @@ export default (state) => {
   if (!stripVisible(state)) return null;
 
   const active = state.ui?.activeWorkspace ?? WORKSPACE_DRUMS;
-  const drumsName = state.partMixer?.name ?? 'Drums';
+  const drumsName =
+    state.tracks?.find((t) => t.id === 'drums' || t.type === 'sample-seq')?.name ?? 'Drums';
   const loopsName = state.tracks?.find((t) => t.type === 'loop')?.name ?? 'Loops';
 
   return div('.workspaces-strip', [

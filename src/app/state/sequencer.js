@@ -1,5 +1,13 @@
 import { defaultPanels, isMobile } from '../util/panels';
 import { ensureLibrarySection, libraryForAssignment, SAMPLES_SECTION } from '../util/library';
+import {
+  assignDrumRowSample,
+  getDrumRow,
+  getDrumsRows,
+  hasRowSample,
+  rowSample,
+  setDrumsRowCount,
+} from './drums';
 
 export {
   MAX_BARS,
@@ -11,7 +19,7 @@ export {
   toggleMeasureStep,
   addBar,
   removeBar,
-  setFocusedBar,
+  setCurrentBar,
   setCuedBar,
   clearCuedBar,
   selectMeasure,
@@ -20,46 +28,46 @@ export {
   clearDeleteArmedBar,
 } from './sequencer-measures';
 
-export const hasAssignment = (assignments, row) => {
-  const a = assignments?.[row];
-  return !!(a?.kit && a?.sample);
-};
+const drumsUi = (state) => state.ui?.drums ?? {};
 
-/** Single-click select: keep library open; open settings when assigned. */
+const patchDrumsUi = (state, patch) => ({
+  ...state,
+  ui: {
+    ...state.ui,
+    drums: { ...drumsUi(state), ...patch },
+  },
+});
+
+export const hasAssignment = (state, row) => hasRowSample(getDrumRow(state, row));
+
 export const panelsForSelection = (state, row) => {
-  const panels = state.sequencer.panels ?? defaultPanels();
-  if (hasAssignment(state.sequencer.assignments, row)) {
+  const panels = drumsUi(state).panels ?? defaultPanels();
+  if (hasRowSample(getDrumRow(state, row))) {
     return { library: panels.library, settings: true };
   }
   return { library: true, settings: false };
 };
 
-/** Jump library to this row's assigned kit/sample (sticky if unassigned). */
 const librarySelectionForRow = (state, row) =>
-  libraryForAssignment(state.library, SAMPLES_SECTION, state.sequencer.assignments?.[row]);
+  libraryForAssignment(state.library, SAMPLES_SECTION, rowSample(getDrumRow(state, row)));
 
 export const selectRow = (row) => (state) => ({
-  ...state,
-  sequencer: {
-    ...state.sequencer,
+  ...patchDrumsUi(state, {
     selectedRow: row,
     panels: panelsForSelection(state, row),
-  },
+  }),
   library: librarySelectionForRow(state, row),
 });
 
-export const deselectRow = (state) => ({
-  ...state,
-  sequencer: {
-    ...state.sequencer,
+export const deselectRow = (state) =>
+  patchDrumsUi(state, {
     selectedRow: null,
     panels: defaultPanels(),
-  },
-});
+  });
 
 export const togglePanel = (panel) => (state) => {
   const mobile = isMobile(state);
-  const panels = state.sequencer.panels ?? defaultPanels();
+  const panels = drumsUi(state).panels ?? defaultPanels();
   const next = !panels[panel];
   const updated = { ...panels, [panel]: next };
 
@@ -68,31 +76,21 @@ export const togglePanel = (panel) => (state) => {
     if (panel === 'settings') updated.library = false;
   }
 
-  return {
-    ...state,
-    sequencer: {
-      ...state.sequencer,
-      panels: updated,
-    },
-  };
+  return patchDrumsUi(state, { panels: updated });
 };
 
 export const openLibraryPanel = (row) => (state) => {
-  const wasSelected = state.sequencer.selectedRow === row;
-  const panels = state.sequencer.panels ?? defaultPanels();
+  const ui = drumsUi(state);
+  const wasSelected = ui.selectedRow === row;
+  const panels = ui.panels ?? defaultPanels();
 
   if (!wasSelected) {
-    const assigned = hasAssignment(state.sequencer.assignments, row);
+    const assigned = hasRowSample(getDrumRow(state, row));
     return {
-      ...state,
-      sequencer: {
-        ...state.sequencer,
+      ...patchDrumsUi(state, {
         selectedRow: row,
-        panels: {
-          library: true,
-          settings: assigned,
-        },
-      },
+        panels: { library: true, settings: assigned },
+      }),
       library: ensureLibrarySection(librarySelectionForRow(state, row), SAMPLES_SECTION),
     };
   }
@@ -102,11 +100,9 @@ export const openLibraryPanel = (row) => (state) => {
     : ensureLibrarySection(librarySelectionForRow(state, row), SAMPLES_SECTION);
 
   return {
-    ...state,
-    sequencer: {
-      ...state.sequencer,
+    ...patchDrumsUi(state, {
       panels: { ...panels, library: !panels.library },
-    },
+    }),
     library: nextLibrary,
   };
 };
@@ -114,24 +110,29 @@ export const openLibraryPanel = (row) => (state) => {
 export const panelsAfterAssign = (state) => {
   const mobile = isMobile(state);
   return {
-    library: mobile ? false : (state.sequencer.panels?.library ?? false),
+    library: mobile ? false : (drumsUi(state).panels?.library ?? false),
     settings: true,
   };
 };
 
-/** Assign a kit sample to a drum row — stores a reference; playback reads the library buffer. */
-export const assignRowSample = (row, kit, sample) => (state) => ({
-  ...state,
-  sequencer: {
-    ...state.sequencer,
-    assignments: {
-      ...state.sequencer.assignments,
-      [row]: { kit, sample },
+/** Assign a kit sample to a drum row. */
+export const assignRowSample = (row, kit, sample) => (state) => {
+  const withSample = assignDrumRowSample(row, kit, sample)(state);
+  return {
+    ...patchDrumsUi(withSample, { panels: panelsAfterAssign(withSample) }),
+    library: {
+      ...withSample.library,
+      selectedSample: sample,
     },
-    panels: panelsAfterAssign(state),
-  },
-  library: {
-    ...state.library,
-    selectedSample: sample,
-  },
-});
+  };
+};
+
+export const setRowCount = (count) => (state) => {
+  const next = setDrumsRowCount(count)(state);
+  const rows = getDrumsRows(next);
+  const selected = drumsUi(next).selectedRow;
+  if (selected != null && selected >= rows.length) {
+    return patchDrumsUi(next, { selectedRow: rows.length - 1 });
+  }
+  return next;
+};

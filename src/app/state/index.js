@@ -2,7 +2,7 @@ import { obj } from 'iblokz-data';
 import { getInitialTheme } from '../util/theme';
 import { buildDefaultRouting } from '../util/routing';
 import { WORKSPACE_DRUMS, defaultWorkspacesStripOpen } from '../util/workspaces';
-import { DRUMS_TRACK_ID } from './transport';
+import { createDrumsTrack } from './drums';
 import { createLoopsTrack, LOOPS_SLOT_COUNT } from './loops';
 
 const ROW_COUNT = 4;
@@ -11,6 +11,17 @@ export const initial = {
   ui: {
     activeWorkspace: WORKSPACE_DRUMS,
     workspacesStripOpen: typeof window !== 'undefined' ? defaultWorkspacesStripOpen() : true,
+    library: {
+      path: ['library', 'samples'],
+    },
+    drums: {
+      selectedRow: null,
+      currentBar: 0,
+      cuedBar: null,
+      deleteArmedBar: null,
+      measuresExpanded: false,
+      panels: { library: false, settings: false },
+    },
     loops: {
       selectedSlot: null,
       panels: { library: false, settings: false },
@@ -25,25 +36,7 @@ export const initial = {
     timeSignature: [4, 4],
     resolution: 16,
   },
-  tracks: [
-    {
-      id: DRUMS_TRACK_ID,
-      type: 'sample-seq',
-      name: 'Drums',
-      transport: {
-        armed: true,
-        playing: false,
-        stopPending: false,
-      },
-    },
-    createLoopsTrack(),
-  ],
-  partMixer: {
-    name: 'Drums',
-    volume: 1,
-    muted: false,
-    solo: false,
-  },
+  tracks: [createDrumsTrack(ROW_COUNT), createLoopsTrack()],
   routing: buildDefaultRouting(ROW_COUNT, LOOPS_SLOT_COUNT),
   mixer: {
     master: { volume: 1 },
@@ -52,29 +45,7 @@ export const initial = {
       delay: { time: 0.375, feedback: 0.35 },
     },
   },
-  sequencer: {
-    rows: ROW_COUNT,
-    steps: 16, // steps per bar (one schedule cycle)
-    bars: 1,
-    focusedBar: 0,
-    playingBar: null,
-    cuedBar: null,
-    deleteArmedBar: null,
-    measuresExpanded: false,
-    selectedRow: null,
-    panels: {
-      library: false,
-      settings: false,
-    },
-    assignments: {
-      0: { kit: 'basic_drum_kit', sample: 'PD-KICK-03.wav' },
-      1: { kit: 'basic_drum_kit', sample: 'Rpeople_Snare3.wav' },
-      2: { kit: 'basic_drum_kit', sample: 'HCR-01.wav' },
-    },
-    rowParams: {},
-    // measures[bar][row][localStep] — events grouped by bar
-    measures: [{}],
-  },
+  // Runtime library tree only — browse path lives in ui.library
   library: {
     path: ['library', 'samples'],
     kits: null,

@@ -1,4 +1,11 @@
-/** Measure helpers — pattern events grouped per bar (`measures[bar][row][step]`). */
+/** Measure helpers — pattern events on tracks[drums].pattern.measures[bar][row][step]. */
+
+import {
+  getDrumsTrack,
+  getDrumsPattern,
+  drumsRowCount,
+  mapDrumsTrack,
+} from './drums';
 
 export const MAX_BARS = 8;
 
@@ -13,10 +20,9 @@ export const stepsPerBar = (state) => {
  * Always coerce to a real Array before spread / length checks.
  */
 export const measuresList = (state) => {
-  const raw = state.sequencer?.measures;
+  const raw = getDrumsPattern(state)?.measures;
   if (Array.isArray(raw) && raw.length > 0) return raw;
   if (Array.isArray(raw) && raw.length === 0) {
-    // Patch-corrupted: indices present, length missing/0 — recover by keys.
     const keys = Object.keys(raw)
       .map(Number)
       .filter((n) => Number.isFinite(n))
@@ -30,8 +36,7 @@ export const measuresList = (state) => {
       .sort((a, b) => a - b);
     if (keys.length) return keys.map((k) => raw[k] ?? {});
   }
-  const bars = Math.max(1, state.sequencer?.bars ?? 1);
-  return Array.from({ length: bars }, () => ({}));
+  return [{}];
 };
 
 export const barCount = (state) => Math.max(1, measuresList(state).length);
@@ -48,6 +53,26 @@ const clampBar = (state, bar) =>
 const cloneMeasure = (m) =>
   Object.fromEntries(Object.entries(m ?? {}).map(([r, steps]) => [r, { ...steps }]));
 
+const patchPatternMeasures = (state, measures) =>
+  mapDrumsTrack(state, (t) => ({
+    ...t,
+    pattern: {
+      ...t.pattern,
+      steps: stepsPerBar(state),
+      measures,
+    },
+  }));
+
+const drumsUi = (state) => state.ui?.drums ?? {};
+
+const patchDrumsUi = (state, patch) => ({
+  ...state,
+  ui: {
+    ...state.ui,
+    drums: { ...drumsUi(state), ...patch },
+  },
+});
+
 /** Toggle a local step — do not use obj.patch on measures[] (breaks array length). */
 export const toggleMeasureStep = (bar, row, step) => (state) => {
   const measures = measuresList(state).map(cloneMeasure);
@@ -57,33 +82,20 @@ export const toggleMeasureStep = (bar, row, step) => (state) => {
   if (rowSteps[step]) delete rowSteps[step];
   else rowSteps[step] = true;
   measures[b] = { ...measure, [row]: rowSteps };
-  return {
-    ...state,
-    sequencer: {
-      ...state.sequencer,
-      bars: measures.length,
-      measures,
-    },
-  };
+  return patchPatternMeasures(state, measures);
 };
 
-/** Append a bar by copying the last measure. */
+/** Append a bar by copying currentBar; select the new bar. */
 export const addBar = (state) => {
   const measures = measuresList(state).map(cloneMeasure);
   if (measures.length >= MAX_BARS) return state;
-  measures.push(cloneMeasure(measures[measures.length - 1] ?? {}));
-  return {
-    ...state,
-    sequencer: {
-      ...state.sequencer,
-      bars: measures.length,
-      steps: stepsPerBar(state),
-      focusedBar: measures.length - 1,
-      cuedBar: null,
-      deleteArmedBar: null,
-      measures,
-    },
-  };
+  const source = clampBar(state, drumsUi(state).currentBar ?? 0);
+  measures.push(cloneMeasure(measures[source] ?? {}));
+  return patchDrumsUi(patchPatternMeasures(state, measures), {
+    currentBar: measures.length - 1,
+    cuedBar: null,
+    deleteArmedBar: null,
+  });
 };
 
 /** Remove one bar (keeps at least one). */
@@ -93,121 +105,73 @@ export const removeBar = (barIndex) => (state) => {
   const bar = clampBar(state, barIndex);
   measures.splice(bar, 1);
 
-  let focusedBar = state.sequencer.focusedBar ?? 0;
-  if (focusedBar === bar) focusedBar = Math.min(bar, measures.length - 1);
-  else if (focusedBar > bar) focusedBar -= 1;
+  let currentBar = drumsUi(state).currentBar ?? 0;
+  if (currentBar === bar) currentBar = Math.min(bar, measures.length - 1);
+  else if (currentBar > bar) currentBar -= 1;
 
-  let cuedBar = state.sequencer.cuedBar;
+  let cuedBar = drumsUi(state).cuedBar;
   if (cuedBar === bar) cuedBar = null;
   else if (cuedBar != null && cuedBar > bar) cuedBar -= 1;
 
-  return {
-    ...state,
-    sequencer: {
-      ...state.sequencer,
-      bars: measures.length,
-      steps: stepsPerBar(state),
-      focusedBar: Math.max(0, Math.min(measures.length - 1, focusedBar)),
-      cuedBar,
-      deleteArmedBar: null,
-      measures,
-    },
-  };
+  return patchDrumsUi(patchPatternMeasures(state, measures), {
+    currentBar: Math.max(0, Math.min(measures.length - 1, currentBar)),
+    cuedBar,
+    deleteArmedBar: null,
+  });
 };
 
-export const setFocusedBar = (bar) => (state) => {
-  const focusedBar = clampBar(state, bar);
-  if (focusedBar === (state.sequencer.focusedBar ?? 0) && state.sequencer.cuedBar == null) {
-    return state;
-  }
-  return {
-    ...state,
-    sequencer: { ...state.sequencer, focusedBar, cuedBar: null },
-  };
+export const setCurrentBar = (bar) => (state) => {
+  const currentBar = clampBar(state, bar);
+  const ui = drumsUi(state);
+  if (currentBar === (ui.currentBar ?? 0) && ui.cuedBar == null) return state;
+  return patchDrumsUi(state, { currentBar, cuedBar: null });
 };
 
 export const setCuedBar = (bar) => (state) => {
   const cuedBar = clampBar(state, bar);
-  if (cuedBar === state.sequencer.cuedBar) {
-    return { ...state, sequencer: { ...state.sequencer, cuedBar: null } };
+  if (cuedBar === drumsUi(state).cuedBar) {
+    return patchDrumsUi(state, { cuedBar: null });
   }
-  return { ...state, sequencer: { ...state.sequencer, cuedBar } };
+  return patchDrumsUi(state, { cuedBar });
 };
 
 export const clearCuedBar = (state) =>
-  state.sequencer.cuedBar == null
-    ? state
-    : { ...state, sequencer: { ...state.sequencer, cuedBar: null } };
+  drumsUi(state).cuedBar == null ? state : patchDrumsUi(state, { cuedBar: null });
 
-/** Strip click: focus when stopped; cue-next when playing. */
-export const selectMeasure = (bar, playing, currentBar = 0) => (state) => {
+/** Strip click: select when stopped; cue-next when playing (hold currentBar). */
+export const selectMeasure = (bar, playing, fromBar = 0) => (state) => {
   if (!playing) {
-    const next = setFocusedBar(bar)(state);
-    return next.sequencer.deleteArmedBar == null
+    const next = setCurrentBar(bar)(state);
+    return drumsUi(next).deleteArmedBar == null
       ? next
-      : { ...next, sequencer: { ...next.sequencer, deleteArmedBar: null } };
+      : patchDrumsUi(next, { deleteArmedBar: null });
   }
   const cuedBar = clampBar(state, bar);
-  if (cuedBar === state.sequencer.cuedBar) {
-    return {
-      ...state,
-      sequencer: { ...state.sequencer, cuedBar: null, deleteArmedBar: null },
-    };
+  if (cuedBar === drumsUi(state).cuedBar) {
+    return patchDrumsUi(state, { cuedBar: null, deleteArmedBar: null });
   }
-  return {
-    ...state,
-    sequencer: {
-      ...state.sequencer,
-      cuedBar,
-      focusedBar: clampBar(state, currentBar),
-      deleteArmedBar: null,
-    },
-  };
+  return patchDrumsUi(state, {
+    cuedBar,
+    currentBar: clampBar(state, fromBar),
+    deleteArmedBar: null,
+  });
 };
 
-export const toggleMeasuresExpanded = (state) => ({
-  ...state,
-  sequencer: {
-    ...state.sequencer,
-    measuresExpanded: !state.sequencer.measuresExpanded,
-  },
-});
+export const toggleMeasuresExpanded = (state) =>
+  patchDrumsUi(state, {
+    measuresExpanded: !drumsUi(state).measuresExpanded,
+  });
 
 export const armDeleteBar = (bar) => (state) => {
   if (barCount(state) <= 1) return state;
   const deleteArmedBar = clampBar(state, bar);
-  if (deleteArmedBar === state.sequencer.deleteArmedBar) return state;
-  return { ...state, sequencer: { ...state.sequencer, deleteArmedBar } };
+  if (deleteArmedBar === drumsUi(state).deleteArmedBar) return state;
+  return patchDrumsUi(state, { deleteArmedBar });
 };
 
 export const clearDeleteArmedBar = (state) =>
-  state.sequencer.deleteArmedBar == null
+  drumsUi(state).deleteArmedBar == null
     ? state
-    : { ...state, sequencer: { ...state.sequencer, deleteArmedBar: null } };
+    : patchDrumsUi(state, { deleteArmedBar: null });
 
-/** Legacy flat `grid[row][absStep]` → `measures[bar][row][localStep]`. */
-export const migrateFlatGridToMeasures = (sequencer, transport) => {
-  if (!sequencer || (Array.isArray(sequencer.measures) && sequencer.measures.length)) {
-    return sequencer?.measures
-      ? { ...sequencer, bars: sequencer.measures.length }
-      : sequencer;
-  }
-  const [num, den] = transport?.timeSignature ?? [4, 4];
-  const perBar = Number((((transport?.resolution ?? 16) * num) / den).toFixed(0));
-  const bars = Math.max(1, sequencer.bars ?? 1);
-  const rows = sequencer.rows ?? sequencer.tracks ?? 4;
-  const grid = sequencer.grid ?? {};
-  const measures = Array.from({ length: bars }, () => ({}));
-  for (let row = 0; row < rows; row++) {
-    for (const [key, on] of Object.entries(grid[row] ?? {})) {
-      if (!on) continue;
-      const abs = Number(key);
-      if (!Number.isFinite(abs)) continue;
-      const bar = Math.floor(abs / perBar);
-      if (bar < 0 || bar >= bars) continue;
-      (measures[bar][row] ??= {})[abs % perBar] = true;
-    }
-  }
-  const { grid: _g, ...rest } = sequencer;
-  return { ...rest, bars, steps: perBar, measures };
-};
+export { getDrumsTrack, drumsRowCount };

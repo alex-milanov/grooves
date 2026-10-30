@@ -1,25 +1,32 @@
 import { div, header, span, button, label, input, i } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
-import { patch } from '../../../state';
 import { previewCurrent } from '../../../services/waveform';
 import { getRowParams } from '../../../util/row-params';
+import {
+  getDrumRow,
+  hasRowSample,
+  patchDrumRowNested,
+  rowParamsMap,
+  rowSample,
+} from '../../../state/drums';
 import knob from '../../components/knob';
 
 export default (state) => {
-  const { selectedRow, panels } = state.sequencer;
-  const assignment = selectedRow != null ? state.sequencer.assignments?.[selectedRow] : null;
+  const { selectedRow, panels } = state.ui?.drums ?? {};
+  const row = selectedRow != null ? getDrumRow(state, selectedRow) : null;
+  const assignment = rowSample(row);
   const settingsOpen = selectedRow != null && !!panels?.settings;
   const params =
     selectedRow != null
-      ? getRowParams(state.sequencer.rowParams, selectedRow)
+      ? getRowParams(rowParamsMap(state), selectedRow)
       : getRowParams({}, 0);
-  const hasSample = !!assignment;
+  const hasSample = hasRowSample(row);
 
   const sampleLabel = assignment?.sample ?? 'No sample assigned';
 
   const patchParam = (path, value) => {
     if (selectedRow == null) return;
-    dispatch(patch(['sequencer', 'rowParams', selectedRow, ...path], value));
+    dispatch(patchDrumRowNested(selectedRow, path, value));
   };
 
   return div(

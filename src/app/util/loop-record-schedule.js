@@ -92,7 +92,8 @@ export const emptySlotRecordSchedule = (state, clickOn) => {
   }
 
   if (clickOn) {
-    const countInAt = nextLocalBarTime(state.transport, now);
+    // No live grid — count-in starts on the hit (shared future transport anchor if any).
+    const countInAt = coldStartAt(now);
     return {
       startedAt: countInAt + bar,
       ...clearArmFields,

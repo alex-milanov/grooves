@@ -38,6 +38,7 @@ import {
   patchLoopSlot,
   slotHasContent,
 } from '../state/loops';
+import { getDrumsTrack, rowParamsMap } from '../state/drums';
 import {
   DEFAULT_LOOP_SOURCE_BPM,
   loopPlaybackDuration,
@@ -558,9 +559,9 @@ export const start = ({ state$ }) => {
   ensureNodes(state$.getValue().routing, state$.getValue().mixer);
   applyRouting(
     state$.getValue().routing,
-    state$.getValue().sequencer?.rowParams,
+    rowParamsMap(state$.getValue()),
     state$.getValue().mixer,
-    state$.getValue().partMixer,
+    getDrumsTrack(state$.getValue())?.channel,
     { reconnect: true, loopsTrack: getLoopsTrack(state$.getValue()) },
   );
 
@@ -601,8 +602,8 @@ export const start = ({ state$ }) => {
       .pipe(distinctUntilChanged((a, b) => a.tracks === b.tracks && a.routing === b.routing))
       .subscribe((state) => {
         const loopsTrack = getLoopsTrack(state);
-        syncPartLoopsMixer(loopsTrack?.mixer);
-        applyRouting(state.routing, state.sequencer?.rowParams, state.mixer, state.partMixer, {
+        syncPartLoopsMixer(loopsTrack?.channel);
+        applyRouting(state.routing, rowParamsMap(state), state.mixer, getDrumsTrack(state)?.channel, {
           loopsTrack,
         });
       }),

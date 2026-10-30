@@ -71,9 +71,9 @@ const measureGrid = (state, barIndex, perBar, rows) => {
 /** Overview strip: one mini grid per bar + add. Hidden by parent when collapsed. */
 export default (state, { bars, perBar, rows, activeBar, cuedBar, playing }) => {
   const deleteArmedBar =
-    state.sequencer.deleteArmedBar == null
+    state.ui?.drums?.deleteArmedBar == null
       ? null
-      : Math.min(bars - 1, Math.max(0, state.sequencer.deleteArmedBar));
+      : Math.min(bars - 1, Math.max(0, state.ui.drums.deleteArmedBar));
 
   const nodes = [];
   for (let bar = 0; bar < bars; bar++) {
@@ -153,7 +153,7 @@ export default (state, { bars, perBar, rows, activeBar, cuedBar, playing }) => {
       {
         props: {
           type: 'button',
-          title: bars >= MAX_BARS ? `Max ${MAX_BARS} bars` : 'Add bar (copy last)',
+          title: bars >= MAX_BARS ? `Max ${MAX_BARS} bars` : 'Add bar (copy selected)',
           'aria-label': 'Add bar',
           disabled: bars >= MAX_BARS,
         },

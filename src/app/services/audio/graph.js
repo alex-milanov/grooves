@@ -128,11 +128,11 @@ const wireEdges = (routing) => {
   wired = true;
 };
 
-const updateEdgeGains = (routing, rowParams, partMixer, loopSlots) => {
+const updateEdgeGains = (routing, rowParams, drumsChannel, loopSlots) => {
   routing.edges.forEach((edge) => {
     const gain = getEdgeGain(edge.id);
     const enabled = edge.enabled !== false;
-    gain.gain.value = enabled ? resolveEdgeGain(edge, rowParams, partMixer, loopSlots) : 0;
+    gain.gain.value = enabled ? resolveEdgeGain(edge, rowParams, drumsChannel, loopSlots) : 0;
   });
 };
 
@@ -203,7 +203,7 @@ export const applyRouting = (
   routing,
   rowParams,
   mixer,
-  partMixer,
+  drumsChannel,
   { reconnect = false, loopsTrack = null } = {},
 ) => {
   ensureNodes(routing, mixer);
@@ -211,7 +211,7 @@ export const applyRouting = (
     wireEdges(routing);
   }
   const loopSlots = loopsTrack?.loop?.slots;
-  updateEdgeGains(routing, rowParams, partMixer, loopSlots);
+  updateEdgeGains(routing, rowParams, drumsChannel, loopSlots);
   const rowCount = routing.nodes.filter(
     (n) => n.kind === 'fader' && (n.row != null || n.track != null),
   ).length;
@@ -244,7 +244,7 @@ export const syncPartLoopsMixer = (mixer) => {
   part.output.gain.value = vol;
 };
 
-/** Instant part-drums bus gain (1 = unity; partMixer still applies on the edge). */
+/** Instant part-drums bus gain (1 = unity; channel volume still applies on the edge). */
 export const setPartDrumsGain = (gain) => {
   const part = nodeRegistry.get('part-drums');
   if (!part?.output) return;

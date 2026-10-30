@@ -12,6 +12,7 @@ import {
 } from './audio';
 import { bufferToWav } from '../util/buffer-to-wav';
 import { getLoopSlot, getSlotParams, slotHasContent } from '../state/loops';
+import { getDrumsRows, rowParamsMap, rowSample } from '../state/drums';
 import { slotPlaybackFromBuffer } from '../util/loop-tempo';
 import { isLoopsWorkspace } from '../util/workspaces';
 
@@ -174,8 +175,10 @@ const addLoopTrigger = (when, duration, slot) => {
 
 const assignmentFor = (state, row) => {
   if (row == null) return null;
-  return state.sequencer.assignments?.[row] ?? null;
+  return rowSample(getDrumsRows(state)[row]);
 };
+
+const drumsUi = (state) => state.ui?.drums ?? {};
 
 const loopBufferKeyFor = (state, slotIndex) => {
   const slot = getLoopSlot(state, slotIndex);
@@ -231,7 +234,7 @@ const applyTheme = () => {
 
 const syncWaveform = (state) => {
   latestState = state;
-  const row = state.sequencer.selectedRow;
+  const row = drumsUi(state).selectedRow;
   activeRow = row;
 
   queueMicrotask(() => {
@@ -295,7 +298,7 @@ export const previewCurrent = () => {
   const state = latestState;
   if (!state) return;
 
-  const row = state.sequencer.selectedRow;
+  const row = drumsUi(state).selectedRow;
   const assignment = assignmentFor(state, row);
   if (!assignment) return;
 
@@ -306,7 +309,7 @@ export const previewCurrent = () => {
   }
 
   resume().then(() => {
-    const params = state.sequencer.rowParams ?? state.sequencer.trackParams;
+    const params = rowParamsMap(state);
     if (rowGain(params, row) === 0) return;
     const when = context.currentTime;
     play(buffer, when, row, { preview: true });
@@ -351,8 +354,8 @@ export const start = ({ state$ }) => {
       .pipe(
         map((state) => ({
           workspace: state.ui?.activeWorkspace,
-          row: state.sequencer.selectedRow,
-          assignment: assignmentFor(state, state.sequencer.selectedRow),
+          row: drumsUi(state).selectedRow,
+          assignment: assignmentFor(state, drumsUi(state).selectedRow),
           theme: `${state.themeFamily}-${state.themeMode}`,
         })),
         distinctUntilChanged(

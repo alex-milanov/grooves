@@ -1,10 +1,11 @@
 import { div, header, span, button, label, input } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../../state';
-import { getLoopsTrack, patchLoopsMixer } from '../../state/loops';
+import { getDrumsTrack, patchDrumsChannel } from '../../state/drums';
+import { getLoopsTrack, loopsChannel, patchLoopsMixer } from '../../state/loops';
 import knob from '../components/knob';
 
-const patchPart = (path, value) => dispatch(patch(['partMixer', ...path], value));
+const patchPart = (path, value) => dispatch(patchDrumsChannel({ [path[0]]: value }));
 const patchLoopsPart = (path, value) => dispatch((s) => patchLoopsMixer(s, { [path[0]]: value }));
 const patchBus = (bus, key, value) => dispatch(patch(['mixer', 'buses', bus, key], value));
 const patchMaster = (value) => dispatch(patch(['mixer', 'master', 'volume'], value));
@@ -71,12 +72,13 @@ const trackColumn = (name, part, patchFn) =>
   ]);
 
 export default (state) => {
-  const drums = state.partMixer ?? {};
+  const drumsTrack = getDrumsTrack(state);
+  const drums = drumsTrack?.channel ?? {};
   const loopsTrack = getLoopsTrack(state);
-  const loops = loopsTrack?.mixer ?? {};
+  const loops = loopsChannel(loopsTrack);
   const buses = state.mixer?.buses ?? {};
   const masterVol = state.mixer?.master?.volume ?? 1;
-  const drumsName = drums.name ?? 'Drums';
+  const drumsName = drumsTrack?.name ?? 'Drums';
   const loopsName = loopsTrack?.name ?? 'Loops';
 
   return div('.mixer-console', [

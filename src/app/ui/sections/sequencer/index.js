@@ -1,19 +1,26 @@
 import { div, h2, button, header, label, input, i } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../../../state';
-import { deselectRow, openLibraryPanel, selectRow } from '../../../state/sequencer';
+import {
+  deselectRow,
+  openLibraryPanel,
+  selectRow,
+  setRowCount,
+} from '../../../state/sequencer';
 import {
   stepsPerBar,
   barCount,
   toggleMeasuresExpanded,
 } from '../../../state/sequencer-measures';
+import { drumsRowCount } from '../../../state/drums';
 import { DRUMS_TRACK_ID, trackTogglePlay, trackStop } from '../../../state/transport';
 import measuresStrip from './measures-strip';
 import rowsView from './rows';
 import rowSettings from './row-settings';
 
-const defaultRowCount = 4;
 let rowClickTimer = null;
+
+const drumsUi = (state) => state.ui?.drums ?? {};
 
 const clearRowClickTimer = () => {
   if (rowClickTimer) {
@@ -28,7 +35,7 @@ const onRowClick = (row, ev) => {
 
   let deferDeselect = false;
   dispatch((s) => {
-    if (s.sequencer.selectedRow !== row) {
+    if (drumsUi(s).selectedRow !== row) {
       return selectRow(row)(s);
     }
     deferDeselect = true;
@@ -39,7 +46,7 @@ const onRowClick = (row, ev) => {
     rowClickTimer = setTimeout(() => {
       rowClickTimer = null;
       dispatch((s) => {
-        if (s.sequencer.selectedRow === row) {
+        if (drumsUi(s).selectedRow === row) {
           return deselectRow(s);
         }
         return s;
@@ -55,30 +62,18 @@ const onRowDblClick = (row, ev) => {
 };
 
 export default (state) => {
+  const ui = drumsUi(state);
   const perBar = stepsPerBar(state);
   const bars = barCount(state);
-  const rows = state.sequencer.rows ?? defaultRowCount;
-  const expanded = !!state.sequencer.measuresExpanded;
-  const focusedBar = Math.min(bars - 1, Math.max(0, state.sequencer.focusedBar ?? 0));
+  const rows = drumsRowCount(state);
+  const expanded = !!ui.measuresExpanded;
+  const currentBar = Math.min(bars - 1, Math.max(0, ui.currentBar ?? 0));
   const playhead = state.transport?.playhead;
   const drumsTrack = state.tracks?.find((t) => t.id === DRUMS_TRACK_ID);
   const trackPlaying = !!drumsTrack?.transport?.playing;
-  const playBar =
-    trackPlaying && state.sequencer.playingBar != null
-      ? Math.min(bars - 1, Math.max(0, state.sequencer.playingBar))
-      : null;
 
   const cuedBar =
-    state.sequencer.cuedBar == null
-      ? null
-      : Math.min(bars - 1, Math.max(0, state.sequencer.cuedBar));
-
-  // One bar in the main grid. While a cue is pending, stay on the from-bar
-  // (focusedBar) so the natural next bar never flashes before the jump.
-  let viewBar = focusedBar;
-  if (trackPlaying && playBar != null) {
-    viewBar = cuedBar != null && playBar !== cuedBar ? focusedBar : playBar;
-  }
+    ui.cuedBar == null ? null : Math.min(bars - 1, Math.max(0, ui.cuedBar));
 
   return [
     div('.sequencer', [
@@ -122,15 +117,10 @@ export default (state) => {
             input: (ev) =>
               dispatch((s) => {
                 const next = Math.max(1, Number(ev.target.value));
-                const prev = s.sequencer.rows ?? defaultRowCount;
-                if (next > prev) {
-                  const withSelect = selectRow(next - 1)(s);
-                  return {
-                    ...withSelect,
-                    sequencer: { ...withSelect.sequencer, rows: next },
-                  };
-                }
-                return { ...s, sequencer: { ...s.sequencer, rows: next } };
+                const prev = drumsRowCount(s);
+                const withCount = setRowCount(next)(s);
+                if (next > prev) return selectRow(next - 1)(withCount);
+                return withCount;
               }),
           },
         }),
@@ -186,16 +176,16 @@ export default (state) => {
             bars,
             perBar,
             rows,
-            activeBar: viewBar,
+            activeBar: currentBar,
             cuedBar,
             playing: trackPlaying,
           })
         : null,
       rowsView(state, {
         rows,
-        bar: viewBar,
+        bar: currentBar,
         stepsPerBar: perBar,
-        playhead: trackPlaying && playBar === viewBar ? playhead : null,
+        playhead: trackPlaying ? playhead : null,
         onRowClick,
         onRowDblClick,
       }),

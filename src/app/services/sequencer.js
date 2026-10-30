@@ -26,9 +26,25 @@ import {
 } from '../util/transport-clock';
 import { CYCLE_EDGE } from '../util/loop-quantize';
 import { DRUMS_TRACK_ID, isTrackScheduling } from '../state/transport';
-import { totalSteps } from '../state/sequencer';
-import { barCount, clearCuedBar, measuresList } from '../state/sequencer-measures';
+import { totalSteps, clearCuedBar } from '../state/sequencer';
+import { barCount, measuresList } from '../state/sequencer-measures';
+import {
+  drumsRowCount,
+  getDrumsPattern,
+  getDrumsTrack,
+  rowSample,
+} from '../state/drums';
 import { getActiveLoopCycle } from '../state/loops';
+
+const drumsUi = (state) => state.ui?.drums ?? {};
+
+const patchDrumsUi = (state, patch) => ({
+  ...state,
+  ui: {
+    ...state.ui,
+    drums: { ...drumsUi(state), ...patch },
+  },
+});
 
 const SCHEDULE_INTERVAL_MS = 25;
 
@@ -86,12 +102,11 @@ const uiTiming = (state) => {
 };
 
 const playStepAt = (state, bar, step, when) => {
-  const { sequencer } = state;
-  const rowCount = sequencer.rows ?? sequencer.tracks ?? 0;
+  const rowCount = drumsRowCount(state);
   const measure = measuresList(state)[bar] ?? {};
   for (let row = 0; row < rowCount; row++) {
     if (!measure[row]?.[step]) continue;
-    const assignment = sequencer.assignments?.[row];
+    const assignment = rowSample(getDrumsTrack(state)?.rows?.[row]);
     if (!assignment) continue;
     const buffer = samples.get(samples.key(assignment.kit, assignment.sample));
     if (!buffer) {
@@ -124,7 +139,7 @@ const runScheduling = (state) => {
   if (latestCycle === -1) {
     const c = Math.max(0, cycle);
     scheduleCycle(state, c);
-    if (state.sequencer?.cuedBar == null) {
+    if (drumsUi(state).cuedBar == null) {
       scheduleCycle(state, c + 1);
       latestCycle = c + 1;
     } else {
@@ -135,7 +150,7 @@ const runScheduling = (state) => {
 
   if (cycle > latestCycle) {
     scheduleCycle(state, cycle);
-    if (state.sequencer?.cuedBar == null) {
+    if (drumsUi(state).cuedBar == null) {
       scheduleCycle(state, cycle + 1);
       latestCycle = cycle + 1;
     } else {
@@ -144,7 +159,7 @@ const runScheduling = (state) => {
     return;
   }
 
-  if (cycle === latestCycle && state.sequencer?.cuedBar == null) {
+  if (cycle === latestCycle && drumsUi(state).cuedBar == null) {
     const progress =
       (context.currentTime - getTransportStartTime() - cycle * duration) / duration;
     if (progress > 0.7) {
@@ -165,7 +180,7 @@ const jumpToBarAt = (state, bar) => {
   setTransportStartTime(now + 0.005);
   cancelScheduledAfter(now);
 
-  const cleared = { ...state, sequencer: { ...state.sequencer, cuedBar: null } };
+  const cleared = patchDrumsUi(state, { cuedBar: null });
   latestCycle = -1;
   scheduleCycle(cleared, 0, 0);
   latestCycle = 0;
@@ -175,15 +190,14 @@ const jumpToBarAt = (state, bar) => {
   lastPlayBar = bar;
 
   dispatch((s) => ({
-    ...s,
+    ...patchDrumsUi(s, { cuedBar: null, currentBar: bar }),
     transport: { ...s.transport, playhead: 0 },
-    sequencer: { ...s.sequencer, cuedBar: null, focusedBar: bar, playingBar: bar },
   }));
 };
 
 const honorCue = (state) => {
-  if (state.sequencer?.cuedBar == null || cueBoundaryAt == null || cueTargetBar == null) {
-    if (state.sequencer?.cuedBar == null) clearCueArm();
+  if (drumsUi(state).cuedBar == null || cueBoundaryAt == null || cueTargetBar == null) {
+    if (drumsUi(state).cuedBar == null) clearCueArm();
     return;
   }
   if (context.currentTime + 0.001 < cueBoundaryAt) return;
@@ -191,13 +205,13 @@ const honorCue = (state) => {
 };
 
 const armCue = (state) => {
-  if (state.sequencer?.cuedBar == null) return;
+  if (drumsUi(state).cuedBar == null) return;
   const { playhead, cycle, cutoffTime, rescheduleFrom, steps, duration, cycleBase } =
     audioCycleTiming(state);
   if (playhead < 0) return;
 
   cueBoundaryAt = cycleBase + duration;
-  cueTargetBar = state.sequencer.cuedBar;
+  cueTargetBar = drumsUi(state).cuedBar;
   cancelScheduledAfter(cutoffTime);
   latestCycle = cycle;
   if (rescheduleFrom < steps) scheduleCycle(state, cycle, rescheduleFrom);
@@ -215,11 +229,15 @@ const updatePlayhead = (state) => {
   if (playhead === lastPlayhead && playBar === lastPlayBar) return;
   lastPlayhead = playhead;
   lastPlayBar = playBar;
-  dispatch((s) => ({
-    ...s,
-    transport: { ...s.transport, playhead },
-    sequencer: { ...s.sequencer, playingBar: playBar },
-  }));
+  dispatch((s) => {
+    // Advance currentBar with play unless a cue is holding the from-bar.
+    const hold = drumsUi(s).cuedBar != null;
+    const patch = hold ? {} : { currentBar: playBar };
+    return {
+      ...patchDrumsUi(s, patch),
+      transport: { ...s.transport, playhead },
+    };
+  });
 };
 
 const transportTick = (state$, { updateUi = false } = {}) => {
@@ -292,14 +310,13 @@ const transportChanged = (a, b) =>
   a.transport?.timeSignature?.[0] === b.transport?.timeSignature?.[0] &&
   a.transport?.timeSignature?.[1] === b.transport?.timeSignature?.[1] &&
   a.transport?.resolution === b.transport?.resolution &&
-  (a.sequencer?.measures?.length ?? a.sequencer?.bars ?? 1) ===
-    (b.sequencer?.measures?.length ?? b.sequencer?.bars ?? 1);
+  measuresList(a).length === measuresList(b).length;
 
 const rescheduleRemainder = (state) => {
   const { cycle, cutoffTime, rescheduleFrom, steps } = audioCycleTiming(state);
   cancelScheduledAfter(cutoffTime);
   if (rescheduleFrom < steps) scheduleCycle(state, cycle, rescheduleFrom);
-  if (state.sequencer?.cuedBar == null) {
+  if (drumsUi(state).cuedBar == null) {
     scheduleCycle(state, cycle + 1, 0);
     latestCycle = cycle + 1;
   } else {
@@ -310,14 +327,17 @@ const rescheduleRemainder = (state) => {
 const pauseGracefully = (state) => {
   stopLoops();
   cancelScheduledAfter(audioCycleTiming(state).cutoffTime);
+  // Leave currentBar as-is; drop pending cue (boundary is cleared).
+  const holdBar = drumsUi(state).currentBar ?? 0;
   latestCycle = -1;
   lastPlayhead = -1;
   lastPlayBar = -1;
   clearCueArm();
   cueUiHoldStep = null;
   setPartDrumsGain(1);
+  barAtCycle0 = holdBar;
   dispatch((s) => ({
-    ...clearCuedBar(s),
+    ...patchDrumsUi(s, { cuedBar: null }),
     transport: { ...s.transport, playhead: null },
   }));
 };
@@ -334,7 +354,11 @@ const stopImmediately = () => {
   barAtCycle0 = 0;
   setPartDrumsGain(1);
   dispatch((s) => ({
-    ...clearCuedBar(s),
+    ...patchDrumsUi(s, {
+      currentBar: 0,
+      cuedBar: null,
+      deleteArmedBar: null,
+    }),
     transport: { ...s.transport, playhead: null },
   }));
 };
@@ -345,7 +369,7 @@ const anchorTransportStart = (state) => {
   const now = context.currentTime;
   const cycleDur = cycleDuration(state);
   const loop = getActiveLoopCycle(state);
-  barAtCycle0 = state.sequencer?.focusedBar ?? 0;
+  barAtCycle0 = drumsUi(state).currentBar ?? 0;
 
   if (loop) {
     setTransportStartTime(
@@ -396,7 +420,7 @@ const remountCyclePreservingPlayhead = (prev, next) => {
   lastPlayBar = barAtCycle0;
   clearCueArm();
   cueUiHoldStep = null;
-  if (next.sequencer?.cuedBar != null) dispatch(clearCuedBar);
+  if (drumsUi(next).cuedBar != null) dispatch(clearCuedBar);
   transportTick(state$Ref, { updateUi: true });
 };
 
@@ -462,10 +486,10 @@ export const start = ({ state$ }) => {
       .pipe(
         filter((s) => isTrackScheduling(s, DRUMS_TRACK_ID)),
         pairwise(),
-        filter(([prev, next]) => prev.sequencer?.cuedBar !== next.sequencer?.cuedBar),
+        filter(([prev, next]) => drumsUi(prev).cuedBar !== drumsUi(next).cuedBar),
       )
       .subscribe(([, next]) => {
-        if (next.sequencer?.cuedBar == null) {
+        if (drumsUi(next).cuedBar == null) {
           clearCueArm();
           rescheduleRemainder(next);
           return;
@@ -479,7 +503,9 @@ export const start = ({ state$ }) => {
       .pipe(
         filter((s) => isTrackScheduling(s, DRUMS_TRACK_ID)),
         pairwise(),
-        filter(([prev, next]) => prev.sequencer.measures !== next.sequencer.measures),
+        filter(
+          ([prev, next]) => getDrumsPattern(prev)?.measures !== getDrumsPattern(next)?.measures,
+        ),
       )
       .subscribe(([, next]) => rescheduleRemainder(next)),
   );

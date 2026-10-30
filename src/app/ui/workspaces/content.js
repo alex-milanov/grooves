@@ -6,6 +6,7 @@ import loops from '../sections/loops';
 import mixer from '../sections/mixer';
 import { SAMPLES_SECTION, LOOPS_SECTION } from '../../util/library';
 import { assignRowSample } from '../../state/sequencer';
+import { getDrumsRows, rowSample } from '../../state/drums';
 import {
   assignLoopSample,
   DEFAULT_LOOP_SOURCE_BPM,
@@ -18,9 +19,10 @@ import { quantizeTargetSeconds, trimPadBuffer } from '../../util/loop-quantize';
 import { barSeconds } from '../../util/transport-clock';
 
 const isAssignedDrumSample = (state, kit, sample) =>
-  Object.values(state.sequencer.assignments ?? {}).some(
-    (a) => a?.kit === kit && a?.sample === sample,
-  );
+  getDrumsRows(state).some((row) => {
+    const a = rowSample(row);
+    return a?.kit === kit && a?.sample === sample;
+  });
 
 const assignSampleToLoopSlot = (slotIndex, kit, sample) => {
   dispatch((s) => {
@@ -45,9 +47,9 @@ const assignSampleToLoopSlot = (slotIndex, kit, sample) => {
 };
 
 export const drumsWorkspace = (state) => {
-  const row = state.sequencer?.selectedRow;
-  const open = row != null && !!state.sequencer?.panels?.library;
-  const assignment = state.sequencer.assignments?.[row] ?? null;
+  const row = state.ui?.drums?.selectedRow;
+  const open = row != null && !!state.ui?.drums?.panels?.library;
+  const assignment = row != null ? rowSample(getDrumsRows(state)[row]) : null;
 
   return div('.workspace-inner', [
     library(state, {

@@ -133,24 +133,27 @@ export const start = ({ state$ }) => {
   subs.push(
     state$
       .pipe(
-        map((s) => ({
-          selectedRow: s.sequencer?.selectedRow,
-          library: s.sequencer?.panels?.library,
-          settings: s.sequencer?.panels?.settings,
-          rows: s.sequencer?.rows,
-          steps:
-            s.transport?.timeSignature && s.transport?.resolution
-              ? Number(
-                  (
-                    s.transport.resolution *
-                    (s.transport.timeSignature[0] / s.transport.timeSignature[1])
-                  ).toFixed(0),
-                )
-              : s.sequencer?.steps,
-          width: s.viewport?.screen?.width,
-          activeWorkspace: s.ui?.activeWorkspace,
-          stripOpen: s.ui?.workspacesStripOpen,
-        })),
+        map((s) => {
+          const drums = s.tracks?.find((t) => t.type === 'sample-seq');
+          return {
+            selectedRow: s.ui?.drums?.selectedRow,
+            library: s.ui?.drums?.panels?.library,
+            settings: s.ui?.drums?.panels?.settings,
+            rows: drums?.rows?.length,
+            steps:
+              s.transport?.timeSignature && s.transport?.resolution
+                ? Number(
+                    (
+                      s.transport.resolution *
+                      (s.transport.timeSignature[0] / s.transport.timeSignature[1])
+                    ).toFixed(0),
+                  )
+                : drums?.pattern?.steps,
+            width: s.viewport?.screen?.width,
+            activeWorkspace: s.ui?.activeWorkspace,
+            stripOpen: s.ui?.workspacesStripOpen,
+          };
+        }),
         distinctUntilChanged(
           (a, b) =>
             a.selectedRow === b.selectedRow &&

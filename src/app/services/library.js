@@ -8,6 +8,7 @@ import {
   SAMPLES_SECTION,
   LOOPS_SECTION,
 } from '../util/library';
+import { createDrumRow, mapDrumsTrack, rowSample } from '../state/drums';
 
 const DRUMS_KIT_URL = 'assets/kits/basic-drum-kit.zip';
 const DRUMS_KIT_NAME = 'basic_drum_kit';
@@ -55,13 +56,20 @@ export const start = ({ state$ }) => {
 
       if (drums) {
         samplesTree[drums.kitName] = drums.list;
-        next = {
-          ...next,
-          sequencer: {
-            ...next.sequencer,
-            assignments: defaultAssignments(drums.meta, drums.kitName),
-          },
-        };
+        next = mapDrumsTrack(next, (track) => {
+          const assignments = defaultAssignments(drums.meta, drums.kitName);
+          const rows = track.rows?.length
+            ? track.rows.map((row, i) => {
+                if (rowSample(row)) return row;
+                const a = assignments[i];
+                return a ? { ...row, sample: { kit: a.kit, file: a.sample } } : row;
+              })
+            : [0, 1, 2, 3].map((i) => {
+                const a = assignments[i];
+                return createDrumRow(i, a ? { kit: a.kit, file: a.sample } : null);
+              });
+          return { ...track, rows };
+        });
       }
       if (loops) {
         loopsTree[loops.kitName] = loops.list;

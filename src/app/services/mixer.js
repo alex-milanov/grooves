@@ -1,5 +1,6 @@
 import { distinctUntilChanged, map } from 'rxjs';
-import { getLoopsTrack } from '../state/loops';
+import { getDrumsTrack, rowParamsMap } from '../state/drums';
+import { getLoopsTrack, loopsChannel } from '../state/loops';
 import { applyRouting } from './audio';
 
 let onStop = () => {};
@@ -9,7 +10,7 @@ export const start = ({ state$ }) => {
   const subs = [];
 
   const sync = (state) => {
-    applyRouting(state.routing, state.sequencer.rowParams, state.mixer, state.partMixer, {
+    applyRouting(state.routing, rowParamsMap(state), state.mixer, getDrumsTrack(state)?.channel, {
       loopsTrack: getLoopsTrack(state),
     });
   };
@@ -21,9 +22,9 @@ export const start = ({ state$ }) => {
       .pipe(
         map((s) => ({
           routing: s.routing,
-          rowParams: s.sequencer.rowParams,
+          rowParams: rowParamsMap(s),
           mixer: s.mixer,
-          partMixer: s.partMixer,
+          drumsChannel: getDrumsTrack(s)?.channel,
           loopsTrack: getLoopsTrack(s),
         })),
         distinctUntilChanged(
@@ -31,12 +32,12 @@ export const start = ({ state$ }) => {
             JSON.stringify(a.routing) === JSON.stringify(b.routing) &&
             JSON.stringify(a.rowParams) === JSON.stringify(b.rowParams) &&
             JSON.stringify(a.mixer) === JSON.stringify(b.mixer) &&
-            JSON.stringify(a.partMixer) === JSON.stringify(b.partMixer) &&
+            JSON.stringify(a.drumsChannel) === JSON.stringify(b.drumsChannel) &&
             JSON.stringify(a.loopsTrack) === JSON.stringify(b.loopsTrack),
         ),
       )
-      .subscribe(({ routing, rowParams, mixer, partMixer, loopsTrack }) => {
-        applyRouting(routing, rowParams, mixer, partMixer, { loopsTrack });
+      .subscribe(({ routing, rowParams, mixer, drumsChannel, loopsTrack }) => {
+        applyRouting(routing, rowParams, mixer, drumsChannel, { loopsTrack });
       }),
   );
 

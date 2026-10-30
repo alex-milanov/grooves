@@ -1,119 +1,153 @@
-# Current grooves project document — dual-home runtime shape (as the app stores it).
-# Ephemeral omitted: playhead, viewport, audio buffers, library.kits tree, routing graph,
-# startedAt / cue fields.
-# Target Structure + Scenes nesting: see config/target-shape.yaml.
+# Current grooves runtime / project shape (v1.5 — implemented).
+# Next: config/target-shape.yaml (scenes[]). Ephemeral omitted: playhead, viewport,
+# buffers, routing graph, library.kits, armed/playing flags.
 
 format: grooves-project
-version: 1
+version: 1.5
 name: example
 lang: en
-
-# Same session as target-shape: 4-bar drums; slot-0 library loop (1 bar);
-# slot-1 recorded loop (2 bars); slots 2–3 empty.
 
 transport:
   bpm: 120
   timeSignature: [4, 4]
   resolution: 16
 
-ui:
-  activeWorkspace: drums
-  workspacesStripOpen: true
-  loops:
-    selectedSlot: null
-    panels:
-      library: false
-      settings: false
+# -----------------------------------------------------------------------------
+# tracks — strip / mixer axis (same as target; content still on-track)
+# -----------------------------------------------------------------------------
 
 tracks:
   - id: drums
     type: sample-seq
     name: Drums
-    transport:
-      armed: true
-      playing: false
-      stopPending: false
+    midi:
+      channel: 10
+    channel:                    # was partMixer
+      volume: 1
+      muted: false
+      solo: false
+      pan: 0.5
+      sends:
+        reverb: 0
+        delay: 0
+    # Row defs — was assignments + rowParams (stable ids).
+    rows:
+      - id: kick
+        name: Kick
+        midi: { note: 36 }
+        sample: { kit: basic_drum_kit, file: PD-KICK-03.wav }
+        inserts: { vcf: { cutoff: 1, resonance: 0 } }
+        sends: { reverb: 0, delay: 0 }
+      - id: snare
+        name: Snare
+        midi: { note: 38 }
+        sample: { kit: basic_drum_kit, file: Rpeople_Snare3.wav }
+        inserts: { vcf: { cutoff: 1, resonance: 0 } }
+        sends: { reverb: 0, delay: 0 }
+      - id: hat
+        name: Hat
+        midi: { note: 42 }
+        sample: { kit: basic_drum_kit, file: HCR-01.wav }
+        inserts: { vcf: { cutoff: 1, resonance: 0 } }
+        sends: { reverb: 0, delay: 0 }
+      - id: row-3
+        name: Row 4
+        midi: { note: 45 }
+        sample: null
+        inserts: { vcf: { cutoff: 1, resonance: 0 } }
+        sends: { reverb: 0, delay: 0 }
+    # Live pattern — stays on track until scenes[] (target).
+    # measures[bar][rowId][localStep]; steps = per bar.
+    pattern:
+      steps: 16
+      measures:
+        - kick: { 0: true, 4: true, 8: true, 12: true }
+          snare: { 4: true, 12: true }
+          hat: {
+            0: true, 2: true, 4: true, 6: true, 8: true, 10: true, 12: true, 14: true
+          }
+          row-3: {}
+        - kick: { 0: true, 4: true, 8: true, 12: true }
+          snare: { 4: true, 12: true }
+          hat: {
+            0: true, 2: true, 4: true, 6: true, 8: true, 10: true, 12: true, 14: true
+          }
+          row-3: {}
+        - kick: { 0: true, 4: true, 8: true, 12: true }
+          snare: { 4: true, 12: true }
+          hat: {
+            0: true, 2: true, 4: true, 6: true, 8: true, 10: true, 12: true, 14: true
+          }
+          row-3: {}
+        - kick: { 0: true, 4: true, 8: true, 12: true }
+          snare: { 4: true, 8: true, 10: true, 12: true }
+          hat: {
+            0: true, 1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true,
+            8: true, 9: true, 10: true, 11: true, 12: true, 14: true
+          }
+          row-3: {}
 
   - id: trk-loops
     type: loop
     name: Loops
-    transport:
-      armed: true
-      playing: false
-      stopPending: false
-    mixer:
+    channel:                    # was track.mixer
       volume: 1
       muted: false
       solo: false
+      pan: 0.5
+      sends:
+        reverb: 0
+        delay: 0
     loop:
       inputId: default
       clickEnabled: true
-      slots:
-        # Library pick — 1 bar @ 120 → duration 2.0s
-        - id: slot-0
-          process: idle
-          kit: basic_loops
-          sample: loop-a.wav
-          sourceBpm: 120
-          sourceBpms: [120]
-          layers: 1
-          duration: 2.0
-          bufferKeys: [loop/trk-loops/slot-0/L0]
-          params:
-            volume: 0.85
-            muted: false
-            vcf: { cutoff: 0.64, resonance: 0 }
-            sends: { reverb: 0, delay: 0 }
-        # Recorded — 2 bars @ 120 → duration 4.0s (no library sample)
-        - id: slot-1
-          process: idle
-          kit: null
-          sample: null
-          sourceBpm: 120
-          sourceBpms: [120]
-          layers: 1
-          duration: 4.0
-          bufferKeys: [loop/trk-loops/slot-1/L0]
-          params:
-            volume: 0.85
-            muted: false
-            vcf: { cutoff: 0.64, resonance: 0 }
-            sends: { reverb: 0, delay: 0 }
-        - id: slot-2
-          process: empty
-          kit: null
-          sample: null
-          sourceBpm: null
-          sourceBpms: []
-          layers: 0
-          duration: 0
-          bufferKeys: []
-          params:
-            volume: 0.85
-            muted: false
-            vcf: { cutoff: 0.64, resonance: 0 }
-            sends: { reverb: 0, delay: 0 }
-        - id: slot-3
-          process: empty
-          kit: null
-          sample: null
-          sourceBpm: null
-          sourceBpms: []
-          layers: 0
-          duration: 0
-          bufferKeys: []
-          params:
-            volume: 0.85
-            muted: false
-            vcf: { cutoff: 0.64, resonance: 0 }
-            sends: { reverb: 0, delay: 0 }
-
-# Drums mixer still dual-homed (not on tracks[drums]).
-partMixer:
-  name: Drums
-  volume: 1
-  muted: false
-  solo: false
+    # Slot defs + live payloads together until scenes[] splits them.
+    slots:
+      - id: slot-0
+        name: Slot 1
+        process: idle
+        sample: { kit: basic_loops, file: loop-a.wav }
+        sourceBpm: 120
+        layers: 1
+        duration: 2.0             # 1 bar @ 120
+        inserts: { vcf: { cutoff: 0.64, resonance: 0 } }
+        sends: { reverb: 0, delay: 0 }
+        volume: 0.85
+        muted: false
+      - id: slot-1
+        name: Slot 2
+        process: idle
+        sample: null
+        media: media/loops/slot-1.wav
+        sourceBpm: 120
+        layers: 1
+        duration: 4.0             # 2 bars @ 120
+        inserts: { vcf: { cutoff: 0.64, resonance: 0 } }
+        sends: { reverb: 0, delay: 0 }
+        volume: 0.85
+        muted: false
+      - id: slot-2
+        name: Slot 3
+        process: empty
+        sample: null
+        sourceBpm: null
+        layers: 0
+        duration: 0
+        inserts: { vcf: { cutoff: 0.64, resonance: 0 } }
+        sends: { reverb: 0, delay: 0 }
+        volume: 0.85
+        muted: false
+      - id: slot-3
+        name: Slot 4
+        process: empty
+        sample: null
+        sourceBpm: null
+        layers: 0
+        duration: 0
+        inserts: { vcf: { cutoff: 0.64, resonance: 0 } }
+        sends: { reverb: 0, delay: 0 }
+        volume: 0.85
+        muted: false
 
 mixer:
   master:
@@ -126,55 +160,28 @@ mixer:
       time: 0.375
       feedback: 0.35
 
-# Drum pattern still top-level sequencer.* (not under tracks[drums]).
-# measures[bar][row][localStep] — one schedule cycle per bar.
-sequencer:
-  rows: 4
-  steps: 16          # steps per bar
-  bars: 4            # == measures.length
-  focusedBar: 0
-  playingBar: null
-  measuresExpanded: true
-  selectedRow: null
-  panels:
-    library: false
-    settings: false
-  assignments:
-    0:
-      kit: basic_drum_kit
-      sample: PD-KICK-03.wav
-    1:
-      kit: basic_drum_kit
-      sample: Rpeople_Snare3.wav
-    2:
-      kit: basic_drum_kit
-      sample: HCR-01.wav
-  rowParams: {}
-  measures:
-    # bar 0
-    - 0: { 0: true, 4: true, 8: true, 12: true }
-      1: { 4: true, 12: true }
-      2: { 0: true, 2: true, 4: true, 6: true, 8: true, 10: true, 12: true, 14: true }
-      3: {}
-    # bar 1
-    - 0: { 0: true, 4: true, 8: true, 12: true }
-      1: { 4: true, 12: true }
-      2: { 0: true, 2: true, 4: true, 6: true, 8: true, 10: true, 12: true, 14: true }
-      3: {}
-    # bar 2
-    - 0: { 0: true, 4: true, 8: true, 12: true }
-      1: { 4: true, 12: true }
-      2: { 0: true, 2: true, 4: true, 6: true, 8: true, 10: true, 12: true, 14: true }
-      3: {}
-    # bar 3 — fill
-    - 0: { 0: true, 4: true, 8: true, 12: true }
-      1: { 4: true, 8: true, 10: true, 12: true }
-      2: {
-        0: true, 1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true,
-        8: true, 9: true, 10: true, 11: true, 12: true, 14: true
-      }
-      3: {}
+# -----------------------------------------------------------------------------
+# ui — layout only (not DAW Structure / not track content)
+# -----------------------------------------------------------------------------
+# Ephemeral omitted: playhead, cuedBar, viewport, buffers, routing,
+# library.kits, armed/playing transport flags.
 
-library:
-  path: [library, loops, basic_loops]
-  selectedSample: null
+ui:
+  activeWorkspace: drums
+  workspacesStripOpen: true
+  library:
+    path: [library, loops, basic_loops]
+  drums:
+    selectedRow: null
+    currentBar: 0
+    measuresExpanded: true
+    panels: { library: false, settings: false }
+  loops:
+    selectedSlot: null
+    panels: { library: false, settings: false }
+
+# -----------------------------------------------------------------------------
+# → target (v2)
+# -----------------------------------------------------------------------------
+# Lift tracks[].pattern / slot payloads → scenes[0].clips[track=…].
+# tracks[] keep channel + rows/slots defs only. Prefer library paths for samples.
