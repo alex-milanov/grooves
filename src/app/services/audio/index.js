@@ -9,6 +9,8 @@ export {
   getLoopSlotInput,
   getPartLoopsInput,
   syncPartLoopsMixer,
+  setPartDrumsGain,
+  fadePartDrumsIn,
   resume,
   play,
   cancelScheduledAfter,

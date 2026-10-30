@@ -9,6 +9,8 @@ import {
   cancelAllScheduled,
   getOutputLatency,
   samples,
+  setPartDrumsGain,
+  fadePartDrumsIn,
 } from './audio';
 import {
   getTransportStartTime,
@@ -16,7 +18,13 @@ import {
   resetTransportStartTime,
   setTransportStartTime,
 } from './audio/clock';
-import { stepTime, transportStartFromLoopPhase } from '../util/transport-clock';
+import {
+  stepTime,
+  transportStartFromLoopPhase,
+  barSeconds,
+  nextLoopBarTime,
+} from '../util/transport-clock';
+import { CYCLE_EDGE } from '../util/loop-quantize';
 import { DRUMS_TRACK_ID, isTrackScheduling } from '../state/transport';
 import { totalSteps } from '../state/sequencer';
 import { stepsPerBar, barCount, clearCuedBar } from '../state/sequencer-measures';
@@ -145,8 +153,16 @@ const runScheduling = (state) => {
   const { cycle, duration } = timing;
 
   if (latestCycle === -1) {
-    scheduleCycle(state, 0);
-    latestCycle = 0;
+    // Join the *current* cycle — after a running loop, transport start is in the
+    // past, so cycle 0 is entirely gone and scheduling it would silence/drift.
+    const c = Math.max(0, cycle);
+    scheduleCycle(state, c);
+    if (state.sequencer?.cuedBar == null) {
+      scheduleCycle(state, c + 1);
+      latestCycle = c + 1;
+    } else {
+      latestCycle = c;
+    }
     return;
   }
 
@@ -357,9 +373,16 @@ const transportChanged = (a, b) =>
 const rescheduleRemainder = (state) => {
   const { cycle, cutoffTime, rescheduleFrom, steps } = audioCycleTiming(state);
   cancelScheduledAfter(cutoffTime);
-  latestCycle = cycle;
   if (rescheduleFrom < steps) {
     scheduleCycle(state, cycle, rescheduleFrom);
+  }
+  // Keep lookahead in sync — otherwise a grid edit only patched this cycle and
+  // the already-queued next cycle kept the old pattern (new hits waited ~1 cycle).
+  if (state.sequencer?.cuedBar == null) {
+    scheduleCycle(state, cycle + 1, 0);
+    latestCycle = cycle + 1;
+  } else {
+    latestCycle = cycle;
   }
 };
 
@@ -370,6 +393,7 @@ const pauseGracefully = (state) => {
   lastPlayhead = -1;
   clearCueArm();
   cueUiHoldStep = null;
+  setPartDrumsGain(1);
   dispatch((s) => ({
     ...clearCuedBar(s),
     transport: { ...s.transport, playhead: null },
@@ -384,6 +408,7 @@ const stopImmediately = () => {
   lastPlayhead = -1;
   clearCueArm();
   cueUiHoldStep = null;
+  setPartDrumsGain(1);
   dispatch((s) => ({
     ...clearCuedBar(s),
     transport: { ...s.transport, playhead: null },
@@ -398,12 +423,17 @@ const reset = () => {
   lastPlayhead = -1;
   clearCueArm();
   cueUiHoldStep = null;
+  setPartDrumsGain(1);
   dispatch((s) => ({
     ...clearCuedBar(s),
     transport: { ...s.transport, playhead: null },
   }));
 };
 
+/**
+ * Join a running loop's cycle: share its timeline and, when mid-bar, fade the
+ * drums bus in until the next loop bar (same idea as loop `partialPlay`).
+ */
 const anchorTransportStart = (state) => {
   const now = context.currentTime;
   const cycleDur = cycleDuration(state);
@@ -412,8 +442,22 @@ const anchorTransportStart = (state) => {
     setTransportStartTime(
       transportStartFromLoopPhase(loop.startedAt, loop.duration, cycleDur, now),
     );
+
+    const bar = barSeconds(state.transport);
+    const nextBar = nextLoopBarTime(state.transport, loop.startedAt, loop.duration, now);
+    const remaining = Math.max(0, nextBar - now);
+    const intoBar = bar > 0 ? Math.max(0, bar - remaining) : 0;
+    const nearEnd = bar > 0 && remaining <= bar * CYCLE_EDGE;
+    const nearStart = bar > 0 && intoBar <= bar * CYCLE_EDGE;
+
+    if (!nearEnd && !nearStart && remaining > 0.001) {
+      fadePartDrumsIn(now, nextBar, 1);
+    } else {
+      setPartDrumsGain(1);
+    }
     return;
   }
+  setPartDrumsGain(1);
   // Keep a session-level future anchor so drums and loops share one downbeat.
   const existing = getTransportStartTime();
   if (existing > now + 0.001) return;
@@ -551,13 +595,12 @@ export const start = ({ state$ }) => {
         filter(([prev, next]) => prev.sequencer.grid !== next.sequencer.grid),
       )
       .subscribe(([prev, next]) => {
-        const rowCount = next.sequencer.rows;
+        const rowCount = next.sequencer.rows ?? next.sequencer.tracks ?? 0;
         const steps = stepCount(next);
         const changes = gridCellChanges(prev.sequencer.grid, next.sequencer.grid, rowCount, steps);
-        const { playhead } = audioCycleTiming(next);
-        if (changes.some(({ step }) => step > playhead)) {
-          rescheduleRemainder(next);
-        }
+        if (!changes.length) return;
+        // Behind-playhead edits still matter for the next cycle (same pattern loop).
+        rescheduleRemainder(next);
       }),
   );
 

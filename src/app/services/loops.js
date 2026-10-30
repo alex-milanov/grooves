@@ -8,6 +8,8 @@ import {
   getLoopSlotInput,
   syncPartLoopsMixer,
   getRecordLatencyCompensation,
+  getTransportStartTime,
+  setTransportStartTime,
   scheduleBeatClicks,
   stopBarClicks,
   createInputStream,
@@ -437,6 +439,11 @@ const beginRecording = async (state, slotIndex) => {
 const beginPlay = (state, slotIndex) => {
   const slot = getLoopSlot(state, slotIndex);
   if (!slot || !slotHasContent(slot)) return;
+
+  // Publish the loop timeline as the session clock when nothing else has.
+  if (slot.startedAt != null && getTransportStartTime() <= 0) {
+    setTransportStartTime(slot.startedAt);
+  }
 
   const armPlayback = () => {
     resume().then(() => {

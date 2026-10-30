@@ -6,7 +6,13 @@ import {
   resetTransportStartTime,
   setTransportStartTime,
 } from '../services/audio/clock';
-import { getLoopsTrack, LOOPS_TRACK_ID, mapLoopSlots, slotHasContent } from './loops';
+import {
+  getActiveLoopCycle,
+  getLoopsTrack,
+  LOOPS_TRACK_ID,
+  mapLoopSlots,
+  slotHasContent,
+} from './loops';
 
 export const DRUMS_TRACK_ID = 'drums';
 export { LOOPS_TRACK_ID };
@@ -174,7 +180,11 @@ export const trackTogglePlay = (trackId = DRUMS_TRACK_ID) =>
 
     const nextTrackPlaying = !track.transport?.playing;
     if (nextTrackPlaying && trackId === DRUMS_TRACK_ID && getTransportStartTime() <= 0) {
-      setTransportStartTime(nextTransportStart());
+      // Prefer a playing loop's timeline so drums join without bar drift.
+      const loop = getActiveLoopCycle(s);
+      setTransportStartTime(
+        loop?.startedAt != null ? loop.startedAt : nextTransportStart(),
+      );
     }
     return trackTogglePlayReducer(trackId)(s);
   });

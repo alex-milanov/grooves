@@ -51,21 +51,20 @@ export const phaseAt = (startedAt, duration, atTime = context.currentTime) => {
   return elapsed / duration;
 };
 
-/** Anchor transport start so cycleDuration progress matches loop cycle phase at `now`. */
+/**
+ * Anchor session transport to a playing loop's timeline.
+ * Use the loop's `startedAt` directly — remapping loop phase onto sequencer
+ * `cycleDuration` drifts whenever those lengths differ (e.g. 1-bar loop +
+ * multi-bar pattern): bar boundaries stop lining up.
+ */
 export const transportStartFromLoopPhase = (
   loopStartedAt,
-  loopDuration,
-  cycleDuration,
+  _loopDuration,
+  _cycleDuration,
   now = context.currentTime,
 ) => {
-  if (!loopStartedAt || !loopDuration || !cycleDuration) {
-    return nextTransportStart(now);
-  }
-  // Loop armed in the future — share that downbeat rather than wrapping a negative phase.
-  if (loopStartedAt > now + 0.001) return loopStartedAt;
-  const elapsed = (((now - loopStartedAt) % loopDuration) + loopDuration) % loopDuration;
-  const phase = elapsed / loopDuration;
-  return now - phase * cycleDuration;
+  if (!loopStartedAt) return nextTransportStart(now);
+  return loopStartedAt;
 };
 
 /** Next bar boundary on a playing loop's timeline. */

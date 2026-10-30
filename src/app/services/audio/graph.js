@@ -244,6 +244,29 @@ export const syncPartLoopsMixer = (mixer) => {
   part.output.gain.value = vol;
 };
 
+/** Instant part-drums bus gain (1 = unity; partMixer still applies on the edge). */
+export const setPartDrumsGain = (gain) => {
+  const part = nodeRegistry.get('part-drums');
+  if (!part?.output) return;
+  const g = part.output.gain;
+  g.cancelScheduledValues(context.currentTime);
+  g.setValueAtTime(gain, context.currentTime);
+};
+
+/** Fade part-drums in (loop-style mid-cycle join). */
+export const fadePartDrumsIn = (fromTime, untilTime, toGain = 1) => {
+  const part = nodeRegistry.get('part-drums');
+  if (!part?.output) return;
+  const g = part.output.gain;
+  g.cancelScheduledValues(fromTime);
+  g.setValueAtTime(0, fromTime);
+  if (untilTime > fromTime + 0.001) {
+    g.linearRampToValueAtTime(toGain, untilTime);
+  } else {
+    g.setValueAtTime(toGain, fromTime);
+  }
+};
+
 export const resume = () => (context.state === 'suspended' ? context.resume() : Promise.resolve());
 
 export const play = (buffer, when = context.currentTime, row = 0, meta = {}) => {
