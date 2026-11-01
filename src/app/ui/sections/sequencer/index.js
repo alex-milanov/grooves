@@ -1,4 +1,4 @@
-import { div, h2, button, header, label, input, i } from 'iblokz-snabbdom-helpers';
+import { main, h2, button, header, label, input, i } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../../../state';
 import {
@@ -76,7 +76,7 @@ export default (state) => {
     ui.cuedBar == null ? null : Math.min(bars - 1, Math.max(0, ui.cuedBar));
 
   return [
-    div('.sequencer', [
+    main('.sequencer', [
       header([
         h2('Sequencer'),
         button(

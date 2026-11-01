@@ -8,11 +8,18 @@ import { drumsWorkspace, loopsWorkspace, mixerWorkspace } from './workspaces/con
 export default (state) => {
   const cls = themeClass(state);
 
-  const workspaceContent = isDrumsWorkspace(state)
-    ? drumsWorkspace(state)
+  const domain = isDrumsWorkspace(state)
+    ? 'drums'
     : isLoopsWorkspace(state)
-      ? loopsWorkspace(state)
-      : mixerWorkspace(state);
+      ? 'loops'
+      : 'mixer';
+
+  const workspaceContent =
+    domain === 'drums'
+      ? drumsWorkspace(state)
+      : domain === 'loops'
+        ? loopsWorkspace(state)
+        : mixerWorkspace(state);
 
   return body(
     '.app',
@@ -22,7 +29,7 @@ export default (state) => {
     [
       header(state),
       workspacesStrip(state),
-      div('.workspace-wrapper', [div('.workspace', [workspaceContent])]),
+      div('.workspace-wrapper', [div(`.workspace.${domain}`, [workspaceContent])]),
     ],
   );
 };

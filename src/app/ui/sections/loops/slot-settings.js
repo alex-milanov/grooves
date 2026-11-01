@@ -1,4 +1,4 @@
-import { div, header, span, button, label, input, i } from 'iblokz-snabbdom-helpers';
+import { aside, div, header, span, button, label, input, i } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import knob from '../../components/knob';
 import { previewLoopSlot } from '../../../services/waveform';
@@ -20,8 +20,8 @@ export default (state) => {
     dispatch(patchSlotParam(selectedSlot, path, value));
   };
 
-  return div(
-    '.part-settings.loop-slot-settings',
+  return aside(
+    '.settings.loop-slot-settings',
     {
       class: {
         visible: settingsOpen,

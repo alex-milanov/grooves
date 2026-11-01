@@ -9,14 +9,15 @@
 @import 'dropdown';
 @import 'sections';
 @import 'examples';
-@import 'sequencer';
-@import 'measures-strip';
-@import 'library';
-@import 'part-settings';
 @import 'knob';
-@import 'workspaces-strip';
-@import 'mixer';
-@import 'loops';
+@import 'layout/shell';
+@import 'layout/strip';
+@import 'shared/library';
+@import 'shared/settings';
+@import 'sections/sequencer';
+@import 'sections/measures-strip';
+@import 'sections/loops';
+@import 'sections/mixer';
 @import 'responsive';
 
 @font-face {

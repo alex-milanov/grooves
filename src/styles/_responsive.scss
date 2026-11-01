@@ -28,14 +28,17 @@
     padding: 0.5rem 0.75rem;
   }
 
-  .workspace-strip-preview,
-  .workspace-strip-slot {
+  .workspace-strip-preview {
     width: 10em;
     height: 6.5em;
   }
 
   .workspace-strip-preview .workspace-preview-inner {
     --strip-preview-scale: 0.13;
+
+    &:has(.loops-main) {
+      --strip-preview-scale: 0.2;
+    }
   }
 
   .workspaces-strip {

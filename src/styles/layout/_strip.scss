@@ -2,7 +2,7 @@
   flex: 0 0 auto;
   display: flex;
   flex-flow: row nowrap;
-  align-items: stretch;
+  align-items: center;
   gap: 0.35em;
   padding: 0.4em 0.75rem;
   box-sizing: border-box;
@@ -17,7 +17,7 @@
   flex: 0 0 auto;
   display: flex;
   flex-flow: row nowrap;
-  align-items: stretch;
+  align-items: center;
   gap: 0.35em;
 }
 
@@ -26,40 +26,13 @@
   min-width: 0.5em;
 }
 
-.workspace-strip-slot {
-  flex: 0 0 auto;
-  width: 13em;
-  height: 8em;
-  box-sizing: border-box;
-  border: 2px dashed var(--app-border, rgba(255, 255, 255, 0.2));
-  border-radius: 0.4em;
-  background: transparent;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding: 0.25em 0.4em;
-  opacity: 0.65;
-}
-
-.workspace-strip-slot-label {
-  font-size: 0.65em;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.85;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
 .workspace-strip-preview {
   flex: 0 0 auto;
   width: 13em;
   height: 8em;
   padding: 0;
   margin: 0;
-  border: 1px solid var(--app-border, rgba(255, 255, 255, 0.15));
+  border: 1px solid color-mix(in srgb, var(--app-border, rgba(255, 255, 255, 0.15)) 45%, transparent);
   border-radius: 0.4em;
   background: var(--app-input-bg, rgba(0, 0, 0, 0.25));
   overflow: hidden;
@@ -68,13 +41,23 @@
   position: relative;
   transition: opacity 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 
-  &:hover {
+  &:hover:not(.active) {
     opacity: 1;
     border-color: var(--app-btn-primary-bg, currentColor);
     box-shadow: 0 2px 8px var(--app-shadow, rgba(0, 0, 0, 0.25));
   }
 
+  // Same ring language as `.measure.active` in the measures strip.
+  &.active {
+    opacity: 1;
+    border-color: transparent;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--app-btn-primary-bg) 55%, transparent);
+  }
+
   .workspace-preview-inner {
+    // Absolute center so wide/tall unscaled content (loops) still crops evenly
+    // under overflow:hidden — flex-center clips asymmetrically when the
+    // layout box exceeds the thumb.
     position: absolute;
     top: 50%;
     left: 50%;
@@ -83,6 +66,11 @@
     transform-origin: center center;
     pointer-events: none;
     user-select: none;
+
+    // Loops editor is shorter/wider than drums — tighten the thumbnail crop.
+    &:has(.loops-main) {
+      --strip-preview-scale: 0.24;
+    }
 
     .workspace-inner,
     .mixer-console {

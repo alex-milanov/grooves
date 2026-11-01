@@ -102,7 +102,7 @@ const beginPanelAnimation = (prev, next) => {
     }
     if (waitSettings) {
       waits.push(
-        whenTransitionEnd(document.querySelector('.workspace .part-settings'), {
+        whenTransitionEnd(document.querySelector('.workspace .settings'), {
           property: 'max-width',
           timeoutMs: PANEL_TRANSITION_FALLBACK_MS,
         }),
@@ -145,7 +145,7 @@ const observeWorkspace = () => {
 
   resizeObserver.observe(content);
   content
-    .querySelectorAll('.sequencer, .library, .part-settings, .mixer-console')
+    .querySelectorAll('main, .library, .settings, .mixer-console')
     .forEach((el) => resizeObserver.observe(el));
 };
 

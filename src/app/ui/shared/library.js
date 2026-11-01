@@ -1,4 +1,4 @@
-import { div, header, span, ul, li } from 'iblokz-snabbdom-helpers';
+import { aside, header, span, ul, li } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../../state';
 import {
@@ -27,7 +27,7 @@ export default (state, { open, active = null, isAssigned, onAssign }) => {
   const activeKit = active?.kit ?? null;
   const activeSample = active?.sample ?? null;
 
-  return div(
+  return aside(
     '.library',
     {
       class: { visible: open },

@@ -186,7 +186,7 @@ const loopBufferKeyFor = (state, slotIndex) => {
 };
 
 const loadAssignment = async (assignment) => {
-  const container = document.querySelector('.part-settings:not(.loop-slot-settings) .waveform');
+  const container = document.querySelector('.settings:not(.loop-slot-settings) .waveform');
   if (!container || !assignment) return;
 
   const key = samples.key(assignment.kit, assignment.sample);

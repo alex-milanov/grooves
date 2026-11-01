@@ -1,4 +1,4 @@
-import { div, header, span, button, label, input, i } from 'iblokz-snabbdom-helpers';
+import { aside, div, header, span, button, label, input, i } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { previewCurrent } from '../../../services/waveform';
 import { getRowParams } from '../../../util/row-params';
@@ -29,8 +29,8 @@ export default (state) => {
     dispatch(patchDrumRowNested(selectedRow, path, value));
   };
 
-  return div(
-    '.part-settings',
+  return aside(
+    '.settings',
     {
       class: {
         visible: settingsOpen,

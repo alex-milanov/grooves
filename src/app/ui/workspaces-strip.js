@@ -1,4 +1,4 @@
-import { div, button, span } from 'iblokz-snabbdom-helpers';
+import { div, button } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../state';
 import {
@@ -14,19 +14,16 @@ const setWorkspace = (id) => (ev) => {
   dispatch(patch(['ui', 'activeWorkspace'], id));
 };
 
-const stripSlot = (label) =>
-  div('.workspace-strip-slot', { attrs: { 'aria-hidden': 'true' } }, [
-    span('.workspace-strip-slot-label', label),
-  ]);
-
-const stripPreview = (id, label, content, onClick) =>
+const stripPreview = (id, label, content, { active, onClick }) =>
   button(
     '.workspace-strip-preview',
     {
+      class: { active },
       props: {
         type: 'button',
-        title: `Show ${label}`,
-        'aria-label': `Show ${label}`,
+        title: active ? `${label} (current)` : `Show ${label}`,
+        'aria-label': active ? `${label} (current)` : `Show ${label}`,
+        'aria-pressed': String(active),
       },
       on: { click: onClick },
     },
@@ -43,33 +40,21 @@ export default (state) => {
 
   return div('.workspaces-strip', [
     div('.workspaces-strip-tracks', [
-      active === WORKSPACE_DRUMS
-        ? stripSlot(drumsName)
-        : stripPreview(
-            WORKSPACE_DRUMS,
-            drumsName,
-            drumsWorkspace(state),
-            setWorkspace(WORKSPACE_DRUMS),
-          ),
-      active === WORKSPACE_LOOPS
-        ? stripSlot(loopsName)
-        : stripPreview(
-            WORKSPACE_LOOPS,
-            loopsName,
-            loopsWorkspace(state),
-            setWorkspace(WORKSPACE_LOOPS),
-          ),
+      stripPreview(WORKSPACE_DRUMS, drumsName, drumsWorkspace(state, { preview: true }), {
+        active: active === WORKSPACE_DRUMS,
+        onClick: setWorkspace(WORKSPACE_DRUMS),
+      }),
+      stripPreview(WORKSPACE_LOOPS, loopsName, loopsWorkspace(state, { preview: true }), {
+        active: active === WORKSPACE_LOOPS,
+        onClick: setWorkspace(WORKSPACE_LOOPS),
+      }),
     ]),
     div('.workspaces-strip-spacer'),
     div('.workspaces-strip-system', [
-      active === WORKSPACE_MIXER
-        ? stripSlot('Mixer')
-        : stripPreview(
-            WORKSPACE_MIXER,
-            'Mixer',
-            mixerWorkspace(state),
-            setWorkspace(WORKSPACE_MIXER),
-          ),
+      stripPreview(WORKSPACE_MIXER, 'Mixer', mixerWorkspace(state), {
+        active: active === WORKSPACE_MIXER,
+        onClick: setWorkspace(WORKSPACE_MIXER),
+      }),
     ]),
   ]);
 };

@@ -46,42 +46,50 @@ const assignSampleToLoopSlot = (slotIndex, kit, sample) => {
   });
 };
 
-export const drumsWorkspace = (state) => {
+export const drumsWorkspace = (state, { preview = false } = {}) => {
   const row = state.ui?.drums?.selectedRow;
   const open = row != null && !!state.ui?.drums?.panels?.library;
   const assignment = row != null ? rowSample(getDrumsRows(state)[row]) : null;
+  const [editor, settings] = sequencer(state);
 
   return div('.workspace-inner', [
-    library(state, {
-      open,
-      section: SAMPLES_SECTION,
-      active: assignment,
-      isAssigned: (kit, sample) => isAssignedDrumSample(state, kit, sample),
-      onAssign: (kit, sample) => {
-        if (row == null) return;
-        dispatch(assignRowSample(row, kit, sample));
-      },
-    }),
-    ...sequencer(state),
+    preview
+      ? null
+      : library(state, {
+          open,
+          section: SAMPLES_SECTION,
+          active: assignment,
+          isAssigned: (kit, sample) => isAssignedDrumSample(state, kit, sample),
+          onAssign: (kit, sample) => {
+            if (row == null) return;
+            dispatch(assignRowSample(row, kit, sample));
+          },
+        }),
+    editor,
+    preview ? null : settings,
   ]);
 };
 
-export const loopsWorkspace = (state) => {
+export const loopsWorkspace = (state, { preview = false } = {}) => {
   const slotIndex = state.ui?.loops?.selectedSlot;
   const open = slotIndex != null && !!state.ui?.loops?.panels?.library;
   const slot = slotIndex != null ? getLoopSlot(state, slotIndex) : null;
+  const [editor, settings] = loops(state);
 
-  return div('.workspace-inner.loops-workspace', [
-    library(state, {
-      open,
-      section: LOOPS_SECTION,
-      active: slot ? { kit: slot.kit, sample: slot.sample } : null,
-      onAssign: (kit, sample) => {
-        if (slotIndex == null) return;
-        assignSampleToLoopSlot(slotIndex, kit, sample);
-      },
-    }),
-    ...loops(state),
+  return div('.workspace-inner', [
+    preview
+      ? null
+      : library(state, {
+          open,
+          section: LOOPS_SECTION,
+          active: slot ? { kit: slot.kit, sample: slot.sample } : null,
+          onAssign: (kit, sample) => {
+            if (slotIndex == null) return;
+            assignSampleToLoopSlot(slotIndex, kit, sample);
+          },
+        }),
+    editor,
+    preview ? null : settings,
   ]);
 };
 

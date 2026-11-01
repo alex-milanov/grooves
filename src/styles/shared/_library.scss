@@ -119,7 +119,7 @@
 
 [class*='-dark'] {
   .sequencer .measures-strip,
-  .library .list {
+  aside.library .list {
     @include thin-scrollbar(6px, #f0f2f5);
   }
 }

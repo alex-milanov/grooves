@@ -1,4 +1,4 @@
-import { div, header, button, h2, i } from 'iblokz-snabbdom-helpers';
+import { main, div, header, button, h2, i } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { context } from '../../../services/audio';
 import { barSeconds, phaseAt } from '../../../util/transport-clock';
@@ -221,7 +221,7 @@ export default (state) => {
     })),
   ];
 
-  return div('.loops-main.sequencer', [
+  return main('.loops-main', [
     header('.loops-header', [
       h2('Loops'),
       button(
