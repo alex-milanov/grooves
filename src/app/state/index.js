@@ -66,6 +66,8 @@ export const initial = {
       size: 'md',
       scroll: { x: 0, y: 0 },
     },
+    /** True while library/settings panel max-width is transitioning — viewport skips scale. */
+    animating: false,
   },
 };
 

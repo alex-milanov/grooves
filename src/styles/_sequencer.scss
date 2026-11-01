@@ -29,7 +29,9 @@
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  align-items: stretch;
+  // Center main ↔ library/settings on the cross axis (stretch made the short
+  // column fill the tallest panel and only matched centers when heights matched).
+  align-items: center;
 }
 
 .sequencer {

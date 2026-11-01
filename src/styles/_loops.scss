@@ -30,10 +30,22 @@
     width: 100%;
     font-size: 0.6em;
     padding: 0.35em 0.5em;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
+
+    &:not(.assigned) {
+      opacity: 0.55;
+    }
+
+    &:not(.assigned):hover,
+    &:not(.assigned).active {
+      opacity: 0.85;
+    }
 
     &.assigned:not(.active) {
       border: 1px solid var(--app-btn-secondary-border);
+      color: var(--app-text);
       @supports (color: color-mix(in srgb, white 50%, black)) {
         border-color: color-mix(in srgb, var(--app-btn-primary-bg) 45%, var(--app-btn-secondary-border));
       }
@@ -104,6 +116,15 @@
       box-shadow: 0 0 8px color-mix(in srgb, #a8b8c8 40%, transparent);
     }
 
+    // Occupied / idle — ring so full slots don't read as empty.
+    &.assigned:not(.play):not(.record):not(.overdub):not(.count-in) {
+      --fg: var(--app-text, #444);
+      opacity: 1;
+      box-shadow:
+        0 0 0 2px color-mix(in srgb, var(--app-btn-primary-bg, #888) 55%, transparent),
+        1px 1px 6px color-mix(in srgb, var(--app-shadow, #000) 25%, transparent);
+    }
+
     &.tempo-pulse {
       transform-origin: center center;
       transition: none;
@@ -112,7 +133,8 @@
 
   .loop-slot-btn.stop,
   .loops-clear-all,
-  .loops-click-toggle {
+  .loops-click-toggle,
+  .loops-process-mic-toggle {
     @include btn-base;
     @include btn-variant(secondary);
     width: 2.75em;
@@ -130,11 +152,11 @@
 
   .loops-header .dropdown.loops-input {
     @include input-field(sm);
-    font-size: 0.62em;
+    font-size: 0.72em;
     display: inline-flex;
     align-items: stretch;
     padding: 0;
-    min-width: 11em;
+    min-width: 12em;
     max-width: 18em;
     text-decoration: none;
     vertical-align: middle;
@@ -147,7 +169,7 @@
       flex: 1 1 auto;
       min-width: 0;
       width: 100%;
-      padding: 0.35em 0.5em;
+      padding: 0.4em 0.55em;
       line-height: 1;
       white-space: nowrap;
       overflow: hidden;

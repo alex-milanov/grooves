@@ -27,8 +27,6 @@ import dropdown, { caret } from '../../components/dropdown';
 const SLOT_COUNT = 4;
 let slotClickTimer = null;
 
-const shorten = (name, max = 14) => (name.length > max ? `${name.slice(0, max - 1)}…` : name);
-
 const clearSlotClickTimer = () => {
   if (slotClickTimer) {
     clearTimeout(slotClickTimer);
@@ -110,7 +108,8 @@ const slotStrip = (state, index) => {
   }
 
   const tempoPulse = slotTempoPulseEnabled(state, slot, index);
-  const slotLabel = slot?.sample ? shorten(slot.sample) : `Slot ${index + 1}`;
+  const hasContent = slotHasContent(slot);
+  const slotLabel = slot?.sample || `Slot ${index + 1}`;
 
   return div(`.loop-slot[data-slot="${index}"]`, [
     button(
@@ -118,7 +117,7 @@ const slotStrip = (state, index) => {
       {
         class: {
           active: isSelected,
-          assigned: slotHasContent(slot),
+          assigned: hasContent,
           'panel-library': isSelected && panels.library,
           'panel-settings': isSelected && panels.settings,
         },
@@ -144,6 +143,7 @@ const slotStrip = (state, index) => {
           play: process === 'play',
           record: process === 'record',
           overdub: process === 'overdub',
+          assigned: hasContent,
           'count-in':
             (process === 'record' && countInAt != null && startedAt != null && now < startedAt) ||
             inPlayFade,
@@ -154,8 +154,11 @@ const slotStrip = (state, index) => {
         },
         props: {
           type: 'button',
-          title: 'Play / Record',
-          'aria-label': `Play or record slot ${index + 1}`,
+          title: hasContent ? 'Play / Overdub' : 'Record',
+          'aria-label': hasContent
+            ? `Play or overdub slot ${index + 1}`
+            : `Record slot ${index + 1}`,
+          'aria-pressed': String(hasContent),
         },
         on: {
           click: (ev) => {
