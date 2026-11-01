@@ -123,7 +123,8 @@
     justify-content: center;
   }
 
-  .loops-click-toggle.active {
+  .loops-click-toggle.active,
+  .loops-process-mic-toggle.active {
     box-shadow: 0 0 0 2px color-mix(in srgb, #a8b8c8 55%, transparent);
   }
 

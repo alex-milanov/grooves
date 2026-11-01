@@ -20,6 +20,7 @@ import {
   slotStop,
   slotTogglePlayRec,
   toggleLoopsClick,
+  toggleLoopsProcessMic,
 } from '../../../state/loops';
 import dropdown, { caret } from '../../components/dropdown';
 
@@ -201,6 +202,7 @@ export default (state) => {
   const loopsPlaying = !!loopsTrack?.transport?.playing;
   const anySlotActive = anyLoopSlotActive(state);
   const inputId = loopsTrack?.loop?.inputId ?? 'default';
+  const processMic = !!loopsTrack?.loop?.processMic;
   const devices = state.ui?.loops?.inputDevices ?? [];
 
   const inputItems = [
@@ -254,10 +256,6 @@ export default (state) => {
         },
         [i('.fa.fa-trash')],
       ),
-      dropdown('.loops-input', {
-        handle: [inputLabel(devices, inputId), caret()],
-        items: inputItems,
-      }),
       button(
         '.track-transport-btn.loops-click-toggle',
         {
@@ -272,7 +270,27 @@ export default (state) => {
           },
           on: { click: () => dispatch(toggleLoopsClick) },
         },
-        [i('.fa.fa-bullseye')],
+        [i('.fa.fa-hourglass-start')],
+      ),
+      dropdown('.loops-input', {
+        handle: [inputLabel(devices, inputId), caret()],
+        items: inputItems,
+      }),
+      button(
+        '.track-transport-btn.loops-process-mic-toggle',
+        {
+          class: { active: processMic },
+          props: {
+            type: 'button',
+            title: processMic
+              ? 'Mic processing on (echo cancel / noise / AGC)'
+              : 'Mic processing off (raw — better for music)',
+            'aria-label': 'Toggle mic processing',
+            'aria-pressed': String(processMic),
+          },
+          on: { click: () => dispatch(toggleLoopsProcessMic) },
+        },
+        [i('.fa.fa-filter')],
       ),
     ]),
     div(

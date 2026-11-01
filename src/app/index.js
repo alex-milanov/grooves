@@ -22,7 +22,7 @@ let state$ = init(initial);
 
 state$
   .pipe(distinctUntilChanged((a, b) => a.tracks === b.tracks && a.ui === b.ui))
-  .subscribe((s) => console.log('state', s));
+  // .subscribe((s) => console.log('state', s));
 
 // services
 viewport.start({ state$ });

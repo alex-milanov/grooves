@@ -64,6 +64,9 @@ export default (state, { open, active = null, isAssigned, onAssign }) => {
                 },
                 dblclick: (ev) => {
                   ev.preventDefault();
+                  // Selection is committed on the 2nd mousedown before dblclick;
+                  // clear any highlight that slipped through `user-select: none`.
+                  window.getSelection?.()?.removeAllRanges?.();
                   if (!isSample(kits, path, item) || !kit) return;
                   onAssign?.(kit, item);
                 },

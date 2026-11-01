@@ -38,6 +38,8 @@ export const createLoopsTrack = () => ({
   channel: { volume: 1, muted: false, solo: false, pan: 0.5, sends: { reverb: 0, delay: 0 } },
   loop: {
     inputId: 'default',
+    /** When false (default): request echoCancellation / noiseSuppression / AGC off. */
+    processMic: false,
     clickEnabled: true,
     slots: Array.from({ length: LOOPS_SLOT_COUNT }, (_, i) => createEmptySlot(i)),
   },
@@ -204,6 +206,12 @@ export const panelsAfterLoopAssign = (state) => {
 // —— Reducers: (…args) => state => next ——
 
 export const setLoopsInput = (inputId) => (state) => patchLoopsTrack(state, { inputId });
+
+export const toggleLoopsProcessMic = (state) => {
+  const track = getLoopsTrack(state);
+  if (!track) return state;
+  return patchLoopsTrack(state, { processMic: !track.loop?.processMic });
+};
 
 export const toggleLoopsClick = (state) => {
   const track = getLoopsTrack(state);

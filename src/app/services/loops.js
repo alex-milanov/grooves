@@ -58,6 +58,7 @@ const activeRecords = new Map();
 const discardRecordings = new Set();
 let inputStream = null;
 let inputDeviceId = null;
+let inputProcessMic = null;
 let state$Ref = null;
 let progressRaf = 0;
 
@@ -149,19 +150,23 @@ const syncInputDevices = () =>
     )
     .catch(() => {});
 
-const connectInput = async (deviceId = 'default') => {
+const connectInput = async (deviceId = 'default', processMic = false) => {
   try {
     await resume();
-    if (inputStream && inputDeviceId === deviceId) return inputStream;
+    if (inputStream && inputDeviceId === deviceId && inputProcessMic === processMic) {
+      return inputStream;
+    }
     inputStream?.getTracks().forEach((t) => t.stop());
-    inputStream = await createInputStream(deviceId);
+    inputStream = await createInputStream(deviceId, { processMic });
     inputDeviceId = deviceId;
+    inputProcessMic = processMic;
     await syncInputDevices();
     return inputStream;
   } catch (err) {
     console.warn('loop input failed:', err);
     inputStream = null;
     inputDeviceId = null;
+    inputProcessMic = null;
     throw err;
   }
 };
@@ -360,6 +365,7 @@ const beginRecording = async (state, slotIndex) => {
 
   const track = getLoopsTrack(state);
   const deviceId = track?.loop?.inputId ?? 'default';
+  const processMic = !!track?.loop?.processMic;
   // startedAt is the musical cycle origin. If it's in the past (early punch-in),
   // start capturing now and pad the gap; if in the future, wait for that downbeat.
   const cycleOrigin = slot.startedAt;
@@ -375,7 +381,10 @@ const beginRecording = async (state, slotIndex) => {
   try {
     // Prefer the already-open mic; don't await getUserMedia before arming the timer
     // (that delay was eating the visual count-in / missing the punch-in on a live grid).
-    const stream = inputStream ?? (await connectInput(deviceId));
+    const stream =
+      inputStream && inputDeviceId === deviceId && inputProcessMic === processMic
+        ? inputStream
+        : await connectInput(deviceId, processMic);
     if (!stream) throw new Error('no input stream');
 
     const live = getLoopSlot(state$Ref?.getValue() ?? state, slotIndex);
@@ -565,8 +574,18 @@ export const start = ({ state$ }) => {
     { reconnect: true, loopsTrack: getLoopsTrack(state$.getValue()) },
   );
 
-  const deviceId = () => getLoopsTrack(state$Ref?.getValue())?.loop?.inputId ?? 'default';
-  connectInput(deviceId()).catch(() => {});
+  const inputOpts = () => {
+    const loop = getLoopsTrack(state$Ref?.getValue())?.loop;
+    return {
+      deviceId: loop?.inputId ?? 'default',
+      processMic: !!loop?.processMic,
+    };
+  };
+  const reconnectInput = () => {
+    const { deviceId, processMic } = inputOpts();
+    return connectInput(deviceId, processMic);
+  };
+  reconnectInput().catch(() => {});
 
   if (typeof navigator !== 'undefined' && navigator.mediaDevices) {
     navigator.mediaDevices.addEventListener('devicechange', syncInputDevices);
@@ -580,7 +599,7 @@ export const start = ({ state$ }) => {
       )
       .subscribe((workspace) => {
         if (workspace === WORKSPACE_LOOPS) {
-          connectInput(deviceId()).catch(() => {});
+          reconnectInput().catch(() => {});
         }
       }),
   );
@@ -588,12 +607,14 @@ export const start = ({ state$ }) => {
   subs.push(
     state$
       .pipe(
-        distinctUntilChanged(
-          (a, b) => getLoopsTrack(a)?.loop?.inputId === getLoopsTrack(b)?.loop?.inputId,
-        ),
+        distinctUntilChanged((a, b) => {
+          const la = getLoopsTrack(a)?.loop;
+          const lb = getLoopsTrack(b)?.loop;
+          return la?.inputId === lb?.inputId && !!la?.processMic === !!lb?.processMic;
+        }),
       )
       .subscribe(() => {
-        connectInput(deviceId()).catch(() => {});
+        reconnectInput().catch(() => {});
       }),
   );
 
@@ -728,6 +749,7 @@ export const start = ({ state$ }) => {
     inputStream?.getTracks().forEach((t) => t.stop());
     inputStream = null;
     inputDeviceId = null;
+    inputProcessMic = null;
     state$Ref = null;
     if (typeof navigator !== 'undefined' && navigator.mediaDevices) {
       navigator.mediaDevices.removeEventListener('devicechange', syncInputDevices);

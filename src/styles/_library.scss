@@ -68,6 +68,7 @@
       color: var(--app-text-muted);
       @include text-shadow-label;
       cursor: pointer;
+      user-select: none;
       overflow-wrap: anywhere;
       transition:
         background 0.15s ease,

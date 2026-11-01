@@ -13,6 +13,8 @@ Implementation specs graduate to `planning/`; completed work is recorded in `sum
 - [`track-model.md`](track-model.md) — track types, naming, session structure, MIDI mapping
 - [`transport.md`](transport.md) — session vs per-track transport, shared startTime, scheduling
 - [`loops.md`](loops.md) — loop track MVP (4 slots, record, quantize, virtual click)
+- [`loop-recording-capture.md`](loop-recording-capture.md) — mic DSP defaults, MediaRecorder bitrate, `processMic` toggle; PCM path later
+- [`hmr-reconnect.md`](hmr-reconnect.md) — Parcel HMR WS drop → stale tab; reconnect via runtime patch (not app code); no reload-as-HMR
 - [`workspaces.md`](workspaces.md) — strip switcher, one workspace per track, mixer & routing screens
 - [`app-structure.md`](app-structure.md) — folder roles (`state/` / `services/` / `util/`), dual action edge, silos, UI axes; vs jam & world-metronome
 
@@ -39,5 +41,7 @@ Implementation specs graduate to `planning/`; completed work is recorded in `sum
 - 🎚️ **Track model:** [`track-model.md`](track-model.md)
 - ⏯️ **Transport:** [`transport.md`](transport.md)
 - 🔁 **Loops:** [`loops.md`](loops.md)
+- 🎙️ **Loop capture:** [`loop-recording-capture.md`](loop-recording-capture.md)
+- 🔥 **HMR reconnect:** [`hmr-reconnect.md`](hmr-reconnect.md)
 - 🖥️ **Workspaces:** [`workspaces.md`](workspaces.md)
 - 📦 **What exists today:** [README](../README)

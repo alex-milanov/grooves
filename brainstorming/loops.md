@@ -3,7 +3,7 @@
 **Date:** 2026-06-24  
 **Status:** Brainstorming  
 **Reference:** [js-loop-station](file:///Users/alexem/Projects/dev/music/js-loop-station) (`~/Projects/dev/music/js-loop-station`)  
-**Related:** [`track-model.md`](track-model.md), [`transport.md`](transport.md), [`workspaces.md`](workspaces.md), [`ecosystem.md`](ecosystem.md)
+**Related:** [`track-model.md`](track-model.md), [`transport.md`](transport.md), [`workspaces.md`](workspaces.md), [`ecosystem.md`](ecosystem.md), [`loop-recording-capture.md`](loop-recording-capture.md)
 
 ---
 
@@ -82,6 +82,7 @@ Mirror **Drums** workspace flex: **library | loop lanes | slot settings**.
 |---------|----------|
 | **Title** | Track name (“Loops”) |
 | **Input source** | Mic device / line-in / “from library” per slot or shared default |
+| **Process mic** | Opt-in browser echo/noise/AGC (`loop.processMic`, default off) — see [`loop-recording-capture.md`](loop-recording-capture.md) |
 | **Start all / Stop all** | All slots → play or idle (js-loop-station playAll/stopAll) |
 | **Clear all** | Empty all slots (confirm deferred) |
 
