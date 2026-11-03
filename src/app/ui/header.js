@@ -7,6 +7,7 @@ import { THEME_FAMILIES } from '../util/theme';
 import { LANGS, LANG_LABELS, flagSrc } from '../util/lang';
 import { themePreview } from '../util/theme-preview';
 import { stripVisible } from '../util/workspaces';
+import { toggleFullscreen } from '../util/fullscreen';
 import dropdown, { caret } from './components/dropdown';
 import headerTransport from './header-transport';
 
@@ -162,6 +163,24 @@ export default (state) => {
               },
             },
             [i(`.fa.${stripVisible(state) ? 'fa-chevron-up' : 'fa-th-large'}`)],
+          ),
+          a(
+            '.fullscreen-toggle.control.icon-only',
+            {
+              class: { active: !!state.viewport?.fullscreen },
+              props: {
+                title: state.viewport?.fullscreen ? 'Exit fullscreen' : 'Enter fullscreen',
+                'aria-label': state.viewport?.fullscreen ? 'Exit fullscreen' : 'Enter fullscreen',
+                'aria-pressed': String(!!state.viewport?.fullscreen),
+              },
+              on: {
+                click: (ev) => {
+                  ev.preventDefault();
+                  toggleFullscreen();
+                },
+              },
+            },
+            [i(`.fa.${state.viewport?.fullscreen ? 'fa-compress' : 'fa-expand'}`)],
           ),
         ]),
       ]),

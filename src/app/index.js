@@ -15,6 +15,7 @@ import sequencer from './services/sequencer';
 import waveform from './services/waveform';
 import mixer from './services/mixer';
 import mediaSession from './services/media-session';
+import wakeLock from './services/wake-lock';
 // ui
 import ui from './ui';
 
@@ -32,6 +33,7 @@ sequencer.start({ state$ });
 waveform.start({ state$ });
 mixer.start({ state$ });
 mediaSession.start({ state$ });
+wakeLock.start({ state$ });
 
 // theme change tracking
 state$
@@ -55,6 +57,7 @@ if (module.hot) {
     waveform.stop();
     mixer.stop();
     mediaSession.stop();
+    wakeLock.stop();
     patchSubscription.unsubscribe();
     state$.complete();
     vnode$.complete();

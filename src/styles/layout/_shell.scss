@@ -13,13 +13,19 @@
 }
 
 .workspace {
+  // flex-shrink:0 + max-content so the wrapper cannot crush width/height before
+  // fitWorkspace measures; scale handles fitting, not flex shrink.
   position: relative;
+  flex: 0 0 auto;
+  width: max-content;
+  max-width: none;
+  min-width: max-content;
+  min-height: max-content;
   top: auto;
   left: auto;
   transform: scale(var(--workspace-scale, 1));
   transform-origin: center center;
   box-sizing: border-box;
-  max-height: 100%;
   margin: 0;
   padding: 0;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);

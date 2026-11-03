@@ -1,8 +1,9 @@
-import { fromEvent, filter, startWith, map, distinctUntilChanged, pairwise } from 'rxjs';
+import { fromEvent, filter, startWith, map, distinctUntilChanged, pairwise, merge } from 'rxjs';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../state';
 import { WORKSPACE_LOOPS } from '../util/workspaces';
 import { afterPaint, animateBoxSize, whenTransitionEnd } from '../util/transition';
+import { isFullscreen } from '../util/fullscreen';
 
 let resizeObserver = null;
 let fitRaf = 0;
@@ -13,10 +14,28 @@ let state$Ref = null;
 const PANEL_TRANSITION_FALLBACK_MS = 1000;
 const LIBRARY_RESIZE_MS = 300;
 
+/**
+ * Unscaled size of the workspace surface. Prefer the laid-out border box of
+ * `.workspace-inner` (main + asides); fall back to scroll metrics.
+ * Must run while `.workspace` is `width: max-content` (not flex-shrunk).
+ */
 const measureWorkspace = (el) => {
   const width = Math.max(el.scrollWidth, el.offsetWidth);
   const height = Math.max(el.scrollHeight, el.offsetHeight);
   return width > 0 && height > 0 ? { width, height } : null;
+};
+
+/** Content-box of the wrapper = full flex slot minus CSS padding (not window.innerWidth). */
+const measureAvail = (wrapper) => {
+  const cs = getComputedStyle(wrapper);
+  const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) || 0;
+  const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) || 0;
+  // Small inset for subpixel rounding into overflow:hidden.
+  const inset = 2;
+  return {
+    width: wrapper.clientWidth - padX - inset * 2,
+    height: wrapper.clientHeight - padY - inset * 2,
+  };
 };
 
 const isAnimating = () => !!state$Ref?.getValue()?.viewport?.animating;
@@ -31,12 +50,10 @@ const fitWorkspace = () => {
   const bounds = measureWorkspace(content);
   if (!bounds || bounds.width <= 0 || bounds.height <= 0) return;
 
-  const margin = 8;
-  const availW = wrapper.clientWidth - margin * 2;
-  const availH = wrapper.clientHeight - margin * 2;
-  if (availW <= 0 || availH <= 0) return;
+  const avail = measureAvail(wrapper);
+  if (avail.width <= 0 || avail.height <= 0) return;
 
-  const scale = Math.min(1, availW / bounds.width, availH / bounds.height);
+  const scale = Math.min(1, avail.width / bounds.width, avail.height / bounds.height);
 
   document.documentElement.style.setProperty('--workspace-scale', scale.toFixed(4));
 };
@@ -181,29 +198,36 @@ export const start = ({ state$ }) => {
     ),
   );
 
-  subs.push(
-    fromEvent(window, 'resize')
-      .pipe(startWith({}))
-      .subscribe(() => {
-        dispatch(
-          patch(['viewport', 'screen'], {
-            width: window.innerWidth,
-            height: window.innerHeight,
-            size:
-              window.innerWidth >= 1200
-                ? 'xl'
-                : window.innerWidth >= 992
-                  ? 'lg'
-                  : window.innerWidth >= 768
-                    ? 'md'
-                    : window.innerWidth >= 576
-                      ? 'sm'
-                      : 'xs',
-          }),
-        );
-        scheduleFit();
+  const publishScreen = () => {
+    // visualViewport tracks mobile browser chrome; fall back to layout viewport.
+    const vv = window.visualViewport;
+    const width = Math.round(vv?.width ?? window.innerWidth);
+    const height = Math.round(vv?.height ?? window.innerHeight);
+    dispatch(
+      patch(['viewport', 'screen'], {
+        width,
+        height,
+        size:
+          width >= 1200
+            ? 'xl'
+            : width >= 992
+              ? 'lg'
+              : width >= 768
+                ? 'md'
+                : width >= 576
+                  ? 'sm'
+                  : 'xs',
       }),
-  );
+    );
+    scheduleFit();
+  };
+
+  subs.push(fromEvent(window, 'resize').pipe(startWith({})).subscribe(publishScreen));
+
+  if (window.visualViewport) {
+    subs.push(fromEvent(window.visualViewport, 'resize').subscribe(publishScreen));
+    subs.push(fromEvent(window.visualViewport, 'scroll').subscribe(scheduleFit));
+  }
 
   subs.push(
     fromEvent(window, 'scroll')
@@ -215,6 +239,15 @@ export const start = ({ state$ }) => {
           }),
         ),
       ),
+  );
+
+  subs.push(
+    merge(
+      fromEvent(document, 'fullscreenchange'),
+      fromEvent(document, 'webkitfullscreenchange'),
+    )
+      .pipe(startWith(null))
+      .subscribe(() => dispatch(patch(['viewport', 'fullscreen'], isFullscreen()))),
   );
 
   // Library path: measure size before UI patch, then FLIP after paint.

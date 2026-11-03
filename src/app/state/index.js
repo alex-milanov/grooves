@@ -68,6 +68,8 @@ export const initial = {
     },
     /** True while library/settings panel max-width is transitioning — viewport skips scale. */
     animating: false,
+    /** Mirrors document fullscreen (Escape / OS exit included). */
+    fullscreen: false,
   },
 };
 

@@ -25,7 +25,7 @@
   }
 
   .workspace-wrapper {
-    padding: 0.5rem 0.75rem;
+    padding: 0.5rem 0.5rem;
   }
 
   .workspace-strip-preview {
@@ -89,7 +89,9 @@
 
     .dropdown.flags.control,
     .dropdown.control.icon-only .handle,
-    .theme-toggle.control {
+    .theme-toggle.control,
+    .fullscreen-toggle.control,
+    .workspaces-strip-toggle.control {
       padding: 4px 6px;
     }
   }
@@ -100,10 +102,6 @@
     padding: 0 !important;
     max-height: 36px;
     margin: 0 !important;
-  }
-
-  .workspace {
-    max-width: 100%;
   }
 }
 

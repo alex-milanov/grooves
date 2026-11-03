@@ -187,7 +187,9 @@
   .control,
   .dropdown.control,
   .dropdown.flags,
-  .theme-toggle.control {
+  .theme-toggle.control,
+  .fullscreen-toggle.control,
+  .workspaces-strip-toggle.control {
     opacity: calc(0.5 + var(--header-progress) * 0.5);
   }
 
@@ -250,7 +252,9 @@
     }
   }
 
-  .theme-toggle.control {
+  .theme-toggle.control,
+  .fullscreen-toggle.control,
+  .workspaces-strip-toggle.control {
     @include control-select;
     display: inline-flex;
     align-items: center;
@@ -261,7 +265,8 @@
     border-radius: calc(var(--app-radius-control) - 2px);
     transition: background 0.12s ease, color 0.12s ease, opacity 0.15s ease;
 
-    &:hover {
+    &:hover,
+    &.active {
       @include color-mix-tint(background, var(--app-btn-primary-bg), 22%);
       color: var(--app-text);
     }
@@ -275,7 +280,9 @@
   &.is-formed .control:not(:disabled),
   &.is-formed .dropdown.control,
   &.is-formed .dropdown.flags.control,
-  &.is-formed .theme-toggle.control {
+  &.is-formed .theme-toggle.control,
+  &.is-formed .fullscreen-toggle.control,
+  &.is-formed .workspaces-strip-toggle.control {
     border-color: var(--app-control-border-formed);
     background-color: var(--app-control-bg-formed);
     @supports (color: color-mix(in srgb, white 50%, black)) {
