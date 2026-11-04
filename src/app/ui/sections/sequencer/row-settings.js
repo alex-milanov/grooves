@@ -1,9 +1,9 @@
 import { aside, div, header, span, button, label, input, i } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { previewCurrent } from '../../../services/waveform';
-import { getRowParams } from '../../../util/row-params';
 import {
   getDrumRow,
+  getRowParams,
   hasRowSample,
   patchDrumRowNested,
   rowParamsMap,

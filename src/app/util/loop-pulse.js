@@ -1,6 +1,13 @@
 import { context } from '../services/audio';
-import { getTransportStartTime } from '../services/audio/clock';
 import { barSeconds, beatSeconds } from './transport-clock';
+
+/** 
+  * Calculates the phase state of a pulse based on where it is
+  * in relation to down and up beats 
+  * NOTE: It should be e simple calculation based on cycle startTime
+  * and currentTime. Also beatsPerBar should be calculated based on 
+  * timeSignature (TODO)
+**/
 
 const PULSE_PROCESSES = new Set(['play', 'overdub']);
 
@@ -17,14 +24,16 @@ export const beatPhaseAt = (transport, atTime = context.currentTime, slot = null
   const bar = barSeconds(transport);
 
   const slotAnchor =
-    slot?.startedAt != null && slot.startedAt <= atTime + 0.001 && bar > 0 ? slot.startedAt : null;
+    slot?.startedAt != null
+      && slot.startedAt <= atTime + 0.001
+      && bar > 0 ? slot.startedAt : null;
 
   if (slotAnchor != null) {
     const intoBar = (((atTime - slotAnchor) % bar) + bar) % bar;
     return (intoBar % beat) / beat;
   }
 
-  const start = getTransportStartTime();
+  const start = transport?.startTime ?? 0;
   if (start > 0 && bar > 0) {
     const intoBar = (((atTime - start) % bar) + bar) % bar;
     return (intoBar % beat) / beat;
@@ -40,14 +49,9 @@ export const beatPulseScale = (phase) => {
   return 1 + 0.022 * (1 - phase / attack);
 };
 
-export const applyTempoPulseToButton = (btn, state, slot, slotIndex) => {
-  if (!btn) return;
-  const pulse = slotTempoPulseEnabled(state, slot, slotIndex);
-  btn.classList.toggle('tempo-pulse', pulse);
-  if (pulse) {
-    const phase = beatPhaseAt(state.transport, context.currentTime, slot);
-    btn.style.transform = `scale(${beatPulseScale(phase)})`;
-  } else {
-    btn.style.removeProperty('transform');
-  }
+/** CSS transform for tempo pulse (derived each UI frame). */
+export const slotTempoPulseTransform = (state, slot) => {
+  if (!slotTempoPulseEnabled(state, slot)) return undefined;
+  const phase = beatPhaseAt(state.transport, context.currentTime, slot);
+  return `scale(${beatPulseScale(phase)})`;
 };

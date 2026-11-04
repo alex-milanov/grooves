@@ -1,7 +1,9 @@
 import { fromEvent, filter, startWith, map, distinctUntilChanged, pairwise, merge } from 'rxjs';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../state';
-import { WORKSPACE_LOOPS } from '../util/workspaces';
+import { WORKSPACE_LOOPS } from '../state/ui';
+import { MOBILE_BREAKPOINT } from '../state/viewport';
+import { stepsPerBar } from '../state/sequencer-measures';
 import { afterPaint, animateBoxSize, whenTransitionEnd } from '../util/transition';
 import { isFullscreen } from '../util/fullscreen';
 
@@ -203,22 +205,29 @@ export const start = ({ state$ }) => {
     const vv = window.visualViewport;
     const width = Math.round(vv?.width ?? window.innerWidth);
     const height = Math.round(vv?.height ?? window.innerHeight);
-    dispatch(
-      patch(['viewport', 'screen'], {
-        width,
-        height,
-        size:
-          width >= 1200
-            ? 'xl'
-            : width >= 992
-              ? 'lg'
-              : width >= 768
-                ? 'md'
-                : width >= 576
-                  ? 'sm'
-                  : 'xs',
-      }),
-    );
+    const size =
+      width >= 1200
+        ? 'xl'
+        : width >= 992
+          ? 'lg'
+          : width >= 768
+            ? 'md'
+            : width >= 576
+              ? 'sm'
+              : 'xs';
+    dispatch((s) => ({
+      ...s,
+      viewport: {
+        ...s.viewport,
+        mobile: width < MOBILE_BREAKPOINT,
+        screen: {
+          ...s.viewport?.screen,
+          width,
+          height,
+          size,
+        },
+      },
+    }));
     scheduleFit();
   };
 
@@ -279,15 +288,7 @@ export const start = ({ state$ }) => {
             loopsLibrary: s.ui?.loops?.panels?.library,
             loopsSettings: s.ui?.loops?.panels?.settings,
             rows: drums?.rows?.length,
-            steps:
-              s.transport?.timeSignature && s.transport?.resolution
-                ? Number(
-                    (
-                      s.transport.resolution *
-                      (s.transport.timeSignature[0] / s.transport.timeSignature[1])
-                    ).toFixed(0),
-                  )
-                : drums?.pattern?.steps,
+            steps: stepsPerBar(s) || drums?.pattern?.steps,
             width: s.viewport?.screen?.width,
             activeWorkspace: s.ui?.activeWorkspace,
             stripOpen: s.ui?.workspacesStripOpen,

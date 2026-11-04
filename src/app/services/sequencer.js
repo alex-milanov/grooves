@@ -1,4 +1,4 @@
-import { distinctUntilChanged, filter, pairwise } from 'rxjs';
+import { distinctUntilChanged, filter, map, pairwise, withLatestFrom } from 'rxjs';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../state';
 import {
@@ -13,19 +13,19 @@ import {
   fadePartDrumsIn,
 } from './audio';
 import {
-  getTransportStartTime,
-  nextTransportStart,
-  resetTransportStartTime,
-  setTransportStartTime,
-} from './audio/clock';
-import {
   stepTime,
   transportStartFromLoopPhase,
   barSeconds,
   nextLoopBarTime,
+  nextTransportStart,
 } from '../util/transport-clock';
+import { frame } from '../util/time';
 import { CYCLE_EDGE } from '../util/loop-quantize';
-import { DRUMS_TRACK_ID, isTrackScheduling } from '../state/transport';
+import {
+  DRUMS_TRACK_ID,
+  isTrackScheduling,
+  setTransportStartTime,
+} from '../state/transport';
 import { totalSteps, clearCuedBar } from '../state/sequencer';
 import { barCount, measuresList } from '../state/sequencer-measures';
 import {
@@ -46,14 +46,8 @@ const patchDrumsUi = (state, patch) => ({
   },
 });
 
-const SCHEDULE_INTERVAL_MS = 25;
-
 let state$Ref = null;
-let intervalId = 0;
-let rafId = 0;
 let latestCycle = -1;
-let lastPlayhead = -1;
-let lastPlayBar = -1;
 let cueBoundaryAt = null;
 let cueTargetBar = null;
 let cueUiHoldStep = null;
@@ -61,19 +55,25 @@ let cueUiHoldStep = null;
 let barAtCycle0 = 0;
 
 const stepCount = (state) => totalSteps(state);
-const cycleDuration = (state) => stepTime(state.transport.bpm) * stepCount(state);
+const transportStepTime = (state) =>
+  stepTime(state.transport.bpm, state.transport.resolution ?? 16);
+const cycleDuration = (state) => transportStepTime(state) * stepCount(state);
 
 const barForCycle = (state, cycle) => {
   const bars = Math.max(1, barCount(state));
   return (((barAtCycle0 % bars) + cycle) % bars + bars) % bars;
 };
 
+const sessionStartTime = (state) => state.transport?.startTime ?? 0;
+
+const patchStartTime = (startTime) => dispatch(setTransportStartTime(startTime));
+
 const audioCycleTiming = (state) => {
   const steps = stepCount(state);
   const duration = cycleDuration(state);
-  const dt = stepTime(state.transport.bpm);
+  const dt = transportStepTime(state);
   const now = context.currentTime;
-  const startTime = getTransportStartTime();
+  const startTime = sessionStartTime(state);
   const cycle = Math.floor((now - startTime) / duration);
   const playhead = Math.floor((((now - startTime) % duration) / duration) * steps);
   const cycleBase = startTime + cycle * duration;
@@ -93,12 +93,23 @@ const audioCycleTiming = (state) => {
 const uiTiming = (state) => {
   const steps = stepCount(state);
   const duration = cycleDuration(state);
-  const uiStart = getTransportStartTime() + getOutputLatency(context);
+  const uiStart = sessionStartTime(state) + getOutputLatency(context);
   const now = context.currentTime;
   if (now < uiStart) return { playhead: -1, playBar: barAtCycle0 };
   const cycle = Math.floor((now - uiStart) / duration);
   const playhead = Math.floor((((now - uiStart) % duration) / duration) * steps);
   return { playhead, playBar: barForCycle(state, Math.max(0, cycle)) };
+};
+
+/** Heard-time playhead for VDOM (frame × state); applies post-cue hold. */
+export const getDrumsUiTiming = (state) => {
+  let { playhead, playBar } = uiTiming(state);
+  if (playhead < 0) return { playhead: null, playBar };
+  if (cueUiHoldStep != null) {
+    if (playhead < cueUiHoldStep) playhead = cueUiHoldStep;
+    else cueUiHoldStep = null;
+  }
+  return { playhead, playBar };
 };
 
 const playStepAt = (state, bar, step, when) => {
@@ -121,8 +132,8 @@ const playStepAt = (state, bar, step, when) => {
 const scheduleCycle = (state, cycle, fromStep = 0) => {
   if (!isTrackScheduling(state, DRUMS_TRACK_ID)) return;
   const steps = stepCount(state);
-  const dt = stepTime(state.transport.bpm);
-  const base = getTransportStartTime() + cycle * cycleDuration(state);
+  const dt = transportStepTime(state);
+  const base = sessionStartTime(state) + cycle * cycleDuration(state);
   const now = context.currentTime;
   const bar = barForCycle(state, cycle);
   for (let step = fromStep; step < steps; step++) {
@@ -161,7 +172,7 @@ const runScheduling = (state) => {
 
   if (cycle === latestCycle && drumsUi(state).cuedBar == null) {
     const progress =
-      (context.currentTime - getTransportStartTime() - cycle * duration) / duration;
+      (context.currentTime - sessionStartTime(state) - cycle * duration) / duration;
     if (progress > 0.7) {
       scheduleCycle(state, cycle + 1);
       latestCycle = cycle + 1;
@@ -177,7 +188,7 @@ const clearCueArm = () => {
 const jumpToBarAt = (state, bar) => {
   const now = context.currentTime;
   barAtCycle0 = bar;
-  setTransportStartTime(now + 0.005);
+  patchStartTime(now + 0.005);
   cancelScheduledAfter(now);
 
   const cleared = patchDrumsUi(state, { cuedBar: null });
@@ -186,13 +197,8 @@ const jumpToBarAt = (state, bar) => {
   latestCycle = 0;
   clearCueArm();
   cueUiHoldStep = 0;
-  lastPlayhead = 0;
-  lastPlayBar = bar;
 
-  dispatch((s) => ({
-    ...patchDrumsUi(s, { cuedBar: null, currentBar: bar }),
-    transport: { ...s.transport, playhead: 0 },
-  }));
+  dispatch((s) => patchDrumsUi(s, { cuedBar: null, currentBar: bar }));
 };
 
 const honorCue = (state) => {
@@ -217,84 +223,10 @@ const armCue = (state) => {
   if (rescheduleFrom < steps) scheduleCycle(state, cycle, rescheduleFrom);
 };
 
-const updatePlayhead = (state) => {
-  let { playhead, playBar } = uiTiming(state);
-  if (playhead < 0) return;
-
-  if (cueUiHoldStep != null) {
-    if (playhead < cueUiHoldStep) playhead = cueUiHoldStep;
-    else cueUiHoldStep = null;
-  }
-
-  if (playhead === lastPlayhead && playBar === lastPlayBar) return;
-  lastPlayhead = playhead;
-  lastPlayBar = playBar;
-  dispatch((s) => {
-    // Advance currentBar with play unless a cue is holding the from-bar.
-    const hold = drumsUi(s).cuedBar != null;
-    const patch = hold ? {} : { currentBar: playBar };
-    return {
-      ...patchDrumsUi(s, patch),
-      transport: { ...s.transport, playhead },
-    };
-  });
-};
-
-const transportTick = (state$, { updateUi = false } = {}) => {
-  const state = state$.getValue();
+const transportTick = (state) => {
   if (!isTrackScheduling(state, DRUMS_TRACK_ID)) return;
   honorCue(state);
   runScheduling(state$Ref?.getValue() ?? state);
-  if (updateUi) updatePlayhead(state$Ref?.getValue() ?? state);
-};
-
-const stopRaf = () => {
-  cancelAnimationFrame(rafId);
-  rafId = 0;
-};
-const stopInterval = () => {
-  clearInterval(intervalId);
-  intervalId = 0;
-};
-const stopLoops = () => {
-  stopRaf();
-  stopInterval();
-};
-
-const rafLoop = () => {
-  if (!state$Ref) return;
-  transportTick(state$Ref, { updateUi: true });
-  if (isTrackScheduling(state$Ref.getValue(), DRUMS_TRACK_ID) && !document.hidden) {
-    rafId = requestAnimationFrame(rafLoop);
-  } else {
-    rafId = 0;
-  }
-};
-
-const startRaf = () => {
-  if (rafId || document.hidden || !isTrackScheduling(state$Ref?.getValue(), DRUMS_TRACK_ID)) {
-    return;
-  }
-  rafId = requestAnimationFrame(rafLoop);
-};
-
-const startInterval = () => {
-  if (intervalId || !state$Ref) return;
-  intervalId = setInterval(() => {
-    if (state$Ref) transportTick(state$Ref, { updateUi: false });
-  }, SCHEDULE_INTERVAL_MS);
-};
-
-const onVisibilityChange = () => {
-  if (!isTrackScheduling(state$Ref?.getValue(), DRUMS_TRACK_ID)) return;
-  if (document.hidden) {
-    stopRaf();
-    return;
-  }
-  resume().then(() => {
-    transportTick(state$Ref, { updateUi: true });
-    startRaf();
-  });
 };
 
 const clearDrumsStopPending = () =>
@@ -325,56 +257,47 @@ const rescheduleRemainder = (state) => {
 };
 
 const pauseGracefully = (state) => {
-  stopLoops();
   cancelScheduledAfter(audioCycleTiming(state).cutoffTime);
-  // Leave currentBar as-is; drop pending cue (boundary is cleared).
-  const holdBar = drumsUi(state).currentBar ?? 0;
+  // Freeze editing focus on the bar that was playing (or held during cue).
+  const holdBar =
+    drumsUi(state).cuedBar != null
+      ? (drumsUi(state).currentBar ?? 0)
+      : (getDrumsUiTiming(state).playBar ?? drumsUi(state).currentBar ?? 0);
   latestCycle = -1;
-  lastPlayhead = -1;
-  lastPlayBar = -1;
   clearCueArm();
   cueUiHoldStep = null;
   setPartDrumsGain(1);
   barAtCycle0 = holdBar;
-  dispatch((s) => ({
-    ...patchDrumsUi(s, { cuedBar: null }),
-    transport: { ...s.transport, playhead: null },
-  }));
+  dispatch((s) => patchDrumsUi(s, { cuedBar: null, currentBar: holdBar }));
 };
 
 const stopImmediately = () => {
-  stopLoops();
   cancelAllScheduled();
-  resetTransportStartTime();
   latestCycle = -1;
-  lastPlayhead = -1;
-  lastPlayBar = -1;
   clearCueArm();
   cueUiHoldStep = null;
   barAtCycle0 = 0;
   setPartDrumsGain(1);
-  dispatch((s) => ({
-    ...patchDrumsUi(s, {
-      currentBar: 0,
-      cuedBar: null,
-      deleteArmedBar: null,
-    }),
-    transport: { ...s.transport, playhead: null },
-  }));
+  dispatch((s) =>
+    setTransportStartTime(0)(
+      patchDrumsUi(s, {
+        currentBar: 0,
+        cuedBar: null,
+        deleteArmedBar: null,
+      }),
+    ),
+  );
 };
 
 const reset = stopImmediately;
 
 const anchorTransportStart = (state) => {
   const now = context.currentTime;
-  const cycleDur = cycleDuration(state);
   const loop = getActiveLoopCycle(state);
   barAtCycle0 = drumsUi(state).currentBar ?? 0;
 
   if (loop) {
-    setTransportStartTime(
-      transportStartFromLoopPhase(loop.startedAt, loop.duration, cycleDur, now),
-    );
+    patchStartTime(transportStartFromLoopPhase(loop.startedAt, now));
     const bar = barSeconds(state.transport);
     const nextBar = nextLoopBarTime(state.transport, loop.startedAt, loop.duration, now);
     const remaining = Math.max(0, nextBar - now);
@@ -386,16 +309,16 @@ const anchorTransportStart = (state) => {
     return;
   }
   setPartDrumsGain(1);
-  const existing = getTransportStartTime();
+  const existing = sessionStartTime(state);
   if (existing > now + 0.001) return;
-  setTransportStartTime(nextTransportStart(now));
+  patchStartTime(nextTransportStart(now));
 };
 
 const remountCyclePreservingPlayhead = (prev, next) => {
   const now = context.currentTime;
-  const oldStart = getTransportStartTime();
+  const oldStart = sessionStartTime(prev);
   const oldDuration = cycleDuration(prev);
-  const oldDt = stepTime(prev.transport.bpm);
+  const oldDt = transportStepTime(prev);
   const oldSteps = Math.max(1, stepCount(prev));
   const oldCycle = oldDuration > 0 ? Math.floor((now - oldStart) / oldDuration) : 0;
   const playBar = barForCycle(prev, Math.max(0, oldCycle));
@@ -410,18 +333,16 @@ const remountCyclePreservingPlayhead = (prev, next) => {
     Math.max(1, stepCount(next)) - 1,
   );
   const frac = oldStepFloat - Math.floor(oldStepFloat);
-  const newElapsed = (mappedStep + frac) * stepTime(next.transport.bpm);
+  const newElapsed = (mappedStep + frac) * transportStepTime(next);
 
   barAtCycle0 = Math.min(playBar, Math.max(1, barCount(next)) - 1);
   cancelScheduledAfter(now);
-  setTransportStartTime(now - newElapsed);
+  patchStartTime(now - newElapsed);
   latestCycle = -1;
-  lastPlayhead = mappedStep;
-  lastPlayBar = barAtCycle0;
   clearCueArm();
   cueUiHoldStep = null;
   if (drumsUi(next).cuedBar != null) dispatch(clearCuedBar);
-  transportTick(state$Ref, { updateUi: true });
+  transportTick(state$Ref?.getValue() ?? next);
 };
 
 const drumsTransport = (state) =>
@@ -439,9 +360,16 @@ export const start = ({ state$ }) => {
   let subs = [];
   state$Ref = state$;
 
-  if (typeof document !== 'undefined') {
-    document.addEventListener('visibilitychange', onVisibilityChange);
-  }
+  // Shared RAF × state — same clock as UI (world-metronome / jam-station).
+  subs.push(
+    frame()
+      .pipe(
+        withLatestFrom(state$),
+        map(([, state]) => state),
+        filter((s) => isTrackScheduling(s, DRUMS_TRACK_ID)),
+      )
+      .subscribe((state) => transportTick(state)),
+  );
 
   subs.push(
     state$
@@ -461,9 +389,7 @@ export const start = ({ state$ }) => {
           resume().then(() => {
             anchorTransportStart(state$Ref.getValue());
             latestCycle = -1;
-            transportTick(state$, { updateUi: true });
-            startInterval();
-            startRaf();
+            transportTick(state$Ref.getValue());
           });
         } else {
           pauseGracefully(state);
@@ -511,9 +437,6 @@ export const start = ({ state$ }) => {
   );
 
   onStop = () => {
-    if (typeof document !== 'undefined') {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    }
     state$Ref = null;
     reset();
     subs.forEach((sub) => sub.unsubscribe());

@@ -14,6 +14,7 @@ import {
 } from '../../../state/sequencer-measures';
 import { drumsRowCount } from '../../../state/drums';
 import { DRUMS_TRACK_ID, trackTogglePlay, trackStop } from '../../../state/transport';
+import { getDrumsUiTiming } from '../../../services/sequencer';
 import measuresStrip from './measures-strip';
 import rowsView from './rows';
 import rowSettings from './row-settings';
@@ -67,10 +68,16 @@ export default (state) => {
   const bars = barCount(state);
   const rows = drumsRowCount(state);
   const expanded = !!ui.measuresExpanded;
-  const currentBar = Math.min(bars - 1, Math.max(0, ui.currentBar ?? 0));
-  const playhead = state.transport?.playhead;
+  const storedBar = Math.min(bars - 1, Math.max(0, ui.currentBar ?? 0));
   const drumsTrack = state.tracks?.find((t) => t.id === DRUMS_TRACK_ID);
   const trackPlaying = !!drumsTrack?.transport?.playing;
+  const timing = trackPlaying ? getDrumsUiTiming(state) : null;
+  const playhead = timing?.playhead ?? null;
+  // While playing without a cue, follow the heard bar; else editing focus.
+  const currentBar =
+    trackPlaying && ui.cuedBar == null && timing?.playBar != null
+      ? Math.min(bars - 1, Math.max(0, timing.playBar))
+      : storedBar;
 
   const cuedBar =
     ui.cuedBar == null ? null : Math.min(bars - 1, Math.max(0, ui.cuedBar));
@@ -131,8 +138,12 @@ export default (state) => {
             value: state.transport?.timeSignature?.[0] ?? 4,
           },
           on: {
-            input: (ev) =>
-              dispatch(patch(['transport', 'timeSignature', 0], Number(ev.target.value))),
+            input: (ev) => {
+              const den = Number(state.transport?.timeSignature?.[1]) || 4;
+              dispatch(
+                patch(['transport', 'timeSignature'], [Number(ev.target.value) || 1, den]),
+              );
+            },
           },
         }),
         '/',
@@ -142,8 +153,12 @@ export default (state) => {
             value: state.transport?.timeSignature?.[1] ?? 4,
           },
           on: {
-            input: (ev) =>
-              dispatch(patch(['transport', 'timeSignature', 1], Number(ev.target.value))),
+            input: (ev) => {
+              const num = Number(state.transport?.timeSignature?.[0]) || 4;
+              dispatch(
+                patch(['transport', 'timeSignature'], [num, Number(ev.target.value) || 1]),
+              );
+            },
           },
         }),
         label('Q'),
@@ -185,7 +200,7 @@ export default (state) => {
         rows,
         bar: currentBar,
         stepsPerBar: perBar,
-        playhead: trackPlaying ? playhead : null,
+        playhead,
         onRowClick,
         onRowDblClick,
       }),

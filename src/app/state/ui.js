@@ -1,10 +1,9 @@
-import { MOBILE_BREAKPOINT } from './panels';
+/** Workspace ids + UI chrome helpers (not util). */
 
 export const WORKSPACE_DRUMS = 'drums';
 export const WORKSPACE_LOOPS = 'loops';
 export const WORKSPACE_MIXER = 'mixer';
-
-export const defaultWorkspacesStripOpen = (width = window.innerWidth) => width >= MOBILE_BREAKPOINT;
+export const WORKSPACE_SETTINGS = 'settings';
 
 export const isDrumsWorkspace = (state) =>
   (state.ui?.activeWorkspace ?? WORKSPACE_DRUMS) === WORKSPACE_DRUMS;
@@ -13,4 +12,4 @@ export const isLoopsWorkspace = (state) => state.ui?.activeWorkspace === WORKSPA
 
 export const isMixerWorkspace = (state) => state.ui?.activeWorkspace === WORKSPACE_MIXER;
 
-export const stripVisible = (state) => !!state.ui?.workspacesStripOpen;
+export const isSettingsWorkspace = (state) => state.ui?.activeWorkspace === WORKSPACE_SETTINGS;

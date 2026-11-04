@@ -4,6 +4,7 @@ import library from '../shared/library';
 import sequencer from '../sections/sequencer';
 import loops from '../sections/loops';
 import mixer from '../sections/mixer';
+import settingsSection from '../sections/settings';
 import { SAMPLES_SECTION, LOOPS_SECTION } from '../../util/library';
 import { assignRowSample } from '../../state/sequencer';
 import { getDrumsRows, rowSample } from '../../state/drums';
@@ -50,7 +51,7 @@ export const drumsWorkspace = (state, { preview = false } = {}) => {
   const row = state.ui?.drums?.selectedRow;
   const open = row != null && !!state.ui?.drums?.panels?.library;
   const assignment = row != null ? rowSample(getDrumsRows(state)[row]) : null;
-  const [editor, settings] = sequencer(state);
+  const [editor, rowSettings] = sequencer(state);
 
   return div('.workspace-inner', [
     preview
@@ -66,7 +67,7 @@ export const drumsWorkspace = (state, { preview = false } = {}) => {
           },
         }),
     editor,
-    preview ? null : settings,
+    preview ? null : rowSettings,
   ]);
 };
 
@@ -74,7 +75,7 @@ export const loopsWorkspace = (state, { preview = false } = {}) => {
   const slotIndex = state.ui?.loops?.selectedSlot;
   const open = slotIndex != null && !!state.ui?.loops?.panels?.library;
   const slot = slotIndex != null ? getLoopSlot(state, slotIndex) : null;
-  const [editor, settings] = loops(state);
+  const [editor, slotSettings] = loops(state);
 
   return div('.workspace-inner', [
     preview
@@ -89,8 +90,10 @@ export const loopsWorkspace = (state, { preview = false } = {}) => {
           },
         }),
     editor,
-    preview ? null : settings,
+    preview ? null : slotSettings,
   ]);
 };
 
 export const mixerWorkspace = (state) => mixer(state);
+
+export const settingsWorkspace = (state) => settingsSection(state);

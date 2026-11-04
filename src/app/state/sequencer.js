@@ -1,4 +1,3 @@
-import { defaultPanels, isMobile } from '../util/panels';
 import { ensureLibrarySection, libraryForAssignment, SAMPLES_SECTION } from '../util/library';
 import {
   assignDrumRowSample,
@@ -27,6 +26,8 @@ export {
   armDeleteBar,
   clearDeleteArmedBar,
 } from './sequencer-measures';
+
+const defaultPanels = () => ({ library: false, settings: false });
 
 const drumsUi = (state) => state.ui?.drums ?? {};
 
@@ -66,12 +67,11 @@ export const deselectRow = (state) =>
   });
 
 export const togglePanel = (panel) => (state) => {
-  const mobile = isMobile(state);
   const panels = drumsUi(state).panels ?? defaultPanels();
   const next = !panels[panel];
   const updated = { ...panels, [panel]: next };
 
-  if (mobile && next) {
+  if (state.viewport?.mobile && next) {
     if (panel === 'library') updated.settings = false;
     if (panel === 'settings') updated.library = false;
   }
@@ -107,13 +107,10 @@ export const openLibraryPanel = (row) => (state) => {
   };
 };
 
-export const panelsAfterAssign = (state) => {
-  const mobile = isMobile(state);
-  return {
-    library: mobile ? false : (drumsUi(state).panels?.library ?? false),
-    settings: true,
-  };
-};
+export const panelsAfterAssign = (state) => ({
+  library: state.viewport?.mobile ? false : (drumsUi(state).panels?.library ?? false),
+  settings: true,
+});
 
 /** Assign a kit sample to a drum row. */
 export const assignRowSample = (row, kit, sample) => (state) => {

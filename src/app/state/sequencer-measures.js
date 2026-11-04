@@ -1,5 +1,6 @@
 /** Measure helpers — pattern events on tracks[drums].pattern.measures[bar][row][step]. */
 
+import { measureStepCount } from '../util/transport-clock';
 import {
   getDrumsTrack,
   getDrumsPattern,
@@ -9,11 +10,12 @@ import {
 
 export const MAX_BARS = 8;
 
-export const stepsPerBar = (state) => {
-  const [num, den] = state.transport?.timeSignature ?? [4, 4];
-  const resolution = state.transport?.resolution ?? 16;
-  return Number((resolution * (num / den)).toFixed(0));
-};
+export const stepsPerBar = (state) =>
+  measureStepCount(
+    state.transport?.timeSignature?.[0],
+    state.transport?.timeSignature?.[1],
+    state.transport?.resolution,
+  );
 
 /**
  * `obj.patch` through numeric keys turns arrays into array-likes with length 0.

@@ -15,7 +15,6 @@ export {
   play,
   cancelScheduledAfter,
   cancelAllScheduled,
-  stepTime,
   getOutputLatency,
   getRecordLatencyCompensation,
   rowGain,
@@ -29,10 +28,3 @@ export {
   decodeBlob,
 } from './recording';
 export { scheduleBarClicks, scheduleBeatClicks, stopBarClicks } from './click';
-export {
-  TRANSPORT_START_LOOKAHEAD,
-  setTransportStartTime,
-  getTransportStartTime,
-  resetTransportStartTime,
-  nextTransportStart,
-} from './clock';

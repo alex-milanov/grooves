@@ -14,12 +14,12 @@ import { bufferToWav } from '../util/buffer-to-wav';
 import { getLoopSlot, getSlotParams, slotHasContent } from '../state/loops';
 import { getDrumsRows, rowParamsMap, rowSample } from '../state/drums';
 import { slotPlaybackFromBuffer } from '../util/loop-tempo';
-import { isLoopsWorkspace } from '../util/workspaces';
+import { isLoopsWorkspace } from '../state/ui';
+import { frame } from '../util/time';
 
 let ws = null;
 let loopWs = null;
-let animRaf = 0;
-let loopAnimRaf = 0;
+let cursorSub = null;
 let latestState = null;
 let loadedKey = null;
 let loopLoadedKey = null;
@@ -63,17 +63,20 @@ const createWaveform = async (container, buffer, onClick) => {
   return instance;
 };
 
+const stopCursorClock = () => {
+  cursorSub?.unsubscribe();
+  cursorSub = null;
+};
+
 const stopCursorAnimations = () => {
-  cancelAnimationFrame(animRaf);
-  animRaf = 0;
   pendingTriggers = [];
+  if (!loopPendingTriggers.length) stopCursorClock();
   if (ws) ws.setTime(0);
 };
 
 const stopLoopCursorAnimations = () => {
-  cancelAnimationFrame(loopAnimRaf);
-  loopAnimRaf = 0;
   loopPendingTriggers = [];
+  if (!pendingTriggers.length) stopCursorClock();
   if (loopWs) loopWs.setTime(0);
 };
 
@@ -95,82 +98,41 @@ const destroyLoopWaveform = () => {
   loopLoadedKey = null;
 };
 
-const cursorLoop = () => {
-  if (!ws) {
-    animRaf = 0;
-    return;
-  }
-
-  const now = context.currentTime;
-  const latency = getOutputLatency(context);
-  const heardNow = now - latency;
-  pendingTriggers = pendingTriggers.filter((t) => t.end > heardNow);
-
-  const active = pendingTriggers
-    .filter((t) => heardNow >= t.when)
-    .sort((a, b) => b.when - a.when)[0];
-
+/** Advance one wavesurfer cursor; returns remaining live triggers. */
+const tickWaveCursor = (instance, triggers) => {
+  if (!instance) return [];
+  const heardNow = context.currentTime - getOutputLatency(context);
+  const live = triggers.filter((t) => t.end > heardNow);
+  const active = live.filter((t) => heardNow >= t.when).sort((a, b) => b.when - a.when)[0];
   if (active) {
-    ws.setTime(Math.min(heardNow - active.when, active.end - active.when));
-  } else if (pendingTriggers.length) {
-    ws.setTime(0);
-  }
-
-  if (pendingTriggers.some((t) => t.end > heardNow)) {
-    animRaf = requestAnimationFrame(cursorLoop);
+    instance.setTime(Math.min(heardNow - active.when, active.end - active.when));
   } else {
-    animRaf = 0;
-    pendingTriggers = [];
+    instance.setTime(0);
   }
+  return live;
 };
 
-const loopCursorLoop = () => {
-  if (!loopWs) {
-    loopAnimRaf = 0;
-    return;
-  }
-
-  const now = context.currentTime;
-  const latency = getOutputLatency(context);
-  const heardNow = now - latency;
-  loopPendingTriggers = loopPendingTriggers.filter((t) => t.end > heardNow);
-
-  const active = loopPendingTriggers
-    .filter((t) => heardNow >= t.when)
-    .sort((a, b) => b.when - a.when)[0];
-
-  if (active) {
-    loopWs.setTime(Math.min(heardNow - active.when, active.end - active.when));
-  } else if (loopPendingTriggers.length) {
-    loopWs.setTime(0);
-  }
-
-  if (loopPendingTriggers.some((t) => t.end > heardNow)) {
-    loopAnimRaf = requestAnimationFrame(loopCursorLoop);
-  } else {
-    loopAnimRaf = 0;
-    loopPendingTriggers = [];
-  }
+const onCursorFrame = () => {
+  pendingTriggers = tickWaveCursor(ws, pendingTriggers);
+  loopPendingTriggers = tickWaveCursor(loopWs, loopPendingTriggers);
+  if (!pendingTriggers.length && !loopPendingTriggers.length) stopCursorClock();
 };
 
-const ensureCursorLoop = () => {
-  if (!animRaf) animRaf = requestAnimationFrame(cursorLoop);
-};
-
-const ensureLoopCursorLoop = () => {
-  if (!loopAnimRaf) loopAnimRaf = requestAnimationFrame(loopCursorLoop);
+const ensureCursorClock = () => {
+  if (cursorSub) return;
+  cursorSub = frame().subscribe(onCursorFrame);
 };
 
 const addTrigger = (when, duration, row) => {
   if (row !== activeRow || !ws) return;
   pendingTriggers.push({ when, end: when + duration });
-  ensureCursorLoop();
+  ensureCursorClock();
 };
 
 const addLoopTrigger = (when, duration, slot) => {
   if (slot !== activeLoopSlot || !loopWs) return;
   loopPendingTriggers.push({ when, end: when + duration });
-  ensureLoopCursorLoop();
+  ensureCursorClock();
 };
 
 const assignmentFor = (state, row) => {

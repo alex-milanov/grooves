@@ -1,11 +1,6 @@
 import { dispatch } from 'iblokz-state';
 import { context } from '../services/audio/graph';
-import {
-  getTransportStartTime,
-  nextTransportStart,
-  resetTransportStartTime,
-  setTransportStartTime,
-} from '../services/audio/clock';
+import { nextTransportStart } from '../util/transport-clock';
 import {
   getActiveLoopCycle,
   getLoopsTrack,
@@ -51,11 +46,17 @@ export const hasRunningCycle = (state, excludeSlotIndex = null) => {
     return true;
   }
 
-  const start = getTransportStartTime();
+  const start = state.transport?.startTime ?? 0;
   const drumsOrSession = !!state.transport?.playing || isTrackScheduling(state, DRUMS_TRACK_ID);
   // Only join once the shared transport anchor is in the past (audio underway).
   return drumsOrSession && start > 0 && context.currentTime >= start;
 };
+
+/** Patch session grid anchor (AudioContext time). */
+export const setTransportStartTime = (startTime) => (state) => ({
+  ...state,
+  transport: { ...state.transport, startTime },
+});
 
 const stopLoopSlots = (state) =>
   mapLoopSlots(state, (slot) => {
@@ -87,40 +88,36 @@ const stopAllTrackTransports = (tracks, { stopPending = false } = {}) =>
     transport: { ...t.transport, playing: false, stopPending },
   }));
 
-/** Pure — no clock mutation. */
-export const sessionPlayReducer = (s) => {
+export const sessionPlayReducer = (s, startTime = nextTransportStart(context.currentTime)) => {
   if (s.transport?.playing) return s;
   return {
     ...s,
-    transport: { ...s.transport, playing: true, stopPending: false },
+    transport: { ...s.transport, playing: true, stopPending: false, startTime },
     tracks: startAllTrackTransports(s.tracks),
   };
 };
 
-/** Pure — no clock mutation. */
 export const sessionPauseReducer = (s) => {
   if (!s.transport?.playing) return s;
   return {
     ...s,
-    transport: { ...s.transport, playing: false, playhead: null, stopPending: false },
+    transport: { ...s.transport, playing: false, stopPending: false },
     tracks: stopAllTrackTransports(s.tracks),
   };
 };
 
-/** Pure — no clock mutation. */
 export const sessionStopReducer = (s) =>
   stopLoopSlots({
     ...s,
     transport: {
       ...s.transport,
       playing: false,
-      playhead: null,
       stopPending: true,
+      startTime: 0,
     },
     tracks: stopAllTrackTransports(s.tracks),
   });
 
-/** Pure — no clock mutation. */
 export const trackTogglePlayReducer = (trackId = DRUMS_TRACK_ID) => (s) => {
   const track = s.tracks?.find((t) => t.id === trackId);
   if (!track) return s;
@@ -136,7 +133,6 @@ export const trackTogglePlayReducer = (trackId = DRUMS_TRACK_ID) => (s) => {
   };
 };
 
-/** Pure — no clock mutation. */
 export const trackStopReducer = (trackId = DRUMS_TRACK_ID) => (s) => ({
   ...s,
   tracks: mapTrackTransport(s.tracks, trackId, (tr) => ({
@@ -146,11 +142,10 @@ export const trackStopReducer = (trackId = DRUMS_TRACK_ID) => (s) => ({
   })),
 });
 
-/** Idempotent session start — clock then document. */
+/** Idempotent session start. */
 export const sessionPlay = () =>
   dispatch((s) => {
     if (s.transport?.playing) return s;
-    setTransportStartTime(nextTransportStart());
     return sessionPlayReducer(s);
   });
 
@@ -161,39 +156,36 @@ export const sessionPause = () => dispatch(sessionPauseReducer);
 export const sessionTogglePlay = () =>
   dispatch((s) => {
     if (s.transport?.playing) return sessionPauseReducer(s);
-    setTransportStartTime(nextTransportStart());
     return sessionPlayReducer(s);
   });
 
-/** Session stop — resets clock, then document. */
-export const sessionStop = () =>
-  dispatch((s) => {
-    resetTransportStartTime();
-    return sessionStopReducer(s);
-  });
+/** Session stop — clears grid anchor, then document. */
+export const sessionStop = () => dispatch(sessionStopReducer);
 
-/** Per-track play/pause — does not change session transport. */
+/** Per-track play/pause — does not change session transport playing flag. */
 export const trackTogglePlay = (trackId = DRUMS_TRACK_ID) =>
   dispatch((s) => {
     const track = s.tracks?.find((t) => t.id === trackId);
     if (!track) return s;
 
     const nextTrackPlaying = !track.transport?.playing;
-    if (nextTrackPlaying && trackId === DRUMS_TRACK_ID && getTransportStartTime() <= 0) {
+    let next = trackTogglePlayReducer(trackId)(s);
+    if (nextTrackPlaying && trackId === DRUMS_TRACK_ID && (s.transport?.startTime ?? 0) <= 0) {
       // Prefer a playing loop's timeline so drums join without bar drift.
       const loop = getActiveLoopCycle(s);
-      setTransportStartTime(
-        loop?.startedAt != null ? loop.startedAt : nextTransportStart(),
-      );
+      const startTime =
+        loop?.startedAt != null ? loop.startedAt : nextTransportStart(context.currentTime);
+      next = setTransportStartTime(startTime)(next);
     }
-    return trackTogglePlayReducer(trackId)(s);
+    return next;
   });
 
-/** Per-track stop — does not change session transport. */
+/** Per-track stop — does not change session transport playing flag. */
 export const trackStop = (trackId = DRUMS_TRACK_ID) =>
   dispatch((s) => {
+    let next = trackStopReducer(trackId)(s);
     if (trackId === DRUMS_TRACK_ID && !anyLoopSlotActive(s)) {
-      resetTransportStartTime();
+      next = setTransportStartTime(0)(next);
     }
-    return trackStopReducer(trackId)(s);
+    return next;
   });

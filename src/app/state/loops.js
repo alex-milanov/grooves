@@ -1,11 +1,12 @@
-import { defaultPanels, isMobile } from '../util/panels';
+import { context } from '../services/audio/graph';
 import { ensureLibrarySection, libraryForAssignment, LOOPS_SECTION } from '../util/library';
 import { DEFAULT_LOOP_SOURCE_BPM, loopPlaybackDuration } from '../util/loop-tempo';
 import { emptySlotRecordSchedule, slotPlaySchedule } from '../util/loop-record-schedule';
 import { nextSlotCycleTime } from '../util/transport-clock';
-
 export const LOOPS_TRACK_ID = 'trk-loops';
 export const LOOPS_SLOT_COUNT = 4;
+
+const defaultPanels = () => ({ library: false, settings: false });
 
 export const DEFAULT_SLOT_PARAMS = {
   volume: 0.85,
@@ -195,13 +196,10 @@ export const openLoopLibraryPanel = (slotIndex) => (state) => {
   };
 };
 
-export const panelsAfterLoopAssign = (state) => {
-  const mobile = isMobile(state);
-  return {
-    library: mobile ? false : (state.ui?.loops?.panels?.library ?? false),
-    settings: true,
-  };
-};
+export const panelsAfterLoopAssign = (state) => ({
+  library: state.viewport?.mobile ? false : (state.ui?.loops?.panels?.library ?? false),
+  settings: true,
+});
 
 // —— Reducers: (…args) => state => next ——
 
@@ -240,7 +238,7 @@ export const slotTogglePlayRec = (slotIndex) => (state) => {
   }
 
   if (process === 'play') {
-    const recordAt = nextSlotCycleTime(slot.startedAt, slot.duration);
+    const recordAt = nextSlotCycleTime(slot.startedAt, slot.duration, context.currentTime);
     return patchLoopSlot(state, slotIndex, {
       process: 'overdub',
       startedAt: recordAt,

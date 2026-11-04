@@ -1,5 +1,4 @@
 import { context } from '../services/audio';
-import { getTransportStartTime } from '../services/audio/clock';
 import {
   barSeconds,
   nextBarTime,
@@ -16,17 +15,17 @@ import {
 } from '../state/transport';
 
 /** Cold-start downbeat: prefer a shared future transport anchor when present. */
-const coldStartAt = (now = context.currentTime) => {
-  const start = getTransportStartTime();
+const coldStartAt = (state, now = context.currentTime) => {
+  const start = state.transport?.startTime ?? 0;
   return start > now + 0.001 ? start : now;
 };
 
 /** Bar grid from session, playing drums, or a playing loop. */
 const nextAlignedBarTime = (state, fromTime = context.currentTime) => {
-  const start = getTransportStartTime();
+  const start = state.transport?.startTime ?? 0;
   const onDrumsGrid =
     start > 0 && (state.transport?.playing || isTrackScheduling(state, DRUMS_TRACK_ID));
-  if (onDrumsGrid) return nextBarTime(state.transport, fromTime);
+  if (onDrumsGrid) return nextBarTime(state.transport, fromTime, start);
 
   const loop = getActiveLoopCycle(state);
   if (loop) {
@@ -93,7 +92,7 @@ export const emptySlotRecordSchedule = (state, clickOn) => {
 
   if (clickOn) {
     // No live grid — count-in starts on the hit (shared future transport anchor if any).
-    const countInAt = coldStartAt(now);
+    const countInAt = coldStartAt(state, now);
     return {
       startedAt: countInAt + bar,
       ...clearArmFields,
@@ -115,7 +114,7 @@ export const slotPlaySchedule = (state, slotIndex = null) => {
 
   if (!hasRunningCycle(state, slotIndex)) {
     return {
-      startedAt: coldStartAt(now),
+      startedAt: coldStartAt(state, now),
       ...clearArmFields,
     };
   }

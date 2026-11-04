@@ -8,8 +8,6 @@ import {
   getLoopSlotInput,
   syncPartLoopsMixer,
   getRecordLatencyCompensation,
-  getTransportStartTime,
-  setTransportStartTime,
   scheduleBeatClicks,
   stopBarClicks,
   createInputStream,
@@ -18,15 +16,10 @@ import {
   listInputDevices,
   samples,
 } from './audio';
-import {
-  quantizeTargetSeconds,
-  trimPadBuffer,
-  growingRecordProgress,
-} from '../util/loop-quantize';
-import { barSeconds, phaseAt } from '../util/transport-clock';
+import { quantizeTargetSeconds, trimPadBuffer } from '../util/loop-quantize';
+import { barSeconds } from '../util/transport-clock';
 import { slotPlaySchedule } from '../util/loop-record-schedule';
 import { slotPlaybackTiming } from '../util/loop-playback-timing';
-import { applyTempoPulseToButton } from '../util/loop-pulse';
 import {
   anySlotHasContent,
   getLoopsTrack,
@@ -46,7 +39,9 @@ import {
   slotPlaybackPatch,
   slotSourceBpm,
 } from '../util/loop-tempo';
-import { WORKSPACE_LOOPS } from '../util/workspaces';
+import { dbToLinear } from '../util/gain';
+import { setTransportStartTime } from '../state/transport';
+import { WORKSPACE_LOOPS } from '../state/ui';
 
 /** @type {Map<number, AudioBufferSourceNode[]>} */
 const slotSources = new Map();
@@ -60,82 +55,8 @@ let inputStream = null;
 let inputDeviceId = null;
 let inputProcessMic = null;
 let state$Ref = null;
-let progressRaf = 0;
 
 const slotProcess = (state, index) => getLoopSlot(state, index)?.process ?? 'empty';
-
-const calcProgress = (startedAt, duration, atTime = context.currentTime) => {
-  if (!startedAt || !duration) return 0;
-  return phaseAt(startedAt, duration, atTime) * 100;
-};
-
-const updatePlayRecProgress = () => {
-  if (!state$Ref) return;
-  const state = state$Ref.getValue();
-  let anyActive = false;
-
-  for (let i = 0; i < LOOPS_SLOT_COUNT; i++) {
-    const slot = getLoopSlot(state, i);
-    const btn = document.querySelector(`.loop-slot[data-slot="${i}"] .play-rec`);
-    if (!btn || !slot) continue;
-
-    const { process, startedAt, duration, countInAt } = slot;
-    const now = context.currentTime;
-
-    if (process === 'play' && duration > 0) {
-      anyActive = true;
-      const inFade = startedAt != null && slot.partialPlay && now < startedAt - 0.001;
-      btn.classList.toggle('count-in', inFade);
-      if (inFade && countInAt != null) {
-        const countInDuration = startedAt - countInAt;
-        const pct =
-          countInDuration > 0
-            ? Math.min(100, Math.max(0, ((now - countInAt) / countInDuration) * 100))
-            : 0;
-        btn.style.setProperty('--pgPercentage', String(pct));
-      } else {
-        btn.style.setProperty('--pgPercentage', String(calcProgress(startedAt, duration, now)));
-      }
-    } else if (process === 'record' && countInAt != null && now < startedAt) {
-      anyActive = true;
-      btn.classList.add('count-in');
-      const countInDuration = startedAt - countInAt;
-      const pct =
-        countInDuration > 0
-          ? Math.min(100, Math.max(0, ((now - countInAt) / countInDuration) * 100))
-          : 0;
-      btn.style.setProperty('--pgPercentage', String(pct));
-    } else if (process === 'overdub' && duration > 0 && startedAt != null) {
-      anyActive = true;
-      btn.classList.remove('count-in');
-      btn.style.setProperty('--pgPercentage', String(calcProgress(startedAt, duration, now)));
-    } else if (process === 'record' && startedAt != null) {
-      anyActive = true;
-      btn.classList.remove('count-in');
-      // Grow 1→2→3… bars instead of wrapping every bar.
-      btn.style.setProperty(
-        '--pgPercentage',
-        String(growingRecordProgress(startedAt, barSeconds(state.transport), now)),
-      );
-    } else {
-      btn.classList.remove('count-in');
-      btn.style.setProperty('--pgPercentage', '0');
-    }
-
-    applyTempoPulseToButton(btn, state, slot, i);
-  }
-
-  progressRaf = anyActive ? requestAnimationFrame(updatePlayRecProgress) : 0;
-};
-
-const ensureProgressLoop = () => {
-  if (!progressRaf) progressRaf = requestAnimationFrame(updatePlayRecProgress);
-};
-
-const stopProgressLoop = () => {
-  cancelAnimationFrame(progressRaf);
-  progressRaf = 0;
-};
 
 const syncInputDevices = () =>
   listInputDevices()
@@ -244,7 +165,6 @@ const startSlotPlayback = (state, slotIndex, atTime = context.currentTime) => {
       });
     }
   });
-  ensureProgressLoop();
 };
 
 const finishRecording = async (
@@ -391,7 +311,10 @@ const beginRecording = async (state, slotIndex) => {
     if (!live || (live.process !== 'record' && live.process !== 'overdub')) return;
 
     const origin = live.startedAt ?? cycleOrigin;
-    const recorder = createRecorder(stream);
+    const gain = dbToLinear(
+      (state$Ref?.getValue() ?? state).settings?.recording?.inputGainDb ?? 0,
+    );
+    const recorder = createRecorder(stream, { gain });
     const startAt =
       origin != null && origin > context.currentTime + 0.001 ? origin : context.currentTime;
     const delayMs = Math.max(0, (startAt - context.currentTime) * 1000);
@@ -424,7 +347,6 @@ const beginRecording = async (state, slotIndex) => {
     }, delayMs);
 
     activeRecords.set(slotIndex, { recorder, timeoutId, autoStopId: 0 });
-    ensureProgressLoop();
 
     recorder.stopped.then((blob) => {
       stopBarClicks();
@@ -451,8 +373,8 @@ const beginPlay = (state, slotIndex) => {
   if (!slot || !slotHasContent(slot)) return;
 
   // Publish the loop timeline as the session clock when nothing else has.
-  if (slot.startedAt != null && getTransportStartTime() <= 0) {
-    setTransportStartTime(slot.startedAt);
+  if (slot.startedAt != null && (state.transport?.startTime ?? 0) <= 0) {
+    dispatch(setTransportStartTime(slot.startedAt));
   }
 
   const armPlayback = () => {
@@ -472,7 +394,6 @@ const beginPlay = (state, slotIndex) => {
   } else {
     armPlayback();
   }
-  ensureProgressLoop();
 };
 
 const handleProcessChange = (state, slotIndex, process) => {
@@ -555,7 +476,6 @@ const stopAllSlots = () => {
     stopSlotSources(i);
   }
   stopBarClicks();
-  stopProgressLoop();
 };
 
 let onStop = () => {};
@@ -565,13 +485,14 @@ export const start = ({ state$ }) => {
   const subs = [];
   state$Ref = state$;
 
-  ensureNodes(state$.getValue().routing, state$.getValue().mixer);
+  const initial = state$.getValue();
+  ensureNodes(initial.routing, initial.mixer);
   applyRouting(
-    state$.getValue().routing,
-    rowParamsMap(state$.getValue()),
-    state$.getValue().mixer,
-    getDrumsTrack(state$.getValue())?.channel,
-    { reconnect: true, loopsTrack: getLoopsTrack(state$.getValue()) },
+    initial.routing,
+    rowParamsMap(initial),
+    initial.mixer,
+    getDrumsTrack(initial)?.channel,
+    { reconnect: true, loopsTrack: getLoopsTrack(initial) },
   );
 
   const inputOpts = () => {
@@ -669,6 +590,11 @@ export const start = ({ state$ }) => {
     );
   }
 
+  const applyTrackTransportSync = () => {
+    const next = syncLoopsToTrackTransport(state$Ref.getValue());
+    if (next) dispatch(() => next);
+  };
+
   subs.push(
     state$
       .pipe(map(loopsTransportKey), distinctUntilChanged(), pairwise())
@@ -680,8 +606,7 @@ export const start = ({ state$ }) => {
         if (loopsTr.stopPending) {
           stopAllSlots();
           clearLoopsTrackStopPending();
-          const next = syncLoopsToTrackTransport(state$Ref.getValue());
-          if (next) dispatch(() => next);
+          applyTrackTransportSync();
           return;
         }
 
@@ -689,17 +614,13 @@ export const start = ({ state$ }) => {
         const isPlaying = key.startsWith('true:');
         if (wasPlaying && !isPlaying) {
           stopAllSlots();
-          const next = syncLoopsToTrackTransport(state$Ref.getValue());
-          if (next) dispatch(() => next);
+          applyTrackTransportSync();
           return;
         }
 
         // Only when transport *becomes* playing — not on every state$ tick while playing
         // (that was re-arming slots after per-slot stop).
-        if (!wasPlaying && isPlaying) {
-          const next = syncLoopsToTrackTransport(state$Ref.getValue());
-          if (next) dispatch(() => next);
-        }
+        if (!wasPlaying && isPlaying) applyTrackTransportSync();
       }),
   );
 

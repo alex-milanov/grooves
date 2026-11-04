@@ -1,16 +1,20 @@
 import { obj } from 'iblokz-data';
 import { getInitialTheme } from '../util/theme';
 import { buildDefaultRouting } from '../util/routing';
-import { WORKSPACE_DRUMS, defaultWorkspacesStripOpen } from '../util/workspaces';
+import { WORKSPACE_DRUMS } from './ui';
+import { MOBILE_BREAKPOINT } from './viewport';
 import { createDrumsTrack } from './drums';
 import { createLoopsTrack, LOOPS_SLOT_COUNT } from './loops';
+import { initialSettings } from './settings';
 
 const ROW_COUNT = 4;
+
+const bootWidth = typeof window !== 'undefined' ? window.innerWidth : MOBILE_BREAKPOINT;
 
 export const initial = {
   ui: {
     activeWorkspace: WORKSPACE_DRUMS,
-    workspacesStripOpen: typeof window !== 'undefined' ? defaultWorkspacesStripOpen() : true,
+    workspacesStripOpen: bootWidth >= MOBILE_BREAKPOINT,
     library: {
       path: ['library', 'samples'],
     },
@@ -28,10 +32,12 @@ export const initial = {
       inputDevices: [],
     },
   },
+  settings: initialSettings(),
   transport: {
     playing: false,
-    playhead: null,
     stopPending: false,
+    /** AudioContext time of session/drums grid anchor (0 = unset). */
+    startTime: 0,
     bpm: 120,
     timeSignature: [4, 4],
     resolution: 16,
@@ -66,6 +72,8 @@ export const initial = {
       size: 'md',
       scroll: { x: 0, y: 0 },
     },
+    /** Below MOBILE_BREAKPOINT — maintained by viewport service. */
+    mobile: bootWidth < MOBILE_BREAKPOINT,
     /** True while library/settings panel max-width is transitioning — viewport skips scale. */
     animating: false,
     /** Mirrors document fullscreen (Escape / OS exit included). */

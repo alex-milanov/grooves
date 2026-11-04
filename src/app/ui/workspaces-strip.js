@@ -5,9 +5,14 @@ import {
   WORKSPACE_DRUMS,
   WORKSPACE_LOOPS,
   WORKSPACE_MIXER,
-  stripVisible,
-} from '../util/workspaces';
-import { drumsWorkspace, loopsWorkspace, mixerWorkspace } from './workspaces/content';
+  WORKSPACE_SETTINGS,
+} from '../state/ui';
+import {
+  drumsWorkspace,
+  loopsWorkspace,
+  mixerWorkspace,
+  settingsWorkspace,
+} from './workspaces/content';
 
 const setWorkspace = (id) => (ev) => {
   ev.preventDefault();
@@ -31,7 +36,7 @@ const stripPreview = (id, label, content, { active, onClick }) =>
   );
 
 export default (state) => {
-  if (!stripVisible(state)) return null;
+  if (!state.ui?.workspacesStripOpen) return null;
 
   const active = state.ui?.activeWorkspace ?? WORKSPACE_DRUMS;
   const drumsName =
@@ -54,6 +59,10 @@ export default (state) => {
       stripPreview(WORKSPACE_MIXER, 'Mixer', mixerWorkspace(state), {
         active: active === WORKSPACE_MIXER,
         onClick: setWorkspace(WORKSPACE_MIXER),
+      }),
+      stripPreview(WORKSPACE_SETTINGS, 'Settings', settingsWorkspace(state), {
+        active: active === WORKSPACE_SETTINGS,
+        onClick: setWorkspace(WORKSPACE_SETTINGS),
       }),
     ]),
   ]);

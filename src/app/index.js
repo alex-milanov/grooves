@@ -2,11 +2,12 @@
 import { init, dispatch } from 'iblokz-state';
 import { patchStream } from 'iblokz-snabbdom-helpers';
 import { toVNode } from 'snabbdom';
-import { map, distinctUntilChanged } from 'rxjs';
+import { map, distinctUntilChanged, withLatestFrom } from 'rxjs';
 
 // state
 import { initial } from './state';
 import { serializeTheme } from './util/theme';
+import { frame } from './util/time';
 // services
 import viewport from './services/viewport';
 import library from './services/library';
@@ -43,8 +44,11 @@ state$
   )
   .subscribe((theme) => localStorage.setItem('boilerplate-theme', theme));
 
-// state -> ui
-let vnode$ = state$.pipe(map(ui));
+// raf × latest state -> ui (js-loop-station / world-metronome)
+let vnode$ = frame().pipe(
+  withLatestFrom(state$),
+  map(([, state]) => ui(state)),
+);
 let patchSubscription = patchStream(vnode$, toVNode(document.body));
 
 if (module.hot) {

@@ -77,8 +77,37 @@ const createMediaRecorder = (stream) => {
   return new MediaRecorder(stream);
 };
 
-export const createRecorder = (stream) => {
-  const recorder = createMediaRecorder(stream);
+/**
+ * @param {MediaStream} stream
+ * @param {{ gain?: number }} [opts] — linear amplitude (1 = unity); routed via Web Audio when ≠ 1
+ */
+export const createRecorder = (stream, { gain = 1 } = {}) => {
+  let recordStream = stream;
+  let teardown = () => {};
+
+  if (Number.isFinite(gain) && gain !== 1) {
+    const source = context.createMediaStreamSource(stream);
+    const gainNode = context.createGain();
+    gainNode.gain.value = Math.max(0, gain);
+    const dest = context.createMediaStreamDestination();
+    source.connect(gainNode);
+    gainNode.connect(dest);
+    recordStream = dest.stream;
+    teardown = () => {
+      try {
+        source.disconnect();
+      } catch {
+        /* noop */
+      }
+      try {
+        gainNode.disconnect();
+      } catch {
+        /* noop */
+      }
+    };
+  }
+
+  const recorder = createMediaRecorder(recordStream);
   const chunks = [];
   let settled = false;
   const blobType = recorder.mimeType || 'audio/webm';
@@ -95,6 +124,7 @@ export const createRecorder = (stream) => {
   const settle = (blob) => {
     if (settled) return;
     settled = true;
+    teardown();
     resolveStopped(blob);
   };
 
@@ -129,7 +159,7 @@ export const createRecorder = (stream) => {
       return recorder.state;
     },
     stopped,
-    stream,
+    stream: recordStream,
   };
 };
 

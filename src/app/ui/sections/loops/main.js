@@ -1,9 +1,7 @@
 import { main, div, header, button, h2, i } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
-import { context } from '../../../services/audio';
-import { barSeconds, phaseAt } from '../../../util/transport-clock';
-import { growingRecordProgress } from '../../../util/loop-quantize';
-import { slotTempoPulseEnabled } from '../../../util/loop-pulse';
+import { slotPlayRecProgress } from '../../../util/loop-progress';
+import { slotTempoPulseEnabled, slotTempoPulseTransform } from '../../../util/loop-pulse';
 import { anyLoopSlotActive } from '../../../state/transport';
 import {
   deselectLoopSlot,
@@ -66,48 +64,15 @@ const onSlotDblClick = (index, ev) => {
   dispatch(openLoopLibraryPanel(index));
 };
 
-const calcProgress = (startedAt, duration) => {
-  if (!startedAt || !duration) return 0;
-  return phaseAt(startedAt, duration, context.currentTime) * 100;
-};
-
 const slotStrip = (state, index) => {
   const slot = getLoopSlot(state, index);
   const process = slot?.process ?? 'empty';
   const selectedSlot = state.ui?.loops?.selectedSlot;
   const panels = state.ui?.loops?.panels ?? {};
   const isSelected = selectedSlot === index;
-  const now = context.currentTime;
-  const { startedAt, duration, countInAt, partialPlay } = slot ?? {};
-  const inPlayFade =
-    process === 'play' && partialPlay && startedAt != null && now < startedAt - 0.001;
-  let pgPercentage = 0;
-  if (inPlayFade && countInAt != null && startedAt != null) {
-    const countInDuration = startedAt - countInAt;
-    pgPercentage =
-      countInDuration > 0
-        ? Math.min(100, Math.max(0, ((now - countInAt) / countInDuration) * 100))
-        : 0;
-  } else if (process === 'play' && duration > 0) {
-    pgPercentage = calcProgress(startedAt, duration);
-  } else if (
-    process === 'record' &&
-    countInAt != null &&
-    startedAt != null &&
-    now < startedAt
-  ) {
-    const countInDuration = startedAt - countInAt;
-    pgPercentage =
-      countInDuration > 0
-        ? Math.min(100, Math.max(0, ((now - countInAt) / countInDuration) * 100))
-        : 0;
-  } else if (process === 'overdub' && duration > 0 && startedAt != null) {
-    pgPercentage = calcProgress(startedAt, duration);
-  } else if (process === 'record' && startedAt != null) {
-    pgPercentage = growingRecordProgress(startedAt, barSeconds(state.transport), now);
-  }
-
-  const tempoPulse = slotTempoPulseEnabled(state, slot, index);
+  const { pct: pgPercentage, countIn } = slotPlayRecProgress(state, slot);
+  const tempoPulse = slotTempoPulseEnabled(state, slot);
+  const pulseTransform = slotTempoPulseTransform(state, slot);
   const hasContent = slotHasContent(slot);
   const slotLabel = slot?.sample || `Slot ${index + 1}`;
 
@@ -144,13 +109,12 @@ const slotStrip = (state, index) => {
           record: process === 'record',
           overdub: process === 'overdub',
           assigned: hasContent,
-          'count-in':
-            (process === 'record' && countInAt != null && startedAt != null && now < startedAt) ||
-            inPlayFade,
+          'count-in': countIn,
           'tempo-pulse': tempoPulse,
         },
         style: {
           '--pgPercentage': String(pgPercentage),
+          ...(pulseTransform ? { transform: pulseTransform } : {}),
         },
         props: {
           type: 'button',

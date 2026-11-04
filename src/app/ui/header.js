@@ -1,20 +1,13 @@
 import { header, nav, a, div, img, i, span } from 'iblokz-snabbdom-helpers';
 
 import { dispatch } from 'iblokz-state';
-import { scrollToSection } from '../util/scroll';
 import { patch } from '../state';
 import { THEME_FAMILIES } from '../util/theme';
 import { LANGS, LANG_LABELS, flagSrc } from '../util/lang';
 import { themePreview } from '../util/theme-preview';
-import { stripVisible } from '../util/workspaces';
 import { toggleFullscreen } from '../util/fullscreen';
 import dropdown, { caret } from './components/dropdown';
 import headerTransport from './header-transport';
-
-const onHomeClick = (ev) => {
-  ev.preventDefault();
-  scrollToSection('#hero', '#hero');
-};
 
 const headerProgress = (scrollY) => Math.min(1, scrollY / 120);
 
@@ -80,18 +73,7 @@ export default (state) => {
     [
       nav('.site-nav', [
         div('.site-nav-start', [
-          a(
-            '.site-title[href="#hero"]',
-            {
-              on: { click: onHomeClick },
-            },
-            [
-              img('.site-logo', {
-                props: { src: 'assets/logo.svg', alt: '' },
-              }),
-              'Grooves',
-            ],
-          ),
+          span('.site-title', ['Grooves']),
         ]),
         div('.site-nav-center', [headerTransport(state)]),
         div('.site-nav-end.site-controls', [
@@ -151,18 +133,24 @@ export default (state) => {
           a(
             '.workspaces-strip-toggle.control.icon-only',
             {
-              class: { active: stripVisible(state) },
+              class: { active: !!state.ui?.workspacesStripOpen },
               props: {
-                title: stripVisible(state) ? 'Hide workspaces' : 'Show workspaces',
+                title: state.ui?.workspacesStripOpen ? 'Hide workspaces' : 'Show workspaces',
               },
               on: {
                 click: (ev) => {
                   ev.preventDefault();
-                  dispatch(patch(['ui', 'workspacesStripOpen'], !stripVisible(state)));
+                  dispatch(
+                    patch(['ui', 'workspacesStripOpen'], !state.ui?.workspacesStripOpen),
+                  );
                 },
               },
             },
-            [i(`.fa.${stripVisible(state) ? 'fa-chevron-up' : 'fa-th-large'}`)],
+            [
+              i(
+                `.fa.${state.ui?.workspacesStripOpen ? 'fa-chevron-up' : 'fa-th-large'}`,
+              ),
+            ],
           ),
           a(
             '.fullscreen-toggle.control.icon-only',

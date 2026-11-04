@@ -6,7 +6,7 @@ import {
   vcf as createVcf,
 } from 'iblokz-audio';
 import { resolveEdgeGain } from '../../util/routing';
-import { getRowParams } from '../../util/row-params';
+import { getRowParams } from '../../state/drums';
 import { getSlotParams } from '../../state/loops';
 
 export { context };
@@ -315,8 +315,6 @@ export const cancelAllScheduled = () => {
   scheduled.length = 0;
 };
 
-export const stepTime = (bpm) => 60 / bpm / 4;
-
 /** Total output latency (s): baseLatency + outputLatency — for UI sync with heard audio. */
 export const getOutputLatency = (ctx = context) =>
   (ctx.baseLatency ?? 0) + (ctx.outputLatency ?? 0);
@@ -328,4 +326,4 @@ export const getOutputLatency = (ctx = context) =>
  */
 export const getRecordLatencyCompensation = (ctx = context) => getOutputLatency(ctx);
 
-export { rowGain } from '../../util/row-params';
+export { rowGain } from '../../state/drums';
