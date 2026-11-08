@@ -19,10 +19,12 @@ $dropdown-item-height: 28px;
     z-index: 120;
     margin-top: 4px;
     min-width: 100%;
-    background: var(--app-btn-secondary-bg);
+    background: var(--app-input-bg);
     border: 1px solid var(--app-btn-secondary-border);
     border-radius: var(--app-radius-control);
-    box-shadow: 0 4px 12px var(--app-shadow, rgba(0, 0, 0, 0.15));
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     opacity: 0;
     overflow: hidden;
     transition: opacity 0.05s 0.35s, visibility 0.05s 0.35s;
@@ -41,7 +43,7 @@ $dropdown-item-height: 28px;
         white-space: nowrap;
       }
 
-      &:hover:not(.disabled) {
+      &:hover:not(.disabled):not(.separator) {
         @include color-mix-tint(background, var(--app-btn-primary-bg), 38%);
         color: var(--app-btn-primary-text);
         text-shadow: none;
@@ -62,6 +64,21 @@ $dropdown-item-height: 28px;
         opacity: 0.45;
         cursor: not-allowed;
       }
+
+      &.separator {
+        pointer-events: none;
+        margin: 0;
+        padding: 0;
+        background: transparent;
+
+        &::after {
+          content: '';
+          display: block;
+          height: 1px;
+          margin: 4px 8px;
+          background: color-mix(in srgb, var(--app-text) 35%, transparent);
+        }
+      }
     }
   }
 
@@ -70,11 +87,15 @@ $dropdown-item-height: 28px;
   > ul:hover {
     transition: opacity 0.05s, visibility 0.05s;
     visibility: visible;
-    opacity: 1;
+    opacity: 0.9;
 
     > li {
       transition: height 0.17s;
       height: $dropdown-item-height;
+
+      &.separator {
+        height: 9px;
+      }
     }
   }
 

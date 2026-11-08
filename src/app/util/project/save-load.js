@@ -3,7 +3,9 @@ import { loadProject } from '../../state/project';
 import { getLoopsTrack, slotHasContent } from '../../state/loops';
 import { serializeProject } from './document';
 import { downloadBlob, pickFile, slugFilename } from './io';
+import { packDawproject } from './dawproject';
 import { midiBlob } from './midi';
+import { packMultisample } from './multisample';
 import { dumpProjectYaml } from './yaml';
 import { loadProjectFile, missingDrumSamples, packProjectZip } from './zip';
 
@@ -40,6 +42,18 @@ export const saveProjectZip = async (state) => {
 /** Download drum pattern as Standard MIDI (`.mid`) — one Type-1 drums track. */
 export const saveProjectMidi = (state) => {
   downloadBlob(midiBlob(state), slugFilename(projectBasename(state), 'mid'));
+};
+
+/** Download session as DAWproject (`.dawproject`) — Scenes/ClipSlots for Bitwig. */
+export const saveProjectDawproject = async (state) => {
+  const blob = await packDawproject(state);
+  downloadBlob(blob, slugFilename(projectBasename(state), 'dawproject'));
+};
+
+/** Download drums kit as Bitwig/PreSonus `.multisample` (zones = row MIDI notes). */
+export const saveProjectMultisample = async (state) => {
+  const blob = await packMultisample(state);
+  downloadBlob(blob, slugFilename(`${projectBasename(state)}-drums`, 'multisample'));
 };
 
 /** File picker → install media → apply project document. */

@@ -34,8 +34,14 @@ export default (className, { handle, handleClick, items = [], toLeft = false, fl
     handleNode,
     items.length
       ? ul(
-          items.map((item) =>
-            li(
+          items.map((item) => {
+            if (item.separator) {
+              return li({
+                class: { separator: true },
+                attrs: { role: 'separator', 'aria-hidden': 'true' },
+              });
+            }
+            return li(
               {
                 class: {
                   active: !!item.active,
@@ -52,8 +58,8 @@ export default (className, { handle, handleClick, items = [], toLeft = false, fl
                       },
               },
               renderItem(item),
-            ),
-          ),
+            );
+          }),
         )
       : null,
   ]);

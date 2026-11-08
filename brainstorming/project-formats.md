@@ -1,7 +1,7 @@
 # Project & File Formats
 
 **Date:** 2026-06-21; **updated 2026-11-08**  
-**Status:** Native `grooves-project` (YAML ± ZIP) + **MIDI export** — done; **DAWproject** session-clips MVP — specced; MusicXML — later
+**Status:** Native `grooves-project` (YAML ± ZIP) + **MIDI** + **DAWproject** + **`.multisample`** kit export — done; MusicXML — later
 
 ## Goal
 
@@ -163,7 +163,7 @@ name.dawproject
 | Empty slots | Omit |
 | Vol / pan / mute / solo | Channel attrs (subset) |
 | Arrangement / song view | **Not exported** |
-| VCF / sends / VST | **Not exported** |
+| Loop VCF / sends / buses | Loop EQ + effect Channels + Sends (no portable reverb/delay device) |
 
 ### Implementation order (when building)
 
@@ -172,7 +172,7 @@ name.dawproject
 3. Loop Audio ClipSlots + `media/`  
 4. Channel levels  
 
-Header Save → DAWproject stays disabled until that lands. Keep builder in `util/project/dawproject.js`.
+Header Save → **DAWproject** enabled. Builder: `util/project/dawproject.js`.
 
 ---
 
@@ -186,7 +186,7 @@ Later — pitched / piano-roll tracks. Lower priority than MIDI + DAWproject ses
 
 1. **Native YAML ± ZIP is source of truth** — full grooves state, versioning, types.
 2. **MIDI** — drum pattern / hardware (implemented).
-3. **DAWproject** — session-clip interchange for Bitwig et al. (specced; export next).
+3. **DAWproject** — session-clip interchange for Bitwig et al. (MVP export implemented).
 4. **MusicXML** — later.
 
 ---
@@ -205,5 +205,5 @@ Later — pitched / piano-roll tracks. Lower priority than MIDI + DAWproject ses
 2. ✅ Serialize / apply `project.yaml` ↔ app state
 3. ✅ ZIP pack/unpack + header Save (YAML / ZIP) + Load
 4. ✅ MIDI export (drums pattern)
-5. Next: DAWproject session-clips export (Bitwig)
+5. ✅ DAWproject session-clips export (Bitwig) — `util/project/dawproject.js`
 6. Later: MusicXML

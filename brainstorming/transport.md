@@ -244,7 +244,7 @@ See [`workspaces.md`](workspaces.md) — transport is **global**; active workspa
 - [ ] **Unarmed tracks** — silent on session play, or still show idle animation in strip?
 - [ ] **Late join** — when track starts mid-session, schedule from `now` or snap to bar?
 - [ ] **Loop tracks** — sync to bar boundary on session play (js-loop-station pattern)?
-- [ ] **MIDI clock out** — session transport drives external clock (jam-station `midi.js`)?
+- [ ] **MIDI clock out** — session transport drives external clock (jam-station `midi.js`)? Deferred past initial controller input — see [`planning/2026-11-08-03-midi-controller-input.md`](../planning/2026-11-08-03-midi-controller-input.md).
 
 ---
 

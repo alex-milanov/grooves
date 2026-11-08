@@ -174,12 +174,16 @@
     flex-wrap: nowrap;
   }
 
-  .control,
-  .dropdown.control,
-  .dropdown.flags,
+  // Fade chrome handles only — never the open menu (child can't escape parent opacity).
+  .control:not(.dropdown),
   .theme-toggle.control,
   .fullscreen-toggle.control,
   .workspaces-strip-toggle.control {
+    opacity: calc(0.5 + var(--header-progress) * 0.5);
+  }
+
+  .dropdown.control > .handle,
+  .dropdown.flags > .flag-handle {
     opacity: calc(0.5 + var(--header-progress) * 0.5);
   }
 
@@ -272,9 +276,7 @@
   }
 
   &.is-formed .transport-btn:not(:disabled),
-  &.is-formed .control:not(:disabled),
-  &.is-formed .dropdown.control,
-  &.is-formed .dropdown.flags.control,
+  &.is-formed .control:not(:disabled):not(.dropdown),
   &.is-formed .theme-toggle.control,
   &.is-formed .fullscreen-toggle.control,
   &.is-formed .workspaces-strip-toggle.control {
@@ -292,6 +294,29 @@
         transparent
       );
     }
+    opacity: 1;
+  }
+
+  &.is-formed .dropdown.control,
+  &.is-formed .dropdown.flags.control {
+    border-color: var(--app-control-border-formed);
+    background-color: var(--app-control-bg-formed);
+    @supports (color: color-mix(in srgb, white 50%, black)) {
+      border-color: color-mix(
+        in srgb,
+        var(--app-control-border-formed) calc(var(--header-progress) * 100%),
+        transparent
+      );
+      background: color-mix(
+        in srgb,
+        var(--app-control-bg-formed) calc(var(--header-progress) * 100%),
+        transparent
+      );
+    }
+  }
+
+  &.is-formed .dropdown.control > .handle,
+  &.is-formed .dropdown.flags > .flag-handle {
     opacity: 1;
   }
 }

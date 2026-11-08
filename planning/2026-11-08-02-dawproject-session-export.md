@@ -1,9 +1,9 @@
 # DAWproject MVP export — session clips only (Bitwig-openable)
 
 **Date:** 2026-11-08  
-**Status:** Spec / planned (not implemented)  
+**Status:** Implemented (MVP — Scenes/ClipSlots; L0 loop WAVs)  
 **Spec also in:** [`brainstorming/project-formats.md`](../brainstorming/project-formats.md)  
-**Related:** MIDI export (implemented) — `util/project/midi.js`
+**Related:** MIDI export — `util/project/midi.js`; builder — `util/project/dawproject.js`
 
 ## Goal
 
@@ -14,7 +14,8 @@ Export a `.dawproject` that **opens in Bitwig** (and ideally Studio One) carryin
 - Arrangement / linear timeline
 - Import / round-trip
 - VST/CLAP device state
-- Sends, VCF, bus FX as DAW devices
+- Portable reverb/delay **devices** on buses (channels + send levels are exported; host adds FX)
+- Per-drum-row VCF (would need split note tracks)
 - MusicXML
 
 ## Container
@@ -68,7 +69,7 @@ Project
 ### Mixer subset
 
 - Channel Volume / Pan / Mute / Solo from `tracks[].channel` (and optional per-slot params on loop tracks).
-- No sends/devices in MVP.
+- Loop VCF → Equalizer; reverb/delay → effect Channels + post Sends (no built-in reverb/delay device).
 
 ## Mapping table
 
@@ -80,18 +81,20 @@ Project
 | Loop slot with audio | Structure audio `Track` + Scene `ClipSlot` Audio clip + file |
 | Empty loop slots | Omit tracks |
 | Arrangement / song timeline | **Not exported** |
-| VCF / sends / buses | Not exported |
+| Loop slot VCF | `Equalizer` lowPass (cutoff→Hz, resonance→Q) |
+| Row/slot sends + buses | Effect Channels (Reverb/Delay) + post Sends; bus params in comments |
+| Drum row VCF | Not exported (single drums track) |
 
 ## Implementation sketch
 
 | Module | Role |
 |--------|------|
-| `util/project/midi.js` | ✅ Shared step→beat/tick helpers & note list (extend or share) |
-| `util/project/dawproject.js` | Build `project.xml` + `metadata.xml`, pack ZIP |
-| `util/project/save-load.js` | `saveProjectDawproject(state)` |
-| Header Save | Enable DAWproject when ready |
+| `util/project/midi.js` | ✅ `collectDrumNoteList` / `drumsPatternBeats` (shared with SMF) |
+| `util/project/dawproject.js` | ✅ Build `project.xml` + `metadata.xml`, pack ZIP |
+| `util/project/save-load.js` | ✅ `saveProjectDawproject(state)` |
+| Header Save | ✅ DAWproject enabled |
 
-**Order:** (1) Transport + Structure + empty Scene smoke in Bitwig → (2) drums Notes ClipSlot → (3) loop Audio ClipSlots + media → (4) channel levels.
+**Shipped order:** Transport/Structure/Master + Scene A with drums Notes ClipSlot + filled-loop Audio ClipSlots (L0 WAV) + channel vol/pan/mute.
 
 ## Acceptance
 

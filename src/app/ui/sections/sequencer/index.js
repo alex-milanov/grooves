@@ -1,17 +1,8 @@
 import { main, h2, button, header, label, input, i } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
 import { patch } from '../../../state';
-import {
-  deselectRow,
-  openLibraryPanel,
-  selectRow,
-  setRowCount,
-} from '../../../state/sequencer';
-import {
-  stepsPerBar,
-  barCount,
-  toggleMeasuresExpanded,
-} from '../../../state/sequencer-measures';
+import { deselectRow, openLibraryPanel, selectRow, setRowCount } from '../../../state/sequencer';
+import { stepsPerBar, barCount, toggleMeasuresExpanded } from '../../../state/sequencer-measures';
 import { drumsRowCount } from '../../../state/drums';
 import { DRUMS_TRACK_ID, trackTogglePlay, trackStop } from '../../../state/transport';
 import { getDrumsUiTiming } from '../../../services/sequencer';
@@ -79,8 +70,7 @@ export default (state) => {
       ? Math.min(bars - 1, Math.max(0, timing.playBar))
       : storedBar;
 
-  const cuedBar =
-    ui.cuedBar == null ? null : Math.min(bars - 1, Math.max(0, ui.cuedBar));
+  const cuedBar = ui.cuedBar == null ? null : Math.min(bars - 1, Math.max(0, ui.cuedBar));
 
   return [
     main('.sequencer', [
@@ -140,9 +130,7 @@ export default (state) => {
           on: {
             input: (ev) => {
               const den = Number(state.transport?.timeSignature?.[1]) || 4;
-              dispatch(
-                patch(['transport', 'timeSignature'], [Number(ev.target.value) || 1, den]),
-              );
+              dispatch(patch(['transport', 'timeSignature'], [Number(ev.target.value) || 1, den]));
             },
           },
         }),
@@ -155,9 +143,7 @@ export default (state) => {
           on: {
             input: (ev) => {
               const num = Number(state.transport?.timeSignature?.[0]) || 4;
-              dispatch(
-                patch(['transport', 'timeSignature'], [num, Number(ev.target.value) || 1]),
-              );
+              dispatch(patch(['transport', 'timeSignature'], [num, Number(ev.target.value) || 1]));
             },
           },
         }),
@@ -183,7 +169,7 @@ export default (state) => {
             },
             on: { click: () => dispatch(toggleMeasuresExpanded) },
           },
-          [i(expanded ? '.fa.fa-compress' : '.fa.fa-expand')],
+          [i(`.fa.${expanded ? 'fa-chevron-up' : 'fa-th-large'}`)],
         ),
       ]),
       expanded

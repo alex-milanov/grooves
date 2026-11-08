@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Native **grooves-project** save/load: YAML session document and `.grooves.zip` (`project.yaml` + `media/samples` + `media/loops`)
 - **MIDI export** (Save → MIDI): Type-1 SMF of the drums pattern (tempo, meter, row MIDI notes)
-- Spec for **DAWproject** MVP export — session/Scenes clips only, no Arrangement timeline
+- **DAWproject export** (Save → DAWproject): Bitwig-friendly `.dawproject` with Scene ClipSlots (drums Notes + loop Audio L0), empty Arrangement; loop VCF→Equalizer; reverb/delay effect Channels + post Sends
+- **Multisample export** (Save → Multisample): Bitwig/PreSonus `.multisample` drum kit (one zone per row MIDI note + WAVs)
 - Per-track VCF (cutoff, resonance) and reverb/delay send busses via `iblokz-audio`
 - Explicit `routing` state (`nodes` + `edges`) driving Web Audio connections
 - `mixer` service syncing routing and track params to the audio graph

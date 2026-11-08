@@ -8,7 +8,9 @@ import { themePreview } from '../util/theme-preview';
 import { toggleFullscreen } from '../util/fullscreen';
 import {
   openProject,
+  saveProjectDawproject,
   saveProjectMidi,
+  saveProjectMultisample,
   saveProjectYaml,
   saveProjectZip,
 } from '../util/project/save-load';
@@ -28,12 +30,16 @@ const THEME_MODE_ICONS = {
   dark: 'fa-moon-o',
 };
 
+/** Grooves native → notation/MIDI → DAW interchange (separators between groups). */
 const SAVE_FORMATS = [
   { id: 'yaml', label: 'YAML' },
   { id: 'zip', label: 'ZIP + media' },
+  { separator: true },
   { id: 'midi', label: 'MIDI' },
-  { id: 'dawproject', label: 'DAWproject', disabled: true },
   { id: 'musicxml', label: 'MusicXML', disabled: true },
+  { separator: true },
+  { id: 'dawproject', label: 'DAWproject' },
+  { id: 'multisample', label: 'Multisample' },
 ];
 
 const saveProject = (formatId, state) => {
@@ -51,6 +57,14 @@ const saveProject = (formatId, state) => {
     } catch (err) {
       console.error('MIDI export failed:', err);
     }
+    return;
+  }
+  if (formatId === 'dawproject') {
+    saveProjectDawproject(state).catch((err) => console.error('DAWproject export failed:', err));
+    return;
+  }
+  if (formatId === 'multisample') {
+    saveProjectMultisample(state).catch((err) => console.error('Multisample export failed:', err));
     return;
   }
   console.warn('Save format not implemented yet:', formatId);
@@ -172,11 +186,15 @@ export default (state) => {
           dropdown('.save.control.icon-only', {
             handle: [i('.fa.fa-floppy-o', { attrs: { title: 'Save project' } })],
             toLeft: true,
-            items: SAVE_FORMATS.map((format) => ({
-              label: format.label,
-              disabled: !!format.disabled,
-              onSelect: () => saveProject(format.id, state),
-            })),
+            items: SAVE_FORMATS.map((format) =>
+              format.separator
+                ? { separator: true }
+                : {
+                    label: format.label,
+                    disabled: !!format.disabled,
+                    onSelect: () => saveProject(format.id, state),
+                  },
+            ),
           }),
           a(
             '.workspaces-strip-toggle.control.icon-only',

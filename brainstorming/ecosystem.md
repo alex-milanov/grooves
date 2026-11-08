@@ -49,7 +49,7 @@ Reference apps and what Grooves might take from each. Status: **done** · **part
 | Waveform preview | WaveSurfer + sync cursor (grooves-specific) | **done** |
 | Service registry (`start`/`stop`, hot reload) | viewport, library, sequencer, waveform services | **partial** |
 | Piano roll / melodic sequencing | Large scope | **reference only** |
-| MIDI in/out, pad mapping | Chrome-only; service-based | **planned** |
+| MIDI in/out, pad mapping | Chrome-only; service-based | **planned** — [`planning/2026-11-08-03-midi-controller-input.md`](../planning/2026-11-08-03-midi-controller-input.md) |
 | Synth engine (iblokz-audio) | Different product layer | **reference only** |
 | Tap tempo, session/song structure | Performance features | **planned** |
 | Mobile / touch layout | jam-station roadmap priority | **planned** |
@@ -70,7 +70,7 @@ Reference apps and what Grooves might take from each. Status: **done** · **part
 | Freesound / Audio Commons search | API integration, attribution | **planned** |
 | Mic record → sample | xAmplR core feature | **planned** |
 | Per-sample effects (VCF, reverb) | Could become per-track FX | **planned** |
-| MIDI pad triggering | | **planned** |
+| MIDI pad triggering | | **planned** — grooves MIDI input slice covers drum one-shots |
 
 **Docs to reuse:** `xAmplR/summaries/` (project structure, jam-station comparison)
 
@@ -119,7 +119,7 @@ Incremental path aligned with “simple sequencer first”:
 2. **Transport polish** — pause/resume re-anchor, tap tempo (world-metronome + jam-station)
 3. **Library depth** — multi-kit, better browse UX (jam-station media library)
 4. **Sample interaction** — trim/start point, basic FX (xAmplR)
-5. **Live layer** — optional pad bank or keyboard trigger (xAmplR + jam-station MIDI)
+5. **Live layer** — MIDI controller input + seq record ([planning](../planning/2026-11-08-03-midi-controller-input.md); xAmplR + jam-station + js-loop-station)
 6. **Melodic / session** — only if groovebox scope expands (jam-station)
 
 ~~Loop lanes~~ — done (MVP).

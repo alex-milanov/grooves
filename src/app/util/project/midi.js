@@ -60,51 +60,70 @@ const buildTrackChunk = (events) => {
 };
 
 /**
- * Collect absolute-tick note on/off pairs from the drums pattern.
- * @returns {{ tick: number, status: number, data: number[] }[]}
+ * Drum hits as musical notes (beats) — shared by SMF + DAWproject export.
+ * @returns {{ time: number, duration: number, key: number, vel: number }[]}
  */
-export const collectDrumMidiEvents = (state) => {
+export const collectDrumNoteList = (state) => {
   const track = getDrumsTrack(state);
   const rows = track?.rows ?? [];
   const measures = measuresList(state);
   const perBar = stepsPerBar(state);
   const beats = beatsPerBar(state.transport);
-  const ticksPerStep = (PPQ * beats) / perBar;
-  const noteTicks = Math.max(1, Math.round(ticksPerStep * NOTE_STEP_FRAC));
+  const beatsPerStep = beats / perBar;
+  const noteBeats = Math.max(beatsPerStep * NOTE_STEP_FRAC, 1 / PPQ);
 
-  // MIDI channel 1–16 in docs → 0–15 on the wire. Channel 10 → 9.
-  const channelDoc = track?.midi?.channel ?? 10;
-  const channel = Math.max(0, Math.min(15, (Number(channelDoc) || 10) - 1));
-
-  let events = [];
+  let notes = [];
   measures.forEach((measure, bar) => {
     rows.forEach((row, rowIndex) => {
-      const note = row?.midi?.note;
-      if (note == null) return;
+      const key = row?.midi?.note;
+      if (key == null) return;
       const steps = measure?.[rowIndex] ?? measure?.[String(rowIndex)] ?? {};
       Object.entries(steps).forEach(([stepKey, on]) => {
         if (!on) return;
         const step = Number(stepKey);
         if (!Number.isFinite(step)) return;
-        const tick = Math.round((bar * perBar + step) * ticksPerStep);
-        events = [
-          ...events,
+        notes = [
+          ...notes,
           {
-            tick,
-            status: 0x90 | channel,
-            data: [note & 0x7f, NOTE_VEL],
-          },
-          {
-            tick: tick + noteTicks,
-            status: 0x80 | channel,
-            data: [note & 0x7f, 0],
+            time: (bar * perBar + step) * beatsPerStep,
+            duration: noteBeats,
+            key: key & 0x7f,
+            vel: NOTE_VEL / 127,
           },
         ];
       });
     });
   });
 
-  return events.slice().sort((a, b) => a.tick - b.tick || a.status - b.status);
+  return notes.slice().sort((a, b) => a.time - b.time || a.key - b.key);
+};
+
+/** Pattern length in quarter-note beats (`bars × beatsPerBar`). */
+export const drumsPatternBeats = (state) =>
+  Math.max(1, measuresList(state).length) * beatsPerBar(state.transport);
+
+/**
+ * Collect absolute-tick note on/off pairs from the drums pattern.
+ * @returns {{ tick: number, status: number, data: number[] }[]}
+ */
+export const collectDrumMidiEvents = (state) => {
+  const track = getDrumsTrack(state);
+  // MIDI channel 1–16 in docs → 0–15 on the wire. Channel 10 → 9.
+  const channelDoc = track?.midi?.channel ?? 10;
+  const channel = Math.max(0, Math.min(15, (Number(channelDoc) || 10) - 1));
+
+  return collectDrumNoteList(state)
+    .flatMap((n) => {
+      const tick = Math.round(n.time * PPQ);
+      const noteTicks = Math.max(1, Math.round(n.duration * PPQ));
+      const vel = Math.max(1, Math.min(127, Math.round(n.vel * 127)));
+      return [
+        { tick, status: 0x90 | channel, data: [n.key, vel] },
+        { tick: tick + noteTicks, status: 0x80 | channel, data: [n.key, 0] },
+      ];
+    })
+    .slice()
+    .sort((a, b) => a.tick - b.tick || a.status - b.status);
 };
 
 const tempoMetaEvents = (bpm, timeSignature) => {
