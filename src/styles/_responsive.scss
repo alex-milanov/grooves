@@ -17,13 +17,6 @@
     background-attachment: scroll;
   }
 
-  .dropdown.theme-family.control {
-    > .handle .theme-name,
-    > .handle .fa-caret-down {
-      display: none;
-    }
-  }
-
   .workspace-wrapper {
     padding: 0.5rem 0.5rem;
   }
@@ -89,6 +82,7 @@
 
     .dropdown.flags.control,
     .dropdown.control.icon-only .handle,
+    .dropdown.theme-family.icon-only .handle,
     .theme-toggle.control,
     .fullscreen-toggle.control,
     .workspaces-strip-toggle.control {

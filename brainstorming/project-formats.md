@@ -1,151 +1,209 @@
 # Project & File Formats
 
-**Date:** 2026-06-21  
-**Status:** Brainstorming — format exploration
+**Date:** 2026-06-21; **updated 2026-11-08**  
+**Status:** Native `grooves-project` (YAML ± ZIP) + **MIDI export** — done; **DAWproject** session-clips MVP — specced; MusicXML — later
 
 ## Goal
 
-Define how grooves **saves**, **loads**, and **exchanges** projects — with awareness of JSON, ZIP, **DAWproject**, **MusicXML**, and **MIDI**. Full compatibility with every format is unrealistic; aim for a **clear native format** plus ** sensible import/export subsets**.
+**Native format** is the source of truth for save/load. Interchange formats (DAWproject, MIDI, MusicXML) are explicit adapters, not alternate project stores.
 
 ---
 
 ## Format comparison
 
-| Format | Container | Audio samples | Step/pattern data | Note/pitch data | Mixer / FX / sends | Plug-in state | Best use for grooves |
-|--------|-----------|---------------|-------------------|-----------------|-------------------|---------------|----------------------|
-| **Grooves JSON** | single file | refs or embedded | ✅ native grid | future | ✅ if in schema | N/A (built-in FX only) | **Primary save** — direct state export |
-| **Grooves ZIP** | ZIP archive | ✅ WAV + metadata | project.json inside | future | ✅ | N/A | **Shareable project** — like kits + session |
-| **DAWproject** (`.dawproject`) | **ZIP** + XML | ✅ (paths in archive) | as **clips** / lanes | ✅ notes in clips | ✅ channels, sends, inserts | VST state (not us) | Interchange with Bitwig, Studio One, etc. |
-| **Standard MIDI** (`.mid`) | binary | ❌ | ⚠️ as drum notes | ✅ | ❌ | ❌ | Pattern export, hardware sync |
-| **MusicXML** | XML (often .mxl ZIP) | ❌ | ⚠️ indirect | ✅ notation | ❌ | ❌ | Score exchange when piano-roll exists |
-
-**Your intuition is correct:**
-
-- **MIDI** and **MusicXML** carry **note/event** data, not sample files (except SMF sample dumps, rare/legacy).
-- **JSON** maps naturally to **iblokz-state** snapshot (jam-station style).
-- **ZIP** bundles **JSON + media** (xAmplR sample export, grooves kit load, DAWproject archive).
-- **DAWproject** is indeed a **ZIP container** with `project.xml`, `metadata.xml`, and media folders ([bitwig/dawproject](https://github.com/bitwig/dawproject)).
+| Format | Container | Audio samples | Step/pattern data | Note/pitch data | Mixer / FX / sends | Plug-in state | Role for grooves |
+|--------|-----------|---------------|-------------------|-----------------|-------------------|---------------|------------------|
+| **grooves-project YAML** | `.yaml` | library refs only | ✅ | future | ✅ | N/A | Dev / git / kit-only sessions |
+| **grooves-project ZIP** | `.grooves.zip` | ✅ under `media/` | ✅ (`project.yaml`) | future | ✅ | N/A | **Primary portable save** |
+| **DAWproject** | `.dawproject` ZIP+XML | ✅ | as clips / lanes | ✅ | ✅ | VST (not us) | Export/import with Bitwig, etc. |
+| **Standard MIDI** | `.mid` | ❌ | ⚠️ drum notes | ✅ | ❌ | ❌ | Pattern / hardware |
+| **MusicXML** | XML / `.mxl` | ❌ | ⚠️ | ✅ notation | ❌ | ❌ | Later (pitched tracks) |
 
 ---
 
-## Native formats (proposed)
+## Native: `grooves-project`
 
-### 1. `project.json` — grooves state export
+### Document (`project.yaml`)
 
-Direct serialization of (a subset of) app state:
+- **`format: grooves-project`**
+- **`version`** — currently `1.5` (see `config/current-shape.yaml`); bump on breaking schema changes
+- Prefer **YAML** for the session document (human-editable, matches `config/*-shape.yaml`)
+- Ephemeral **never** saved: playhead, AudioBuffers, routing graph nodes, `library.kits`, armed/playing flags, `startedAt`, viewport pointer state
 
-```javascript
-{
-  "format": "grooves-project",
-  "version": 1,
-  "transport": { "bpm": 120, "timeSignature": [4, 4], "resolution": 16 },
-  "tracks": [ /* typed track array — see track-model.md */ ],
-  "mixer": { "buses": { /* reverb, delay */ }, "master": {} },
-  "library": { "kits": [ /* refs */ ] }
-}
+Authoritative field list: [`config/current-shape.yaml`](../config/current-shape.yaml). Target (scenes): [`config/target-shape.yaml`](../config/target-shape.yaml).
+
+```yaml
+format: grooves-project
+version: 1.5
+name: my-beat
+lang: en
+
+transport:
+  bpm: 120
+  timeSignature: [4, 4]
+  resolution: 16
+
+tracks:
+  - id: drums
+    type: sample-seq
+    # rows[].sample: { kit, file } — library identity
+    # pattern.measures keyed by row id (not runtime index)
+  - id: trk-loops
+    type: loop
+    loop: { inputId: default, clickEnabled: true, processMic: false }
+    slots:
+      - id: slot-0
+        process: idle          # empty | idle (never play/record/overdub on disk)
+        sample: { kit: basic_loops, file: loop-a.wav }  # optional provenance
+        media:                 # zip-relative paths; omit in YAML-only if no embed
+          - media/loops/slot-0/L0.wav
+        sourceBpm: 120
+        sourceBpms: [120]
+        layers: 1
+        duration: 2.0
+        volume: 0.85
+        muted: false
+        inserts: { vcf: { cutoff: 0.64, resonance: 0 } }
+        sends: { reverb: 0, delay: 0 }
+
+mixer: { ... }
+ui: { ... }   # optional layout
 ```
 
-- **Pros:** trivial load/save, git-diffable, matches jam-station mental model.
-- **Cons:** samples as external refs unless embedded separately.
-- **Refs:** jam-station session in state/localStorage patterns; grooves `state/index.js`.
+### ZIP package (`.grooves.zip`)
 
-### 2. `.grooves.zip` (name TBD) — project + samples
+One archive = session document + audio the session needs to round-trip without relying on the app’s built-in kits (except as a convenience fallback).
 
-Structure inspired by **xAmplR export** + **basic-drum-kit.zip**:
-
-```
+```text
 my-beat.grooves.zip
-├── project.json          # session + mixer + patterns
-├── metadata.json         # optional: author, title, grooves version
-├── samples/              # WAV files referenced by project.json
-│   ├── kick.wav
-│   └── snare.wav
-└── kits/                 # optional: embedded kit zips
-    └── custom-kit.zip
+├── project.yaml
+└── media/
+    ├── samples/                      # drum (and future) one-shots in use
+    │   └── {kit}/
+    │       └── {file}.wav            # e.g. media/samples/basic_drum_kit/PD-KICK-03.wav
+    └── loops/
+        └── {slot-id}/
+            ├── L0.wav                # layer 0 (primary)
+            ├── L1.wav                # overdub layers …
+            └── L{n}.wav
 ```
 
-- **Pros:** one file to share; mirrors kit loading already in `library.js`.
-- **Cons:** need stable sample IDs/paths on import.
+#### How samples vs loops are stored
 
-**xAmplR reference:** `exportSamples()` — `metadata.json` + `samples/{row}-{col}-{name}.wav` in ZIP (`src/js/ui/header/index.js`).
+| Kind | In `project.yaml` | In the ZIP |
+|------|-------------------|------------|
+| **Drum row** (library hit) | `rows[].sample: { kit, file }` | Copy of that WAV at `media/samples/{kit}/{file}` when the buffer is available at save time |
+| **Loop from library** | `slots[].sample: { kit, file }` (provenance) **and** `slots[].media: [media/loops/{slot-id}/L0.wav, …]` | **Always** embed the slot’s live layers (post-quantize / overdubs), not the raw kit file — so trim and layers survive |
+| **Loop recorded in-app** | `sample: null`, `media: […]` | Same `media/loops/{slot-id}/L{n}.wav` layers |
+| **Unused kit files** | — | Not packed |
 
-**Grooves kit reference:** `metadata.json` + WAVs inside zip (`library.js`).
+**Load rules**
 
----
+1. Parse `project.yaml`.
+2. Decode every file under `media/` into the sample cache:
+   - `media/samples/{kit}/{file}` → cache key `{kit}/{file}` (same as library kits)
+   - `media/loops/{slot-id}/L{n}.wav` → runtime loop buffer key for that slot/layer
+3. Apply document to state. Drum rows keep `{ kit, file }` refs. Loop slots restore `bufferKeys` from `media` (and keep `sample` provenance when present).
+4. If a drum `{ kit, file }` has no embedded media but the app library already loaded that kit, playback still works.
 
-## DAWproject — what “compatible” could mean
+**YAML-only (`.yaml`) save** — document without `media/` files. Library refs work when kits are present in the app. Slots that only exist as recordings (no reloadable library sample) **need the ZIP** to round-trip audio.
 
-DAWproject supports (among other things): structure (tracks/folders), **audio clips**, **notes**, **automation**, **mixer channels**, **insert & send effects**, built-in device params — in XML inside a ZIP.
+### File names
 
-**Realistic grooves mapping:**
-
-| Grooves concept | DAWproject concept | Export | Import |
-|-----------------|-------------------|--------|--------|
-| Sample-seq **group** track | One structure track; rows → note clips or lanes inside it | Phase 2+ | Partial |
-| Step pattern (sub-parts) | Note clips on **lanes within** the group track | **Feasible** — drum grid → MIDI notes, one exported track | Reconstruct grid from notes |
-| Sample file | Audio file in archive + clip reference | ✅ | ✅ if we map clips → steps |
-| Reverb/delay sends | Channel sends | ✅ if mixer modeled | ✅ read send levels |
-| VCF insert | Built-in EQ/filter device? | Subset | Subset |
-| Tempo / time sig | Transport | ✅ | ✅ |
-
-**Strategy:** treat DAWproject as **export target** for “grooves → elsewhere” before full import. Step grid → **note clips** on a drum lane is the natural bridge (same as MIDI export mentally).
-
-**Not in scope early:** VST plug-in states, clip launcher scenes, video.
-
----
-
-## MIDI — practical role
-
-- **Export:** **one MIDI track per group track** — e.g. Drums: all rows → note events on a single track (typically channel 10); each row’s `midi.note` identifies the hit. Loop/instrument groups export as one track each with their own event model.
-- **Import:** note events → step grid or clips **within** a group (quantize to resolution); **no sample assignment** — user maps notes to samples manually or via map file.
-- **Clock:** future sync with external gear (jam-station MIDI clock patterns).
-
-MIDI is **event interchange**, not a grooves project format. Sub-part filters/sends are **not** represented in MIDI export.
+| Download | Extension | Notes |
+|----------|-----------|--------|
+| Session document | `.yaml` | `project.yaml` inside zip uses the same schema |
+| Portable project | `.grooves.zip` | Accept `.zip` on load if `project.yaml` is at archive root |
 
 ---
 
-## MusicXML — practical role
+## MIDI export (implemented)
 
-- Relevant when **piano-roll / instrument tracks** exist (jam-station `type: 'piano'`).
-- Export pitched notes from instrument tracks; no samples, no step grid for drums (unless written as unpitched percussion notation).
-- Lower priority than MIDI for grooves’ drum-first path.
+**Header → Save → MIDI** downloads a **Standard MIDI File (Type 1)**:
+
+| Chunk | Content |
+|-------|---------|
+| Conductor track | Tempo + time signature meta |
+| Drums track | All `sample-seq` row hits as notes on the part channel (default **10**) |
+
+- Timing: step index → ticks via `beatsPerBar / stepsPerBar` at PPQ 480 (same bar math as the sequencer, including **7/8**).
+- Note number: `rows[].midi.note` (kick 36, snare 38, …).
+- **Not included:** loop audio, mixer, FX, samples.
+- Code: `util/project/midi.js` → `saveProjectMidi`.
+
+---
+
+## DAWproject MVP — session clips only (Bitwig-openable)
+
+Treat as **export target** (later import). Do **not** use `.dawproject` as the native store.  
+Full planning: [`planning/2026-11-08-02-dawproject-session-export.md`](../planning/2026-11-08-02-dawproject-session-export.md).
+
+### Design choice: Scenes, not Arrangement
+
+Grooves is a **session / clip-launcher** app today (pattern + loop slots). The MVP export mirrors that:
+
+- Put musical content in **`Scenes` → `ClipSlot` → `Clip`**
+- **Do not** build an Arrangement timeline (omit Arrangement, or leave empty Lanes)
+- Goal: open in **Bitwig**, see clips on the **clip launcher**, correct BPM/meter
+
+### What ships in the MVP ZIP
+
+```text
+name.dawproject
+├── project.xml
+├── metadata.xml
+└── media/loops/{slot-id}/L{n}.wav   # filled loop slots only
+```
+
+| Grooves | DAWproject MVP |
+|---------|----------------|
+| Transport BPM / meter | `Transport` |
+| Drums group | Structure notes `Track` + **one Scene ClipSlot** with a **Notes** clip (pattern → `Note` events; same timing as MIDI export) |
+| Loop slot with audio | Structure audio `Track` + Scene ClipSlot **Audio** clip + embedded WAV |
+| Empty slots | Omit |
+| Vol / pan / mute / solo | Channel attrs (subset) |
+| Arrangement / song view | **Not exported** |
+| VCF / sends / VST | **Not exported** |
+
+### Implementation order (when building)
+
+1. Smoke: ZIP + `project.xml` Transport/Structure/empty Scene → opens in Bitwig  
+2. Drums Notes ClipSlot (reuse note list from `midi.js`)  
+3. Loop Audio ClipSlots + `media/`  
+4. Channel levels  
+
+Header Save → DAWproject stays disabled until that lands. Keep builder in `util/project/dawproject.js`.
+
+---
+
+## MusicXML
+
+Later — pitched / piano-roll tracks. Lower priority than MIDI + DAWproject session export.
 
 ---
 
 ## Compatibility philosophy
 
-1. **Native JSON/ZIP is source of truth** — full state, versioning, grooves-specific types.
-2. **DAWproject** — structured interchange when users move to/from DAWs; implement **export subset** first.
-3. **MIDI** — patterns and clock; quick wins for hardware.
-4. **MusicXML** — later, tied to instrument tracks.
-
-Avoid pretending JSON *is* DAWproject — keep converters as explicit **import/export adapters** (`util/export/dawproject.js`, etc.).
+1. **Native YAML ± ZIP is source of truth** — full grooves state, versioning, types.
+2. **MIDI** — drum pattern / hardware (implemented).
+3. **DAWproject** — session-clip interchange for Bitwig et al. (specced; export next).
+4. **MusicXML** — later.
 
 ---
 
 ## Versioning & migration
 
-- Every native file: `"format": "grooves-project"`, `"version": N`.
-- Track **schema changes** in `summaries/` when breaking (like jam-station state migrations in actions).
-- Kits already have `metadata.json` — align kit version with project version where they meet.
+- Every native file: `format: grooves-project`, `version: N` (semver-ish major.minor as number/string in YAML).
+- Breaking shape changes → bump version + migrate on load when practical.
+- Kits keep their own `metadata.json`; project refs kits by name/path.
 
 ---
 
-## Open questions
+## Implementation order
 
-- [ ] File extension: `.grooves`, `.grooves.zip`, or `.json` + optional zip?
-- [ ] Embed **default kit** in project zip or require kit refs only?
-- [ ] DAWproject: target **Bitwig**-flavored export first, or minimal spec-compliant subset?
-- [ ] Auto-save to **localStorage** before file export (jam-station roadmap item)?
-- [ ] Single **project.json** schema shared with future jam-station merge, or grooves-specific?
-
----
-
-## Suggested exploration order
-
-1. Define **`project.json` schema v1** from current state (sequencer + assignments + trackParams).
-2. **Export/import JSON** in dev menu (no zip yet).
-3. Add **ZIP** wrapper with sample WAVs (reuse JSZip like library load).
-4. Spike **MIDI export** of step grid (one pattern).
-5. Read DAWproject XSD; prototype **note clip** export for one track.
-6. MusicXML when instrument tracks land.
+1. ✅ Spec: YAML document + `media/samples` + `media/loops` layout
+2. ✅ Serialize / apply `project.yaml` ↔ app state
+3. ✅ ZIP pack/unpack + header Save (YAML / ZIP) + Load
+4. ✅ MIDI export (drums pattern)
+5. Next: DAWproject session-clips export (Bitwig)
+6. Later: MusicXML

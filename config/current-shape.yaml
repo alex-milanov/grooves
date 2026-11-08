@@ -102,12 +102,17 @@ tracks:
       inputId: default
       clickEnabled: true
     # Slot defs + live payloads together until scenes[] splits them.
+    # media[] = zip-relative layer WAVs (see brainstorming/project-formats.md).
+    # Library provenance optional via sample: { kit, file }.
     slots:
       - id: slot-0
         name: Slot 1
         process: idle
         sample: { kit: basic_loops, file: loop-a.wav }
+        media:
+          - media/loops/slot-0/L0.wav
         sourceBpm: 120
+        sourceBpms: [120]
         layers: 1
         duration: 2.0             # 1 bar @ 120
         inserts: { vcf: { cutoff: 0.64, resonance: 0 } }
@@ -118,8 +123,10 @@ tracks:
         name: Slot 2
         process: idle
         sample: null
-        media: media/loops/slot-1.wav
+        media:
+          - media/loops/slot-1/L0.wav
         sourceBpm: 120
+        sourceBpms: [120]
         layers: 1
         duration: 4.0             # 2 bars @ 120
         inserts: { vcf: { cutoff: 0.64, resonance: 0 } }

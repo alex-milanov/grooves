@@ -6,7 +6,13 @@ import { THEME_FAMILIES } from '../util/theme';
 import { LANGS, LANG_LABELS, flagSrc } from '../util/lang';
 import { themePreview } from '../util/theme-preview';
 import { toggleFullscreen } from '../util/fullscreen';
-import dropdown, { caret } from './components/dropdown';
+import {
+  openProject,
+  saveProjectMidi,
+  saveProjectYaml,
+  saveProjectZip,
+} from '../util/project/save-load';
+import dropdown from './components/dropdown';
 import headerTransport from './header-transport';
 
 const headerProgress = (scrollY) => Math.min(1, scrollY / 120);
@@ -23,11 +29,32 @@ const THEME_MODE_ICONS = {
 };
 
 const SAVE_FORMATS = [
-  { id: 'json', label: 'JSON' },
-  { id: 'dawproject', label: 'DAWproject' },
+  { id: 'yaml', label: 'YAML' },
+  { id: 'zip', label: 'ZIP + media' },
   { id: 'midi', label: 'MIDI' },
-  { id: 'musicxml', label: 'MusicXML' },
+  { id: 'dawproject', label: 'DAWproject', disabled: true },
+  { id: 'musicxml', label: 'MusicXML', disabled: true },
 ];
+
+const saveProject = (formatId, state) => {
+  if (formatId === 'yaml') {
+    saveProjectYaml(state);
+    return;
+  }
+  if (formatId === 'zip') {
+    saveProjectZip(state).catch((err) => console.error('project zip save failed:', err));
+    return;
+  }
+  if (formatId === 'midi') {
+    try {
+      saveProjectMidi(state);
+    } catch (err) {
+      console.error('MIDI export failed:', err);
+    }
+    return;
+  }
+  console.warn('Save format not implemented yet:', formatId);
+};
 
 const langOption = (code) =>
   span('.lang-option', [
@@ -72,9 +99,7 @@ export default (state) => {
     },
     [
       nav('.site-nav', [
-        div('.site-nav-start', [
-          span('.site-title', ['Grooves']),
-        ]),
+        div('.site-nav-start', [span('.site-title', ['Grooves'])]),
         div('.site-nav-center', [headerTransport(state)]),
         div('.site-nav-end.site-controls', [
           dropdown('.flags.control', {
@@ -96,10 +121,21 @@ export default (state) => {
               },
             })),
           }),
-          dropdown('.theme-family.control', {
+          dropdown('.theme-family.control.icon-only', {
             handle: [
-              themeOption(state.themeFamily, state.themeMode, familyLabel(state.themeFamily)),
-              caret(),
+              span(
+                '.theme-option',
+                {
+                  props: { title: familyLabel(state.themeFamily) },
+                },
+                [
+                  span('.theme-swatch', {
+                    style: {
+                      backgroundImage: themePreview(state.themeFamily, state.themeMode).swatch,
+                    },
+                  }),
+                ],
+              ),
             ],
             items: THEME_FAMILIES.map((family) => ({
               content: themeOption(family, state.themeMode, familyLabel(family)),
@@ -120,14 +156,26 @@ export default (state) => {
             },
             [i(`.fa.${THEME_MODE_ICONS[state.themeMode]}`)],
           ),
+          a(
+            '.load.control.icon-only',
+            {
+              props: { title: 'Load project', 'aria-label': 'Load project' },
+              on: {
+                click: (ev) => {
+                  ev.preventDefault();
+                  openProject().catch((err) => console.error('project load failed:', err));
+                },
+              },
+            },
+            [i('.fa.fa-folder-open-o')],
+          ),
           dropdown('.save.control.icon-only', {
-            handle: [i('.fa.fa-floppy-o', { attrs: { title: 'Save' } })],
+            handle: [i('.fa.fa-floppy-o', { attrs: { title: 'Save project' } })],
             toLeft: true,
             items: SAVE_FORMATS.map((format) => ({
               label: format.label,
-              onSelect: () => {
-                // Export wiring — JSON saves state directly (jam-station style)
-              },
+              disabled: !!format.disabled,
+              onSelect: () => saveProject(format.id, state),
             })),
           }),
           a(
@@ -140,17 +188,11 @@ export default (state) => {
               on: {
                 click: (ev) => {
                   ev.preventDefault();
-                  dispatch(
-                    patch(['ui', 'workspacesStripOpen'], !state.ui?.workspacesStripOpen),
-                  );
+                  dispatch(patch(['ui', 'workspacesStripOpen'], !state.ui?.workspacesStripOpen));
                 },
               },
             },
-            [
-              i(
-                `.fa.${state.ui?.workspacesStripOpen ? 'fa-chevron-up' : 'fa-th-large'}`,
-              ),
-            ],
+            [i(`.fa.${state.ui?.workspacesStripOpen ? 'fa-chevron-up' : 'fa-th-large'}`)],
           ),
           a(
             '.fullscreen-toggle.control.icon-only',

@@ -212,7 +212,8 @@
       @include color-mix-tint(background, var(--app-btn-primary-bg), 22%);
     }
 
-    &.save .handle {
+    &.save .handle,
+    &.theme-family.icon-only .handle {
       justify-content: center;
       padding: 4px 6px;
       min-width: 1.75em;
@@ -221,6 +222,10 @@
         font-size: 14px;
         margin: 0;
       }
+    }
+
+    &.theme-family.icon-only > .handle .theme-option {
+      gap: 0;
     }
   }
 
