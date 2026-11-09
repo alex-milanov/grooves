@@ -3,7 +3,7 @@ import { dispatch } from 'iblokz-state';
 import { patch } from '../../../state';
 import { deselectRow, openLibraryPanel, selectRow, setRowCount } from '../../../state/sequencer';
 import { stepsPerBar, barCount, toggleMeasuresExpanded } from '../../../state/sequencer-measures';
-import { drumsRowCount } from '../../../state/drums';
+import { drumsRowCount, isDrumsRecording, toggleDrumsRecording } from '../../../state/drums';
 import { DRUMS_TRACK_ID, trackTogglePlay, trackStop } from '../../../state/transport';
 import { getDrumsUiTiming } from '../../../services/sequencer';
 import measuresStrip from './measures-strip';
@@ -62,6 +62,7 @@ export default (state) => {
   const storedBar = Math.min(bars - 1, Math.max(0, ui.currentBar ?? 0));
   const drumsTrack = state.tracks?.find((t) => t.id === DRUMS_TRACK_ID);
   const trackPlaying = !!drumsTrack?.transport?.playing;
+  const recording = isDrumsRecording(state);
   const timing = trackPlaying ? getDrumsUiTiming(state) : null;
   const playhead = timing?.playhead ?? null;
   // While playing without a cue, follow the heard bar; else editing focus.
@@ -102,6 +103,20 @@ export default (state) => {
             on: { click: () => trackStop(DRUMS_TRACK_ID) },
           },
           [i('.fa.fa-stop')],
+        ),
+        button(
+          '.track-transport-btn.record',
+          {
+            class: { active: recording },
+            props: {
+              type: 'button',
+              title: recording ? 'Disarm sequencer record' : 'Arm sequencer record',
+              'aria-label': recording ? 'Disarm sequencer record' : 'Arm sequencer record',
+              'aria-pressed': String(recording),
+            },
+            on: { click: () => dispatch(toggleDrumsRecording) },
+          },
+          [i('.fa.fa-circle')],
         ),
         label('Rows'),
         input({

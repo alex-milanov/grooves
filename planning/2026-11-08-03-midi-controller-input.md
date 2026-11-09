@@ -1,7 +1,7 @@
 # MIDI controller input — initial impl (MPK mini IV + seq record)
 
 **Date:** 2026-11-08  
-**Status:** Spec / planned (not implemented)  
+**Status:** Implemented (MVP)  
 **Related:** MIDI **file** export (done) — `util/project/midi.js`; Settings MIDI tab placeholder — `ui/sections/settings.js`  
 **Brainstorming:** [`track-model.md`](../brainstorming/track-model.md), [`transport.md`](../brainstorming/transport.md), [`ecosystem.md`](../brainstorming/ecosystem.md)  
 **Siblings:** jam-station (`util/midi`, `services/midi`, `actions/midi-map`), js-loop-station (`services/midi` pad → loops), xAmplR (pad schemes + ch 10)
@@ -28,7 +28,7 @@ Ship behind the existing **Settings → MIDI** tab (device, scheme legend). No M
 - MIDI **output** / hardware note scheduling from the grid
 - MIDI **learn** UI
 - Full jam-station `midiMap.channels` / on-screen keyboard / pitch bend
-- DAW-port transport buttons (MPK **DAW Port** needs a host script — skip)
+- Full DAW-port script surface (encoder, undo, loop, overdub, …) — MVP only maps Play/Rec CCs
 - Import `.mid` / round-trip with SMF export
 - Melodic / piano-roll record
 - Persisting custom maps in grooves-project (hardcoded scheme + optional local tweaks later)
@@ -317,7 +317,7 @@ Each step should leave the app runnable.
 | MIDI learn | After defaults proven |
 | Velocity on steps | Pattern cell becomes `{ on, vel }` or parallel layer |
 | Overdub vs replace record | v1 force-on only |
-| DAW Port transport | Only if we parse Akai script messages |
+| DAW Port extras | Play/Rec CCs done; undo/loop/overdub/encoder later |
 | Per-track `midi.input` in document | `track-model.md` — after global input works |
 | Knob bank B (CC 78–85) | Extra gains/FX |
 | xAmplR-style live pad grid UI | Optional performance surface |

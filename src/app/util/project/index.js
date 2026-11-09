@@ -23,6 +23,7 @@ export {
   missingDrumSamples,
 } from './zip';
 export { downloadBlob, pickFile, slugFilename } from './io';
+export { defaultProjectName, projectBasename } from './name';
 export {
   saveProjectYaml,
   saveProjectZip,

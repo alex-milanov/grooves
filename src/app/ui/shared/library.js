@@ -1,13 +1,6 @@
 import { aside, header, span, ul, li } from 'iblokz-snabbdom-helpers';
 import { dispatch } from 'iblokz-state';
-import { patch } from '../../state';
-import {
-  entriesAt,
-  isFolder,
-  isSample,
-  navigate,
-  pathKit,
-} from '../../util/library';
+import { entriesAt, isFolder, isSample, libraryFocus, navigate, pathKit } from '../../util/library';
 
 /**
  * Shared library browser.
@@ -21,11 +14,13 @@ import {
  * @param {(kit: string, sample: string) => void} opts.onAssign — dblclick assign (any samples/loops audio)
  */
 export default (state, { open, active = null, isAssigned, onAssign }) => {
-  const { kits, path, selectedSample } = state.library ?? {};
+  const library = state.library ?? {};
+  const { kits, path, selectedSample } = library;
   const items = entriesAt(kits, path);
   const kit = pathKit(path);
   const activeKit = active?.kit ?? null;
   const activeSample = active?.sample ?? null;
+  const focus = libraryFocus(library);
 
   return aside(
     '.library',
@@ -45,10 +40,12 @@ export default (state, { open, active = null, isAssigned, onAssign }) => {
                 folder: isFolder(kits, path, item),
                 parent: item === '..',
                 selected:
-                  isSample(kits, path, item) &&
-                  (selectedSample != null
-                    ? item === selectedSample
-                    : kit === activeKit && item === activeSample),
+                  item === focus ||
+                  (isSample(kits, path, item) &&
+                    focus == null &&
+                    (selectedSample != null
+                      ? item === selectedSample
+                      : kit === activeKit && item === activeSample)),
                 assigned:
                   typeof isAssigned === 'function' &&
                   isSample(kits, path, item) &&
@@ -57,9 +54,23 @@ export default (state, { open, active = null, isAssigned, onAssign }) => {
               on: {
                 click: () => {
                   if (isFolder(kits, path, item) || item === '..') {
-                    dispatch(patch(['library', 'path'], navigate(kits, path, item)));
+                    dispatch((s) => ({
+                      ...s,
+                      library: {
+                        ...s.library,
+                        path: navigate(kits, path, item),
+                        focus: null,
+                      },
+                    }));
                   } else if (isSample(kits, path, item)) {
-                    dispatch(patch(['library', 'selectedSample'], item));
+                    dispatch((s) => ({
+                      ...s,
+                      library: {
+                        ...s.library,
+                        selectedSample: item,
+                        focus: item,
+                      },
+                    }));
                   }
                 },
                 dblclick: (ev) => {

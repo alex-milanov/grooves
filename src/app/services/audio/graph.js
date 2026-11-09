@@ -269,6 +269,18 @@ export const fadePartDrumsIn = (fromTime, untilTime, toGain = 1) => {
 
 export const resume = () => (context.state === 'suspended' ? context.resume() : Promise.resolve());
 
+/**
+ * Run `fn` immediately if the context is running; otherwise resume then run.
+ * Avoids `resume().then(fn)` microtask delay on every MIDI/UI hit.
+ */
+export const whenRunning = (fn) => {
+  if (context.state === 'suspended' || context.state === 'interrupted') {
+    return context.resume().then(fn);
+  }
+  fn();
+  return Promise.resolve();
+};
+
 export const play = (buffer, when = context.currentTime, row = 0, meta = {}) => {
   const input = getRowInput(row);
   if (!input) return;

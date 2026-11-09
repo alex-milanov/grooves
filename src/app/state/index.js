@@ -6,6 +6,8 @@ import { MOBILE_BREAKPOINT } from './viewport';
 import { createDrumsTrack } from './drums';
 import { createLoopsTrack, LOOPS_SLOT_COUNT } from './loops';
 import { initialSettings } from './settings';
+import { initialMidi } from './midi';
+import { initialAudio } from './audio';
 
 const ROW_COUNT = 4;
 
@@ -31,8 +33,14 @@ export const initial = {
       panels: { library: false, settings: false },
       inputDevices: [],
     },
+    /** { formatId, name } while Save name dialog is open. */
+    saveDialog: null,
   },
   settings: initialSettings(),
+  midi: initialMidi(),
+  audio: initialAudio(),
+  /** Session / download basename; null → timestamp on save. */
+  name: null,
   transport: {
     playing: false,
     stopPending: false,
@@ -56,6 +64,8 @@ export const initial = {
     path: ['library', 'samples'],
     kits: null,
     selectedSample: null,
+    /** Encoder / keyboard focus in the open folder (`..`, kit, or sample). */
+    focus: null,
   },
   count: 0,
   lang: 'en',

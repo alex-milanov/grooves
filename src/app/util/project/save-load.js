@@ -6,10 +6,9 @@ import { downloadBlob, pickFile, slugFilename } from './io';
 import { packDawproject } from './dawproject';
 import { midiBlob } from './midi';
 import { packMultisample } from './multisample';
+import { projectBasename } from './name';
 import { dumpProjectYaml } from './yaml';
 import { loadProjectFile, missingDrumSamples, packProjectZip } from './zip';
-
-const projectBasename = (state) => state.name || 'untitled';
 
 const slotsNeedingZip = (state) => {
   const slots = getLoopsTrack(state)?.loop?.slots ?? [];

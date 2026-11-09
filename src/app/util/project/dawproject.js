@@ -192,7 +192,7 @@ export const collectLoopExportSlots = (state) => {
 };
 
 export const buildMetadataXml = (state) => {
-  const title = esc(state.name || 'Untitled');
+  const title = esc(state.name || 'Grooves');
   return [
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`,
     `<MetaData>`,

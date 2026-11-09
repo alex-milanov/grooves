@@ -111,3 +111,89 @@ export const libraryForAssignment = (library, section, assignment = null) => {
     selectedSample: null,
   };
 };
+
+/**
+ * Next/prev sample inside the current kit folder.
+ * @returns {{ kit: string, sample: string } | null}
+ */
+export const adjacentSample = (library, delta = 1) => {
+  const kits = library?.kits;
+  const path = library?.path ?? ['library'];
+  const kit = pathKit(path);
+  const list = nodeAt(kits, path);
+  if (!kit || !Array.isArray(list) || list.length === 0) return null;
+
+  const cur = library?.selectedSample;
+  let i = list.indexOf(cur);
+  if (i < 0) i = delta > 0 ? -1 : 0;
+  const next = list[(i + delta + list.length * 10) % list.length];
+  return { kit, sample: next };
+};
+
+/** Highlighted library list entry (`..`, folder, or sample name). */
+export const libraryFocus = (library) => {
+  const entries = entriesAt(library?.kits, library?.path);
+  if (!entries.length) return null;
+  const focus = library?.focus;
+  if (focus != null && entries.includes(focus)) return focus;
+  const selected = library?.selectedSample;
+  if (selected != null && entries.includes(selected)) return selected;
+  return entries[0];
+};
+
+/** Step encoder focus through current folder entries (incl. `..`). */
+export const stepLibraryFocus = (library, delta = 1) => {
+  const kits = library?.kits;
+  const path = library?.path ?? ['library'];
+  const entries = entriesAt(kits, path);
+  if (!entries.length || !delta) return library;
+
+  const cur = libraryFocus(library);
+  let i = entries.indexOf(cur);
+  if (i < 0) i = delta > 0 ? -1 : 0;
+  const next = entries[(i + delta + entries.length * 10) % entries.length];
+  return {
+    ...library,
+    focus: next,
+    selectedSample: isSample(kits, path, next) ? next : library?.selectedSample,
+  };
+};
+
+/**
+ * Activate focused entry: enter/leave folder, or return sample to assign.
+ * @returns {{ library: object, sample?: { kit: string, sample: string } }}
+ */
+export const activateLibraryFocus = (library) => {
+  const kits = library?.kits;
+  const path = library?.path ?? ['library'];
+  const focus = libraryFocus(library);
+  if (focus == null) return { library };
+
+  if (focus === '..' || isFolder(kits, path, focus)) {
+    const nextPath = navigate(kits, path, focus);
+    const nextLib = { ...library, path: nextPath, focus: null };
+    return { library: { ...nextLib, focus: libraryFocus(nextLib) } };
+  }
+
+  if (isSample(kits, path, focus)) {
+    const kit = pathKit(path);
+    if (!kit) return { library };
+    return {
+      library: { ...library, focus, selectedSample: focus },
+      sample: { kit, sample: focus },
+    };
+  }
+
+  return { library };
+};
+
+/**
+ * Relative encoder delta from a normalized CC value (0–1).
+ * Rel mode: typically 1…63 = +, 65…127 = − (64 = detent).
+ */
+export const relativeCcDelta = (value01) => {
+  const raw = Math.round(Number(value01) * 127);
+  if (!raw || raw === 64) return 0;
+  if (raw > 64) return Math.max(-4, raw - 128);
+  return Math.min(4, raw);
+};

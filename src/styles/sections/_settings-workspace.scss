@@ -103,3 +103,39 @@
     @include text-shadow-label;
   }
 }
+
+.settings-pane.midi {
+  .settings-field select {
+    @include control-select;
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 1px solid var(--app-input-border);
+    background: var(--app-input-bg);
+  }
+
+  .settings-midi-legend {
+    margin: 0;
+    padding: 0 0 0 1.1em;
+    font-size: 0.65em;
+    color: var(--app-text-muted);
+    @include text-shadow-label;
+    line-height: 1.45;
+
+    li + li {
+      margin-top: 0.25em;
+    }
+  }
+
+  .settings-pane-blurb {
+    font-size: 0.65em;
+    color: var(--app-text-muted);
+    @include text-shadow-label;
+  }
+
+  .settings-retry {
+    @include btn-toggle;
+    align-self: flex-start;
+    padding: 0.35em 0.85em;
+    font-size: 0.75em;
+  }
+}

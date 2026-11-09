@@ -25,7 +25,8 @@ export const rowGain = (rowParams, row) => {
   return params.volume;
 };
 
-const DEFAULT_MIDI_NOTES = [36, 38, 42, 45];
+/** Align with MPK Bank A pads 36–43 when those rows exist. */
+const DEFAULT_MIDI_NOTES = [36, 37, 38, 39, 40, 41, 42, 43];
 
 export const createDrumRow = (index, sample = null) => ({
   id: `row-${index}`,
@@ -46,6 +47,8 @@ export const createDrumsTrack = (rowCount = 4) => ({
     armed: true,
     playing: false,
     stopPending: false,
+    /** MIDI / UI seq record arm — kept across stop; does not auto-play. */
+    recording: false,
   },
   channel: {
     volume: 1,
@@ -68,6 +71,17 @@ export const createDrumsTrack = (rowCount = 4) => ({
 
 export const getDrumsTrack = (state) =>
   state.tracks?.find((t) => t.id === DRUMS_TRACK_ID);
+
+export const isDrumsRecording = (state) => !!getDrumsTrack(state)?.transport?.recording;
+
+export const toggleDrumsRecording = (state) =>
+  mapDrumsTrack(state, (t) => ({
+    ...t,
+    transport: {
+      ...t.transport,
+      recording: !t.transport?.recording,
+    },
+  }));
 
 export const mapDrumsTrack = (state, fn) => {
   const track = getDrumsTrack(state);

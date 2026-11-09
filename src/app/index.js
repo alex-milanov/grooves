@@ -17,14 +17,15 @@ import waveform from './services/waveform';
 import mixer from './services/mixer';
 import mediaSession from './services/media-session';
 import wakeLock from './services/wake-lock';
+import midi from './services/midi';
+import audioGate from './services/audio-gate';
 // ui
 import ui from './ui';
 
 let state$ = init(initial);
 
-state$
-  .pipe(distinctUntilChanged((a, b) => a.tracks === b.tracks && a.ui === b.ui))
-  // .subscribe((s) => console.log('state', s));
+state$.pipe(distinctUntilChanged((a, b) => a.tracks === b.tracks && a.ui === b.ui));
+// .subscribe((s) => console.log('state', s));
 
 // services
 viewport.start({ state$ });
@@ -35,6 +36,8 @@ waveform.start({ state$ });
 mixer.start({ state$ });
 mediaSession.start({ state$ });
 wakeLock.start({ state$ });
+midi.start({ state$ });
+audioGate.start();
 
 // theme change tracking
 state$
@@ -62,6 +65,8 @@ if (module.hot) {
     mixer.stop();
     mediaSession.stop();
     wakeLock.stop();
+    midi.stop();
+    audioGate.stop();
     patchSubscription.unsubscribe();
     state$.complete();
     vnode$.complete();

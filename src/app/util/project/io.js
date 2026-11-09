@@ -59,10 +59,10 @@ export const pickFile = ({ accept = DEFAULT_ACCEPT } = {}) =>
 
 export const slugFilename = (name, ext) => {
   const base =
-    String(name || 'untitled')
+    String(name || 'project')
       .trim()
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'untitled';
+      .replace(/^-+|-+$/g, '') || 'project';
   return `${base}.${ext}`;
 };

@@ -16,6 +16,7 @@ export {
   measuresList,
   measureStepOn,
   toggleMeasureStep,
+  setMeasureStep,
   addBar,
   removeBar,
   setCurrentBar,
@@ -67,16 +68,28 @@ export const deselectRow = (state) =>
   });
 
 export const togglePanel = (panel) => (state) => {
-  const panels = drumsUi(state).panels ?? defaultPanels();
-  const next = !panels[panel];
-  const updated = { ...panels, [panel]: next };
+  let nextState = state;
+  if (drumsUi(nextState).selectedRow == null) {
+    nextState = selectRow(0)(nextState);
+  }
+  const panels = drumsUi(nextState).panels ?? defaultPanels();
+  const on = !panels[panel];
+  const updated = { ...panels, [panel]: on };
 
-  if (state.viewport?.mobile && next) {
+  if (nextState.viewport?.mobile && on) {
     if (panel === 'library') updated.settings = false;
     if (panel === 'settings') updated.library = false;
   }
 
-  return patchDrumsUi(state, { panels: updated });
+  const row = drumsUi(nextState).selectedRow;
+  const withPanels = patchDrumsUi(nextState, { panels: updated });
+  if (panel === 'library' && on) {
+    return {
+      ...withPanels,
+      library: ensureLibrarySection(librarySelectionForRow(withPanels, row), SAMPLES_SECTION),
+    };
+  }
+  return withPanels;
 };
 
 export const openLibraryPanel = (row) => (state) => {

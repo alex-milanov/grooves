@@ -103,9 +103,7 @@ export const patchLoopsTrack = (state, patch) => ({
 export const patchLoopsMixer = (state, patch) => ({
   ...state,
   tracks: state.tracks.map((t) =>
-    t.id === LOOPS_TRACK_ID
-      ? { ...t, channel: { ...loopsChannel(t), ...patch } }
-      : t,
+    t.id === LOOPS_TRACK_ID ? { ...t, channel: { ...loopsChannel(t), ...patch } } : t,
   ),
 });
 
@@ -155,6 +153,36 @@ export const deselectLoopSlot = (state) => ({
     },
   },
 });
+
+export const toggleLoopPanel = (panel) => (state) => {
+  let next = state;
+  if (next.ui?.loops?.selectedSlot == null) {
+    next = selectLoopSlot(0)(next);
+  }
+  const panels = next.ui?.loops?.panels ?? defaultPanels();
+  const on = !panels[panel];
+  const updated = { ...panels, [panel]: on };
+
+  if (next.viewport?.mobile && on) {
+    if (panel === 'library') updated.settings = false;
+    if (panel === 'settings') updated.library = false;
+  }
+
+  const slotIndex = next.ui.loops.selectedSlot;
+  const library =
+    panel === 'library' && on
+      ? ensureLibrarySection(librarySelectionForSlot(next, slotIndex), LOOPS_SECTION)
+      : next.library;
+
+  return {
+    ...next,
+    ui: {
+      ...next.ui,
+      loops: { ...next.ui.loops, panels: updated },
+    },
+    library,
+  };
+};
 
 export const openLoopLibraryPanel = (slotIndex) => (state) => {
   const wasSelected = state.ui?.loops?.selectedSlot === slotIndex;

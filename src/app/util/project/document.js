@@ -182,7 +182,7 @@ export const serializeProject = (state, { includeMedia = false } = {}) => {
   return {
     format: PROJECT_FORMAT,
     version: PROJECT_VERSION,
-    name: state.name || 'untitled',
+    name: state.name || '',
     lang: state.lang || 'en',
     transport: {
       bpm: state.transport?.bpm ?? 120,
@@ -271,6 +271,7 @@ const applyDrumsTrack = (trackDoc, prev) => {
       armed: prev?.transport?.armed !== false,
       playing: false,
       stopPending: false,
+      recording: false,
     },
     channel: channelDoc(trackDoc.channel),
     rows,
@@ -393,7 +394,7 @@ export const applyProjectDocument = (doc) => (state) => {
   const settingsDoc = doc.settings;
   return {
     ...state,
-    name: doc.name || state.name || 'untitled',
+    name: doc.name || state.name || null,
     lang: doc.lang || state.lang || 'en',
     transport: {
       ...state.transport,

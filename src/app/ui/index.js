@@ -12,12 +12,47 @@ import {
 } from '../state/ui';
 import header from './header';
 import workspacesStrip from './workspaces-strip';
+import audioUnlock from './components/audio-unlock';
+import saveName from './components/save-name';
 import {
   drumsWorkspace,
   loopsWorkspace,
   mixerWorkspace,
   settingsWorkspace,
 } from './workspaces/content';
+import {
+  saveProjectDawproject,
+  saveProjectMidi,
+  saveProjectMultisample,
+  saveProjectYaml,
+  saveProjectZip,
+} from '../util/project/save-load';
+
+const runSave = (formatId, state) => {
+  if (formatId === 'yaml') {
+    saveProjectYaml(state);
+    return;
+  }
+  if (formatId === 'zip') {
+    saveProjectZip(state).catch((err) => console.error('project zip save failed:', err));
+    return;
+  }
+  if (formatId === 'midi') {
+    try {
+      saveProjectMidi(state);
+    } catch (err) {
+      console.error('MIDI export failed:', err);
+    }
+    return;
+  }
+  if (formatId === 'dawproject') {
+    saveProjectDawproject(state).catch((err) => console.error('DAWproject export failed:', err));
+    return;
+  }
+  if (formatId === 'multisample') {
+    saveProjectMultisample(state).catch((err) => console.error('Multisample export failed:', err));
+  }
+};
 
 export default (state) => {
   const cls = themeClass(state);
@@ -53,6 +88,8 @@ export default (state) => {
       header(state),
       workspacesStrip(state),
       div('.workspace-wrapper', [div(`.workspace.${domainClass}`, [workspaceContent])]),
+      audioUnlock(state),
+      saveName(state, runSave),
     ],
   );
 };

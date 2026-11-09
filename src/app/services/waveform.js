@@ -14,8 +14,21 @@ import { bufferToWav } from '../util/buffer-to-wav';
 import { getLoopSlot, getSlotParams, slotHasContent } from '../state/loops';
 import { getDrumsRows, rowParamsMap, rowSample } from '../state/drums';
 import { slotPlaybackFromBuffer } from '../util/loop-tempo';
-import { isLoopsWorkspace } from '../state/ui';
+import { isDrumsWorkspace, isLoopsWorkspace } from '../state/ui';
+import { afterPaint } from '../util/transition';
 import { frame } from '../util/time';
+
+const DRUMS_WAVE_SEL = '.settings:not(.loop-slot-settings) .waveform';
+const LOOP_WAVE_SEL = '.loop-slot-settings .waveform';
+
+/** True if WaveSurfer is still mounted in a live container (survives workspace DOM swaps). */
+const instanceInContainer = (instance, selector) => {
+  if (!instance) return false;
+  const container = document.querySelector(selector);
+  if (!container?.isConnected) return false;
+  const wrapper = typeof instance.getWrapper === 'function' ? instance.getWrapper() : null;
+  return !!(wrapper?.isConnected && container.contains(wrapper));
+};
 
 let ws = null;
 let loopWs = null;
@@ -148,11 +161,11 @@ const loopBufferKeyFor = (state, slotIndex) => {
 };
 
 const loadAssignment = async (assignment) => {
-  const container = document.querySelector('.settings:not(.loop-slot-settings) .waveform');
+  const container = document.querySelector(DRUMS_WAVE_SEL);
   if (!container || !assignment) return;
 
   const key = samples.key(assignment.kit, assignment.sample);
-  if (ws && loadedKey === key) return;
+  if (ws && loadedKey === key && instanceInContainer(ws, DRUMS_WAVE_SEL)) return;
 
   const buffer = samples.get(key);
   if (!buffer) return;
@@ -163,10 +176,12 @@ const loadAssignment = async (assignment) => {
 };
 
 const loadLoopBuffer = async (bufferKey) => {
-  const container = document.querySelector('.loop-slot-settings .waveform');
+  const container = document.querySelector(LOOP_WAVE_SEL);
   if (!container || !bufferKey) return;
 
-  if (loopWs && loopLoadedKey === bufferKey) return;
+  if (loopWs && loopLoadedKey === bufferKey && instanceInContainer(loopWs, LOOP_WAVE_SEL)) {
+    return;
+  }
 
   const buffer = samples.get(bufferKey);
   if (!buffer) return;
@@ -199,24 +214,28 @@ const syncWaveform = (state) => {
   const row = drumsUi(state).selectedRow;
   activeRow = row;
 
-  queueMicrotask(() => {
-    if (isLoopsWorkspace(state)) {
+  // Wait for workspace VDOM (RAF patch) — microtask runs before the new .waveform exists.
+  afterPaint().then(() => {
+    const s = latestState ?? state;
+    if (!isDrumsWorkspace(s)) {
       destroyWaveform();
       return;
     }
-    if (row == null) {
+    const selected = drumsUi(s).selectedRow;
+    activeRow = selected;
+    if (selected == null) {
       destroyWaveform();
       return;
     }
 
-    const assignment = assignmentFor(state, row);
+    const assignment = assignmentFor(s, selected);
     if (!assignment) {
       destroyWaveform();
       return;
     }
 
     const key = samples.key(assignment.kit, assignment.sample);
-    if (ws && loadedKey === key) {
+    if (ws && loadedKey === key && instanceInContainer(ws, DRUMS_WAVE_SEL)) {
       applyTheme();
       return;
     }
@@ -230,24 +249,27 @@ const syncLoopWaveform = (state) => {
   const slotIndex = state.ui?.loops?.selectedSlot;
   activeLoopSlot = slotIndex;
 
-  queueMicrotask(() => {
-    if (!isLoopsWorkspace(state)) {
+  afterPaint().then(() => {
+    const s = latestState ?? state;
+    if (!isLoopsWorkspace(s)) {
       destroyLoopWaveform();
       return;
     }
-    if (slotIndex == null) {
+    const selected = s.ui?.loops?.selectedSlot;
+    activeLoopSlot = selected;
+    if (selected == null) {
       destroyLoopWaveform();
       return;
     }
 
-    const slot = getLoopSlot(state, slotIndex);
+    const slot = getLoopSlot(s, selected);
     if (!slotHasContent(slot)) {
       destroyLoopWaveform();
       return;
     }
 
-    const bufferKey = loopBufferKeyFor(state, slotIndex);
-    if (loopWs && loopLoadedKey === bufferKey) {
+    const bufferKey = loopBufferKeyFor(s, selected);
+    if (loopWs && loopLoadedKey === bufferKey && instanceInContainer(loopWs, LOOP_WAVE_SEL)) {
       applyTheme();
       return;
     }

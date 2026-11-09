@@ -83,6 +83,11 @@
         .fa-play {
           transform: translateX(0.08em);
         }
+
+        &.record.active {
+          background: #b33;
+          color: #fff;
+        }
       }
 
       button.measures-expand {

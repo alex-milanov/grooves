@@ -87,6 +87,18 @@ export const toggleMeasureStep = (bar, row, step) => (state) => {
   return patchPatternMeasures(state, measures);
 };
 
+/** Force a step on/off (MIDI record writes on — does not toggle off on re-hit). */
+export const setMeasureStep = (bar, row, step, on = true) => (state) => {
+  let measures = measuresList(state).map(cloneMeasure);
+  const b = clampBar(state, bar);
+  const measure = measures[b] ?? {};
+  let rowSteps = { ...(measure[row] ?? {}) };
+  if (on) rowSteps[step] = true;
+  else delete rowSteps[step];
+  measures[b] = { ...measure, [row]: rowSteps };
+  return patchPatternMeasures(state, measures);
+};
+
 /** Append a bar by copying currentBar; select the new bar. */
 export const addBar = (state) => {
   const measures = measuresList(state).map(cloneMeasure);

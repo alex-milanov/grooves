@@ -29,7 +29,7 @@ Implementation specs graduate to `planning/`; completed work is recorded in `sum
 
 **Active:** app structure refactor — grow `state/`, purify `util/`, move live audio to `services/audio/` ([`planning/2026-10-21-01-app-structure-refactor.md`](../planning/2026-10-21-01-app-structure-refactor.md), [`app-structure.md`](app-structure.md)). Align with iblokz folder constraints (domain helpers in slices; engine as silo).
 
-**Implemented (recent):** loop track MVP, workspaces strip + mixer, **grooves-project** YAML ± ZIP save/load, **MIDI** drum export, **DAWproject** session-clips export. **Still open:** scenes / `target-shape` v2, MIDI controller input + seq record ([`planning/2026-11-08-03-midi-controller-input.md`](../planning/2026-11-08-03-midi-controller-input.md)).
+**Implemented (recent):** loop track MVP, workspaces strip + mixer, **grooves-project** YAML ± ZIP save/load, **MIDI** drum export, **DAWproject** session-clips export, **MIDI controller input** + seq record (MPK mini IV). **Still open:** scenes / `target-shape` v2, MIDI clock / learn.
 
 ## Quick links
 

@@ -12,6 +12,7 @@ export {
   setPartDrumsGain,
   fadePartDrumsIn,
   resume,
+  whenRunning,
   play,
   cancelScheduledAfter,
   cancelAllScheduled,

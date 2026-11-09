@@ -1,0 +1,92 @@
+.app-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5em;
+  background: color-mix(in srgb, var(--app-bg, #111) 55%, transparent);
+  cursor: pointer;
+}
+
+.app-modal-card {
+  @include surface-panel;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75em;
+  max-width: 22em;
+  width: 100%;
+  padding: 1.25em 1.35em;
+  cursor: default;
+  text-align: left;
+
+  h2 {
+    margin: 0;
+    font-size: 1.05em;
+    font-weight: inherit;
+    text-align: center;
+    @include text-shadow-label;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.7em;
+    line-height: 1.4;
+    color: var(--app-text-muted);
+    text-align: center;
+    @include text-shadow-label;
+  }
+}
+
+.app-modal-actions {
+  display: flex;
+  flex-flow: row wrap;
+  justify-content: flex-end;
+  gap: 0.5em;
+  margin-top: 0.35em;
+}
+
+.app-modal-btn {
+  @include btn-base;
+  min-width: 5.5em;
+  padding: 0.45em 0.9em;
+  font-size: 0.85em;
+
+  &.primary {
+    @include btn-variant(primary);
+  }
+
+  &.secondary {
+    @include btn-variant(secondary);
+  }
+}
+
+.save-name-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35em;
+  margin: 0;
+  @include label-muted(0.7em);
+
+  .save-name-label {
+    flex: 0 0 auto;
+  }
+
+  input[type='text'] {
+    @include input-field(sm);
+    width: 100%;
+  }
+}
+
+.audio-unlock-card {
+  text-align: center;
+  max-width: 20em;
+}
+
+.audio-unlock-btn {
+  align-self: center;
+  margin-top: 0.25em;
+  min-width: 8em;
+}

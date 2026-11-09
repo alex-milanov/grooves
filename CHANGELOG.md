@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **MIDI controller input** (Settings → MIDI): Web MIDI + MPK mini IV scheme — drum pads, loop Bank B, session keys, CC knobs, sequencer record arm
 - Native **grooves-project** save/load: YAML session document and `.grooves.zip` (`project.yaml` + `media/samples` + `media/loops`)
 - **MIDI export** (Save → MIDI): Type-1 SMF of the drums pattern (tempo, meter, row MIDI notes)
 - **DAWproject export** (Save → DAWproject): Bitwig-friendly `.dawproject` with Scene ClipSlots (drums Notes + loop Audio L0), empty Arrangement; loop VCF→Equalizer; reverb/delay effect Channels + post Sends

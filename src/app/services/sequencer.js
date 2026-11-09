@@ -112,6 +112,23 @@ export const getDrumsUiTiming = (state) => {
   return { playhead, playBar };
 };
 
+/**
+ * MIDI / pad record quantize — audio-clock position (no output-latency shift).
+ * UI playhead lags by `getOutputLatency` so it matches what you hear; using that
+ * for record wrote steps early vs jam-station (raw `currentTime - startTime`).
+ */
+export const getDrumsRecordTiming = (state) => {
+  const startTime = sessionStartTime(state);
+  if (startTime <= 0) return { playhead: null, playBar: 0 };
+  const now = context.currentTime;
+  if (now < startTime) return { playhead: null, playBar: barAtCycle0 };
+  const { playhead, playBar } = audioCycleTiming(state);
+  if (playhead < 0 || playhead >= stepCount(state)) {
+    return { playhead: null, playBar };
+  }
+  return { playhead, playBar };
+};
+
 const playStepAt = (state, bar, step, when) => {
   const rowCount = drumsRowCount(state);
   const measure = measuresList(state)[bar] ?? {};

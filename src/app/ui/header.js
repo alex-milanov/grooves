@@ -6,14 +6,8 @@ import { THEME_FAMILIES } from '../util/theme';
 import { LANGS, LANG_LABELS, flagSrc } from '../util/lang';
 import { themePreview } from '../util/theme-preview';
 import { toggleFullscreen } from '../util/fullscreen';
-import {
-  openProject,
-  saveProjectDawproject,
-  saveProjectMidi,
-  saveProjectMultisample,
-  saveProjectYaml,
-  saveProjectZip,
-} from '../util/project/save-load';
+import { openSaveDialog } from '../state/project';
+import { openProject } from '../util/project/save-load';
 import dropdown from './components/dropdown';
 import headerTransport from './header-transport';
 
@@ -41,34 +35,6 @@ const SAVE_FORMATS = [
   { id: 'dawproject', label: 'DAWproject' },
   { id: 'multisample', label: 'Multisample' },
 ];
-
-const saveProject = (formatId, state) => {
-  if (formatId === 'yaml') {
-    saveProjectYaml(state);
-    return;
-  }
-  if (formatId === 'zip') {
-    saveProjectZip(state).catch((err) => console.error('project zip save failed:', err));
-    return;
-  }
-  if (formatId === 'midi') {
-    try {
-      saveProjectMidi(state);
-    } catch (err) {
-      console.error('MIDI export failed:', err);
-    }
-    return;
-  }
-  if (formatId === 'dawproject') {
-    saveProjectDawproject(state).catch((err) => console.error('DAWproject export failed:', err));
-    return;
-  }
-  if (formatId === 'multisample') {
-    saveProjectMultisample(state).catch((err) => console.error('Multisample export failed:', err));
-    return;
-  }
-  console.warn('Save format not implemented yet:', formatId);
-};
 
 const langOption = (code) =>
   span('.lang-option', [
@@ -192,7 +158,7 @@ export default (state) => {
                 : {
                     label: format.label,
                     disabled: !!format.disabled,
-                    onSelect: () => saveProject(format.id, state),
+                    onSelect: () => dispatch(openSaveDialog(format.id)),
                   },
             ),
           }),
